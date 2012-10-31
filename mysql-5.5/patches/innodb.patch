@@ -1,0 +1,1562 @@
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/buf/buf0flu.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/buf/buf0flu.c
+--- storage/innobase/buf/buf0flu.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/buf/buf0flu.c	2011-06-06 20:23:44.574213753 +0000
+@@ -1348,7 +1348,8 @@
+ 
+ 	ut_ad(flush_type == BUF_FLUSH_LRU || flush_type == BUF_FLUSH_LIST);
+ 
+-	if (UT_LIST_GET_LEN(buf_pool->LRU) < BUF_LRU_OLD_MIN_LEN) {
++	if (UT_LIST_GET_LEN(buf_pool->LRU) < BUF_LRU_OLD_MIN_LEN ||
++      !srv_flush_neighbor_pages) {
+ 		/* If there is little space, it is better not to flush
+ 		any block except from the end of the LRU list */
+ 
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/fil/fil0fil.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/fil/fil0fil.c
+--- storage/innobase/fil/fil0fil.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/fil/fil0fil.c	2011-06-06 20:23:44.576213584 +0000
+@@ -40,6 +40,12 @@
+ #include "dict0dict.h"
+ #include "page0page.h"
+ #include "page0zip.h"
++#include "trx0trx.h"
++#include "trx0sys.h"
++#include "pars0pars.h"
++#include "row0mysql.h"
++#include "row0row.h"
++#include "que0que.h"
+ #ifndef UNIV_HOTBACKUP
+ # include "buf0lru.h"
+ # include "ibuf0ibuf.h"
+@@ -3050,7 +3056,7 @@
+ 
+ 	file = os_file_create_simple_no_error_handling(
+ 		innodb_file_data_key, filepath, OS_FILE_OPEN,
+-		OS_FILE_READ_ONLY, &success);
++		OS_FILE_READ_WRITE, &success);
+ 	if (!success) {
+ 		/* The following call prints an error message */
+ 		os_file_get_last_error(TRUE);
+@@ -3097,6 +3103,466 @@
+ 	space_id = fsp_header_get_space_id(page);
+ 	space_flags = fsp_header_get_flags(page);
+ 
++	if (srv_expand_import
++	    && (space_id != id || space_flags != (flags & ~(~0 << DICT_TF_BITS)))) {
++		ibool		file_is_corrupt = FALSE;
++		byte*		buf3;
++		byte*		descr_page;
++		ibool		descr_is_corrupt = FALSE;
++		index_id_t	old_id[31];
++		index_id_t	new_id[31];
++		ulint		root_page[31];
++		ulint		n_index;
++		os_file_t	info_file = -1;
++		char*		info_file_path;
++		ulint	i;
++		int		len;
++		ib_uint64_t	current_lsn;
++		ulint		size_low, size_high, size, free_limit;
++		ib_int64_t	size_bytes, free_limit_bytes;
++		dict_table_t*	table;
++		dict_index_t*	index;
++		fil_system_t*	system;
++		fil_node_t*	node = NULL;
++		fil_space_t*	space;
++
++		buf3 = ut_malloc(2 * UNIV_PAGE_SIZE);
++		descr_page = ut_align(buf3, UNIV_PAGE_SIZE);
++
++		current_lsn = log_get_lsn();
++
++		/* check the header page's consistency */
++		if (buf_page_is_corrupted(page,
++					  dict_table_flags_to_zip_size(space_flags))) {
++			fprintf(stderr, "InnoDB: page 0 of %s seems corrupt.\n", filepath);
++			file_is_corrupt = TRUE;
++			descr_is_corrupt = TRUE;
++		}
++
++		/* store as first descr page */
++		memcpy(descr_page, page, UNIV_PAGE_SIZE);
++
++		/* get free limit (page number) of the table space */
++/* these should be same to the definition in fsp0fsp.c */
++#define FSP_HEADER_OFFSET	FIL_PAGE_DATA
++#define	FSP_FREE_LIMIT		12
++		free_limit = mach_read_from_4(FSP_HEADER_OFFSET + FSP_FREE_LIMIT + page);
++		free_limit_bytes = (ib_int64_t)free_limit * (ib_int64_t)UNIV_PAGE_SIZE;
++
++		/* overwrite fsp header */
++		fsp_header_init_fields(page, id, flags);
++		mach_write_to_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, id);
++		space_id = id;
++		space_flags = flags;
++		if (mach_read_from_8(page + FIL_PAGE_FILE_FLUSH_LSN) > current_lsn)
++			mach_write_to_8(page + FIL_PAGE_FILE_FLUSH_LSN, current_lsn);
++		mach_write_to_4(page + FIL_PAGE_SPACE_OR_CHKSUM,
++				srv_use_checksums
++				? buf_calc_page_new_checksum(page)
++						: BUF_NO_CHECKSUM_MAGIC);
++		mach_write_to_4(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM,
++				srv_use_checksums
++				? buf_calc_page_old_checksum(page)
++						: BUF_NO_CHECKSUM_MAGIC);
++		success = os_file_write(filepath, file, page, 0, 0, UNIV_PAGE_SIZE);
++
++		/* get file size */
++		os_file_get_size(file, &size_low, &size_high);
++		size_bytes = (((ib_int64_t)size_high) << 32)
++				+ (ib_int64_t)size_low;
++
++		if (size_bytes < free_limit_bytes) {
++			free_limit_bytes = size_bytes;
++			if (size_bytes >= FSP_EXTENT_SIZE * UNIV_PAGE_SIZE) {
++				fprintf(stderr, "InnoDB: free limit of %s is larger" " than its real size %llu .\n", filepath, size_bytes);
++				//file_is_corrupt = TRUE;
++			}
++		}
++
++		/* get cruster index information */
++		table = dict_table_get_low(name);
++		index = dict_table_get_first_index(table);
++		ut_a(index->page==3);
++
++		/* read metadata from .exp file */
++		n_index = 0;
++		memset(old_id, 0, sizeof(old_id));
++		memset(new_id, 0, sizeof(new_id));
++		memset(root_page, 0, sizeof(root_page));
++
++		info_file_path = fil_make_ibd_name(name, FALSE);
++		len = strlen(info_file_path);
++		info_file_path[len - 3] = 'e';
++		info_file_path[len - 2] = 'x';
++		info_file_path[len - 1] = 'p';
++
++		info_file = os_file_create_simple_no_error_handling(innodb_file_data_key,
++				info_file_path, OS_FILE_OPEN, OS_FILE_READ_ONLY, &success);
++		if (!success) {
++			fprintf(stderr, "InnoDB: cannot open %s\n", info_file_path);
++			file_is_corrupt = TRUE;
++			goto skip_info;
++		}
++		success = os_file_read(info_file, page, 0, 0, UNIV_PAGE_SIZE);
++		if (!success) {
++			fprintf(stderr, "InnoDB: cannot read %s\n", info_file_path);
++			file_is_corrupt = TRUE;
++			goto skip_info;
++		}
++		if (mach_read_from_4(page) != 0x78706f72UL
++		    || mach_read_from_4(page + 4) != 0x74696e66UL) {
++			fprintf(stderr, "InnoDB: %s seems not to be a correct .exp file\n", info_file_path);
++			file_is_corrupt = TRUE;
++			goto skip_info;
++		}
++
++		fprintf(stderr, "InnoDB: import: extended import of %s is started.\n", name);
++
++		n_index = mach_read_from_4(page + 8);
++		fprintf(stderr, "InnoDB: import: %lu indexes are detected.\n", (ulong)n_index);
++		for (i = 0; i < n_index; i++) {
++			new_id[i] =
++				dict_table_get_index_on_name(table,
++						(char*)(page + (i + 1) * 512 + 12))->id;
++			old_id[i] = mach_read_from_8(page + (i + 1) * 512);
++			root_page[i] = mach_read_from_4(page + (i + 1) * 512 + 8);
++		}
++
++skip_info:
++		if (info_file != -1)
++			os_file_close(info_file);
++
++		/*
++		if (size_bytes >= 1024 * 1024) {
++			size_bytes = ut_2pow_round(size_bytes, 1024 * 1024);
++		}
++		*/
++		if (!(flags & DICT_TF_ZSSIZE_MASK)) {
++			mem_heap_t*	heap = NULL;
++			ulint		offsets_[REC_OFFS_NORMAL_SIZE];
++			ulint*		offsets = offsets_;
++			ib_int64_t	offset;
++
++			size = (ulint) (size_bytes / UNIV_PAGE_SIZE);
++			/* over write space id of all pages */
++			rec_offs_init(offsets_);
++
++			fprintf(stderr, "InnoDB: Progress in %%:");
++
++			for (offset = 0; offset < free_limit_bytes; offset += UNIV_PAGE_SIZE) {
++				ulint		checksum_field;
++				ulint		old_checksum_field;
++				ibool		page_is_corrupt;
++
++				success = os_file_read(file, page,
++							(ulint)(offset & 0xFFFFFFFFUL),
++							(ulint)(offset >> 32), UNIV_PAGE_SIZE);
++
++				page_is_corrupt = FALSE;
++
++				/* check consistency */
++				if (memcmp(page + FIL_PAGE_LSN + 4,
++					   page + UNIV_PAGE_SIZE
++					   - FIL_PAGE_END_LSN_OLD_CHKSUM + 4, 4)) {
++
++					page_is_corrupt = TRUE;
++				}
++
++				if (mach_read_from_4(page + FIL_PAGE_OFFSET)
++				    != offset / UNIV_PAGE_SIZE) {
++
++					page_is_corrupt = TRUE;
++				}
++
++				checksum_field = mach_read_from_4(page
++								  + FIL_PAGE_SPACE_OR_CHKSUM);
++
++				old_checksum_field = mach_read_from_4(
++					page + UNIV_PAGE_SIZE
++					- FIL_PAGE_END_LSN_OLD_CHKSUM);
++
++				if (old_checksum_field != mach_read_from_4(page
++									   + FIL_PAGE_LSN)
++				    && old_checksum_field != BUF_NO_CHECKSUM_MAGIC
++				    && old_checksum_field
++				    != buf_calc_page_old_checksum(page)) {
++
++					page_is_corrupt = TRUE;
++				}
++
++				if (checksum_field != 0
++				    && checksum_field != BUF_NO_CHECKSUM_MAGIC
++				    && checksum_field
++				    != buf_calc_page_new_checksum(page)) {
++
++					page_is_corrupt = TRUE;
++				}
++
++				/* if it is free page, inconsistency is acceptable */
++				if (!offset) {
++					/* header page*/
++					/* it should be overwritten already */
++					ut_a(!page_is_corrupt);
++
++				} else if (!((offset / UNIV_PAGE_SIZE) % UNIV_PAGE_SIZE)) {
++					/* descr page (not header) */
++					if (page_is_corrupt) {
++						file_is_corrupt = TRUE;
++						descr_is_corrupt = TRUE;
++					} else {
++						ut_a(fil_page_get_type(page) == FIL_PAGE_TYPE_XDES);
++						descr_is_corrupt = FALSE;
++					}
++
++					/* store as descr page */
++					memcpy(descr_page, page, UNIV_PAGE_SIZE);
++
++				} else if (descr_is_corrupt) {
++					/* unknown state of the page */
++					if (page_is_corrupt) {
++						file_is_corrupt = TRUE;
++					}
++
++				} else {
++					/* check free page or not */
++					/* These definitions should be same to fsp0fsp.c */
++#define	FSP_HEADER_SIZE		(32 + 5 * FLST_BASE_NODE_SIZE)
++
++#define	XDES_BITMAP		(FLST_NODE_SIZE + 12)
++#define	XDES_BITS_PER_PAGE	2
++#define	XDES_FREE_BIT		0
++#define	XDES_SIZE							\
++	(XDES_BITMAP + UT_BITS_IN_BYTES(FSP_EXTENT_SIZE * XDES_BITS_PER_PAGE))
++#define	XDES_ARR_OFFSET		(FSP_HEADER_OFFSET + FSP_HEADER_SIZE)
++
++					/*descr = descr_page + XDES_ARR_OFFSET + XDES_SIZE * xdes_calc_descriptor_index(zip_size, offset)*/
++					/*xdes_get_bit(descr, XDES_FREE_BIT, page % FSP_EXTENT_SIZE, mtr)*/
++					byte*	descr;
++					ulint	index;
++					ulint	byte_index;
++					ulint	bit_index;
++
++					descr = descr_page + XDES_ARR_OFFSET
++						+ XDES_SIZE * (ut_2pow_remainder((offset / UNIV_PAGE_SIZE), UNIV_PAGE_SIZE) / FSP_EXTENT_SIZE);
++
++					index = XDES_FREE_BIT + XDES_BITS_PER_PAGE * ((offset / UNIV_PAGE_SIZE) % FSP_EXTENT_SIZE);
++					byte_index = index / 8;
++					bit_index = index % 8;
++
++					if (ut_bit_get_nth(mach_read_from_1(descr + XDES_BITMAP + byte_index), bit_index)) {
++						/* free page */
++						if (page_is_corrupt) {
++							goto skip_write;
++						}
++					} else {
++						/* not free */
++						if (page_is_corrupt) {
++							file_is_corrupt = TRUE;
++						}
++					}
++				}
++
++				if (page_is_corrupt) {
++					fprintf(stderr, " [errp:%lld]", offset / UNIV_PAGE_SIZE);
++
++					/* cannot treat corrupt page */
++					goto skip_write;
++				}
++
++				if (mach_read_from_4(page + FIL_PAGE_OFFSET) || !offset) {
++					mach_write_to_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, id);
++
++					for (i = 0; i < n_index; i++) {
++						if (offset / UNIV_PAGE_SIZE == root_page[i]) {
++							/* this is index root page */
++							mach_write_to_4(page + FIL_PAGE_DATA + PAGE_BTR_SEG_LEAF
++											+ FSEG_HDR_SPACE, id);
++							mach_write_to_4(page + FIL_PAGE_DATA + PAGE_BTR_SEG_TOP
++											+ FSEG_HDR_SPACE, id);
++							break;
++						}
++					}
++
++					if (fil_page_get_type(page) == FIL_PAGE_INDEX) {
++						index_id_t tmp = mach_read_from_8(page + (PAGE_HEADER + PAGE_INDEX_ID));
++
++						if (mach_read_from_2(page + PAGE_HEADER + PAGE_LEVEL) == 0
++						    && old_id[0] == tmp) {
++							/* leaf page of cluster index, reset trx_id of records */
++							rec_t*	rec;
++							rec_t*	supremum;
++							ulint	n_recs;
++
++							supremum = page_get_supremum_rec(page);
++							rec = page_rec_get_next(page_get_infimum_rec(page));
++							n_recs = page_get_n_recs(page);
++
++							while (rec && rec != supremum && n_recs > 0) {
++								ulint	n_fields;
++								ulint	i;
++								ulint	offset = index->trx_id_offset;
++								offsets = rec_get_offsets(rec, index, offsets,
++										ULINT_UNDEFINED, &heap);
++								n_fields = rec_offs_n_fields(offsets);
++								if (!offset) {
++									offset = row_get_trx_id_offset(rec, index, offsets);
++								}
++								trx_write_trx_id(rec + offset, 1);
++
++								for (i = 0; i < n_fields; i++) {
++									if (rec_offs_nth_extern(offsets, i)) {
++										ulint	local_len;
++										byte*	data;
++
++										data = rec_get_nth_field(rec, offsets, i, &local_len);
++
++										local_len -= BTR_EXTERN_FIELD_REF_SIZE;
++
++										mach_write_to_4(data + local_len + BTR_EXTERN_SPACE_ID, id);
++									}
++								}
++
++								rec = page_rec_get_next(rec);
++								n_recs--;
++							}
++						}
++
++						for (i = 0; i < n_index; i++) {
++							if (old_id[i] == tmp) {
++								mach_write_to_8(page + (PAGE_HEADER + PAGE_INDEX_ID), new_id[i]);
++								break;
++							}
++						}
++					}
++
++					if (mach_read_from_8(page + FIL_PAGE_LSN) > current_lsn) {
++						mach_write_to_8(page + FIL_PAGE_LSN, current_lsn);
++						mach_write_to_8(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM,
++										current_lsn);
++					}
++
++					mach_write_to_4(page + FIL_PAGE_SPACE_OR_CHKSUM,
++							srv_use_checksums
++							? buf_calc_page_new_checksum(page)
++									: BUF_NO_CHECKSUM_MAGIC);
++					mach_write_to_4(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM,
++							srv_use_checksums
++							? buf_calc_page_old_checksum(page)
++									: BUF_NO_CHECKSUM_MAGIC);
++
++					success = os_file_write(filepath, file, page,
++								(ulint)(offset & 0xFFFFFFFFUL),
++								(ulint)(offset >> 32), UNIV_PAGE_SIZE);
++				}
++
++skip_write:
++				if (free_limit_bytes
++				    && ((ib_int64_t)((offset + UNIV_PAGE_SIZE) * 100) / free_limit_bytes)
++					!= ((offset * 100) / free_limit_bytes)) {
++					fprintf(stderr, " %lu",
++						(ulong)((ib_int64_t)((offset + UNIV_PAGE_SIZE) * 100) / free_limit_bytes));
++				}
++			}
++
++			fprintf(stderr, " done.\n");
++
++			/* update SYS_INDEXES set root page */
++			index = dict_table_get_first_index(table);
++			while (index) {
++				for (i = 0; i < n_index; i++) {
++					if (new_id[i] == index->id) {
++						break;
++					}
++				}
++
++				if (i != n_index
++				    && root_page[i] != index->page) {
++					/* must update */
++					ulint	error;
++					trx_t*	trx;
++					pars_info_t*	info = NULL;
++
++					trx = trx_allocate_for_mysql();
++					trx->op_info = "extended import";
++
++					info = pars_info_create();
++
++					pars_info_add_ull_literal(info, "indexid", new_id[i]);
++					pars_info_add_int4_literal(info, "new_page", (lint) root_page[i]);
++
++					error = que_eval_sql(info,
++						"PROCEDURE UPDATE_INDEX_PAGE () IS\n"
++						"BEGIN\n"
++						"UPDATE SYS_INDEXES"
++						" SET PAGE_NO = :new_page"
++						" WHERE ID = :indexid;\n"
++						"COMMIT WORK;\n"
++						"END;\n",
++						FALSE, trx);
++
++					if (error != DB_SUCCESS) {
++						fprintf(stderr, "InnoDB: failed to update SYS_INDEXES\n");
++					}
++
++					trx_commit_for_mysql(trx);
++
++					trx_free_for_mysql(trx);
++
++					index->page = root_page[i];
++				}
++
++				index = dict_table_get_next_index(index);
++			}
++			if (UNIV_LIKELY_NULL(heap)) {
++				mem_heap_free(heap);
++			}
++		} else {
++			/* zip page? */
++			size = (ulint)
++			(size_bytes
++					/ dict_table_flags_to_zip_size(flags));
++			fprintf(stderr, "InnoDB: import: table %s seems to be in newer format."
++					" It may not be able to treated for now.\n", name);
++		}
++		/* .exp file should be removed */
++		success = os_file_delete(info_file_path);
++		if (!success) {
++			success = os_file_delete_if_exists(info_file_path);
++		}
++		mem_free(info_file_path);
++
++		system	= fil_system;
++		mutex_enter(&(system->mutex));
++		space = fil_space_get_by_id(id);
++		if (space)
++			node = UT_LIST_GET_FIRST(space->chain);
++		if (node && node->size < size) {
++			space->size += (size - node->size);
++			node->size = size;
++		}
++		mutex_exit(&(system->mutex));
++
++		ut_free(buf3);
++
++		if (file_is_corrupt) {
++			ut_print_timestamp(stderr);
++			fputs("  InnoDB: Error: file ",
++			      stderr);
++			ut_print_filename(stderr, filepath);
++			fprintf(stderr, " seems to be corrupt.\n"
++				"InnoDB: anyway, all not corrupt pages were tried to be converted to salvage.\n"
++				"InnoDB: ##### CAUTION #####\n"
++				"InnoDB: ## The .ibd must cause to crash InnoDB, though re-import would seem to be succeeded.\n"
++				"InnoDB: ## If you don't have knowledge about salvaging data from .ibd, you should not use the file.\n"
++				"InnoDB: ###################\n");
++			success = FALSE;
++
++			ut_free(buf2);
++
++			goto func_exit;
++		}
++	}
++
+ 	ut_free(buf2);
+ 
+ 	if (UNIV_UNLIKELY(space_id != id
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/fsp/fsp0fsp.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/fsp/fsp0fsp.c
+--- storage/innobase/fsp/fsp0fsp.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/fsp/fsp0fsp.c	2011-06-06 20:23:44.577213606 +0000
+@@ -1179,7 +1179,7 @@
+ 	ut_a(page_no >= size);
+ 
+ 	success = fil_extend_space_to_desired_size(&actual_size, space,
+-						   page_no + 1);
++						   page_no + srv_tablespace_extra_extend + 1);
+ 	/* actual_size now has the space size in pages; it may be less than
+ 	we wanted if we ran out of disk space */
+ 
+@@ -1269,8 +1269,7 @@
+ 		if (!zip_size) {
+ 			extent_size = FSP_EXTENT_SIZE;
+ 		} else {
+-			extent_size = FSP_EXTENT_SIZE
+-				* UNIV_PAGE_SIZE / zip_size;
++			extent_size = FSP_EXTENT_SIZE * UNIV_PAGE_SIZE / zip_size;
+ 		}
+ 
+ 		if (size < extent_size) {
+@@ -1633,8 +1632,9 @@
+ 				(ulong) page_no);
+ 			return(FIL_NULL);
+ 		}
+-		success = fsp_try_extend_data_file_with_pages(space, page_no,
+-							      header, mtr);
++		success = fsp_try_extend_data_file_with_pages(space, 
++                   page_no,
++                   header, mtr);
+ 		if (!success) {
+ 			/* No disk space left */
+ 			return(FIL_NULL);
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/handler/ha_innodb.cc /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/handler/ha_innodb.cc
+--- storage/innobase/handler/ha_innodb.cc	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/handler/ha_innodb.cc	2011-07-06 17:38:15.115573104 +0000
+@@ -300,7 +300,8 @@
+ 	{&srv_error_monitor_thread_key, "srv_error_monitor_thread", 0},
+ 	{&srv_monitor_thread_key, "srv_monitor_thread", 0},
+ 	{&srv_master_thread_key, "srv_master_thread", 0},
+-	{&srv_purge_thread_key, "srv_purge_thread", 0}
++	{&srv_purge_thread_key, "srv_purge_thread", 0},
++	{&srv_checkpoint_thread_key, "srv_checkpoint_thread", 0}
+ };
+ # endif /* UNIV_PFS_THREAD */
+ 
+@@ -425,6 +426,13 @@
+   "Timeout in seconds an InnoDB transaction may wait for a lock before being rolled back. Values above 100000000 disable the timeout.",
+   NULL, NULL, 50, 1, 1024 * 1024 * 1024, 0);
+ 
++static MYSQL_THDVAR_ULONG(records_in_range, 
++  PLUGIN_VAR_RQCMDARG,
++  "If set, report this number or records in range for any range in any key "
++  " short-circuiting the analytic opitimizer index dive. The risk is that "
++  " a wrong key may be chosen, but should be OK if there is only one key.",
++  NULL, NULL, 0, 0, LONG_MAX, 0);
++
+ 
+ static handler *innobase_create_handler(handlerton *hton,
+                                         TABLE_SHARE *table,
+@@ -788,6 +796,18 @@
+ 	return(THDVAR((THD*) thd, support_xa));
+ }
+ 
++extern "C" UNIV_INTERN
++ulong
++thd_records_in_range(
++/*==================*/
++  void* thd)  
++{
++  /* According to <mysql/plugin.h>, passing thd == NULL
++  returns the global value of the session variable. */
++  return(THDVAR((THD*) thd, records_in_range));
++}
++
++
+ /******************************************************************//**
+ Returns the lock wait timeout for the current connection.
+ @return	the lock wait timeout, in seconds */
+@@ -2387,7 +2407,7 @@
+ 	srv_n_file_io_threads = (ulint) innobase_file_io_threads;
+ 	srv_n_read_io_threads = (ulint) innobase_read_io_threads;
+ 	srv_n_write_io_threads = (ulint) innobase_write_io_threads;
+-
++  srv_adaptive_checkpoint %= 4;
+ 	srv_force_recovery = (ulint) innobase_force_recovery;
+ 
+ 	srv_use_doublewrite_buf = (ibool) innobase_use_doublewrite;
+@@ -7105,6 +7125,14 @@
+ 		err = row_discard_tablespace_for_mysql(dict_table->name, trx);
+ 	} else {
+ 		err = row_import_tablespace_for_mysql(dict_table->name, trx);
++
++		/* in expanded import mode re-initialize auto_increment again */
++		if ((err == DB_SUCCESS) && srv_expand_import &&
++		    (table->found_next_number_field != NULL)) {
++			dict_table_autoinc_lock(dict_table);
++			innobase_initialize_autoinc();
++			dict_table_autoinc_unlock(dict_table);
++		}
+ 	}
+ 
+ 	err = convert_error_code_to_mysql(err, dict_table->flags, NULL);
+@@ -7445,10 +7473,16 @@
+ 	ulint		mode1;
+ 	ulint		mode2;
+ 	mem_heap_t*	heap;
+-
++  ulint fake_records_in_range = thd_records_in_range(ha_thd());
++  
+ 	DBUG_ENTER("records_in_range");
+ 
+ 	ut_a(prebuilt->trx == thd_to_trx(ha_thd()));
++	
++	if (fake_records_in_range)
++	{
++	  return fake_records_in_range;
++	}
+ 
+ 	prebuilt->trx->op_info = (char*)"estimating records in index range";
+ 
+@@ -10921,6 +10955,15 @@
+   0,			/* Minimum value */
+   1, 0);		/* Maximum value */
+ 
++static MYSQL_SYSVAR_ULONG(use_checkpoint_thread, srv_use_checkpoint_thread,
++  PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
++  "Use checkpoint thread. Default is 0.",
++  NULL, NULL,
++  0,                    /* Default setting */
++  0,                    /* Minimum value */
++  1, 0);                /* Maximum value */
++
++
+ static MYSQL_SYSVAR_ULONG(fast_shutdown, innobase_fast_shutdown,
+   PLUGIN_VAR_OPCMDARG,
+   "Speeds up the shutdown process of the InnoDB storage engine. Possible "
+@@ -11019,6 +11062,7 @@
+   "Enable statistics gathering for metadata commands such as SHOW TABLE STATUS (on by default)",
+   NULL, NULL, TRUE);
+ 
++
+ static MYSQL_SYSVAR_ULONGLONG(stats_sample_pages, srv_stats_sample_pages,
+   PLUGIN_VAR_RQCMDARG,
+   "The number of index pages to sample when calculating statistics (default 8)",
+@@ -11056,6 +11100,11 @@
+   "Number of buffer pool instances, set to higher value on high-end machines to increase scalability",
+   NULL, NULL, 1L, 1L, MAX_BUFFER_POOLS, 1L);
+ 
++static MYSQL_SYSVAR_ULONG(flush_neighbor_pages, srv_flush_neighbor_pages,
++  PLUGIN_VAR_RQCMDARG,
++  "Enable/Disable flushing neighbor pages. 0:disable 1:enable",
++  NULL, NULL, 1, 0, 1, 0);
++
+ static MYSQL_SYSVAR_ULONG(commit_concurrency, innobase_commit_concurrency,
+   PLUGIN_VAR_RQCMDARG,
+   "Helps in performance tuning in heavily concurrent environments.",
+@@ -11194,6 +11243,66 @@
+   "trigger a readahead.",
+   NULL, NULL, 56, 0, 64, 0);
+ 
++static MYSQL_SYSVAR_ULONG(checkpoint_age_target, srv_checkpoint_age_target,
++  PLUGIN_VAR_RQCMDARG,
++  "Control soft limit of checkpoint age. (0 : do not control)",
++  NULL, NULL, 0, 0, ~0UL, 0);
++
++static MYSQL_SYSVAR_ULONG(checkpoint_thread_sleep, srv_checkpoint_thread_sleep,
++  PLUGIN_VAR_RQCMDARG,
++  "Time in milliseconds for the checkpoint thread to sleep between runs",
++  NULL, NULL, 10000, 0, ~0UL, 0);
++
++  
++static MYSQL_SYSVAR_ULONG(tablespace_extra_extend, 
++  srv_tablespace_extra_extend,
++  PLUGIN_VAR_RQCMDARG,
++  "Number of extra pages added to tablespace when it needs "
++  "to grow",
++  NULL, NULL, 0, 0, LONG_MAX, 0);
++
++static MYSQL_SYSVAR_ULONG(expand_import, srv_expand_import,
++  PLUGIN_VAR_RQCMDARG,
++  "Enable/Disable converting *.ibd files automatically when importings tablespaces.",
++  NULL, NULL, 0, 0, 1, 0);
++
++static
++void
++innodb_adaptive_checkpoint_update(
++  THD* thd,
++  struct st_mysql_sys_var*     var,
++  void*        var_ptr,
++  const void*  save)
++{
++  *(long *)var_ptr= (*(long *)save) % 4;
++}
++
++const char *adaptive_checkpoint_names[]=
++{
++  "none", /* 0 */
++  "reflex", /* 1 */
++  "estimate", /* 2 */
++  "keep_average", /* 3 */
++  /* For compatibility with the older patch */
++  "0", /* 4 ("none" + 4) */
++  "1", /* 5 ("reflex" + 4) */
++  "2", /* 6 ("estimate" + 4) */
++  "3", /* 7 ("keep_average" + 4) */
++  NullS
++};
++
++TYPELIB adaptive_checkpoint_typelib=
++{
++  array_elements(adaptive_checkpoint_names) - 1, "adaptive_checkpoint_typelib",
++  adaptive_checkpoint_names, NULL
++};
++
++static MYSQL_SYSVAR_ENUM(adaptive_checkpoint, srv_adaptive_checkpoint,
++  PLUGIN_VAR_RQCMDARG,
++  "Enable/Disable flushing according to modified age. (none, reflex, [estimate], keep_average)",
++  NULL, innodb_adaptive_checkpoint_update, 2, &adaptive_checkpoint_typelib);
++
++
+ static struct st_mysql_sys_var* innobase_system_variables[]= {
+   MYSQL_SYSVAR(additional_mem_pool_size),
+   MYSQL_SYSVAR(autoextend_increment),
+@@ -11228,6 +11337,7 @@
+   MYSQL_SYSVAR(log_group_home_dir),
+   MYSQL_SYSVAR(max_dirty_pages_pct),
+   MYSQL_SYSVAR(adaptive_flushing),
++  MYSQL_SYSVAR(expand_import),
+   MYSQL_SYSVAR(max_purge_lag),
+   MYSQL_SYSVAR(mirrored_log_groups),
+   MYSQL_SYSVAR(old_blocks_pct),
+@@ -11249,12 +11359,19 @@
+   MYSQL_SYSVAR(autoinc_lock_mode),
+   MYSQL_SYSVAR(version),
+   MYSQL_SYSVAR(use_sys_malloc),
++  MYSQL_SYSVAR(flush_neighbor_pages),
++  MYSQL_SYSVAR(adaptive_checkpoint),
++  MYSQL_SYSVAR(checkpoint_age_target),
++  MYSQL_SYSVAR(checkpoint_thread_sleep),
++  MYSQL_SYSVAR(use_checkpoint_thread),
+   MYSQL_SYSVAR(use_native_aio),
+   MYSQL_SYSVAR(change_buffering),
+ #if defined UNIV_DEBUG || defined UNIV_IBUF_DEBUG
+   MYSQL_SYSVAR(change_buffering_debug),
+ #endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
+   MYSQL_SYSVAR(read_ahead_threshold),
++  MYSQL_SYSVAR(tablespace_extra_extend),
++  MYSQL_SYSVAR(records_in_range),
+   MYSQL_SYSVAR(io_capacity),
+   MYSQL_SYSVAR(purge_threads),
+   MYSQL_SYSVAR(purge_batch_size),
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/include/ha_prototypes.h /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/include/ha_prototypes.h
+--- storage/innobase/include/ha_prototypes.h	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/include/ha_prototypes.h	2011-07-06 17:35:56.399580883 +0000
+@@ -258,6 +258,11 @@
+ 	void*	thd);	/*!< in: thread handle (THD*), or NULL to query
+ 			the global innodb_supports_xa */
+ 
++ulong
++thd_records_in_range(
++/*==================*/
++  void* thd);
++
+ /******************************************************************//**
+ Returns the lock wait timeout for the current connection.
+ @return	the lock wait timeout, in seconds */
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/include/srv0srv.h /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/include/srv0srv.h
+--- storage/innobase/include/srv0srv.h	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/include/srv0srv.h	2011-07-06 17:31:10.012593443 +0000
+@@ -164,6 +164,8 @@
+ extern ulong	srv_read_ahead_threshold;
+ extern ulint	srv_n_read_io_threads;
+ extern ulint	srv_n_write_io_threads;
++extern ulint  srv_tablespace_extra_extend;
++extern ulint   srv_expand_import;
+ 
+ /* Number of IO operations per second the server can do */
+ extern ulong    srv_io_capacity;
+@@ -211,6 +213,12 @@
+ extern ulong	srv_max_purge_lag;
+ 
+ extern ulong	srv_replication_delay;
++
++extern ulint   srv_flush_neighbor_pages;
++
++extern ulint   srv_adaptive_checkpoint;
++extern ulint   srv_checkpoint_age_target;
++extern ulint   srv_checkpoint_thread_sleep;
+ /*-------------------------------------------*/
+ 
+ extern ulint	srv_n_rows_inserted;
+@@ -289,6 +297,8 @@
+ /* the number of purge threads to use from the worker pool (currently 0 or 1) */
+ extern ulong srv_n_purge_threads;
+ 
++extern ulong srv_use_checkpoint_thread;
++
+ /* the number of records to purge in one batch */
+ extern ulong srv_purge_batch_size;
+ 
+@@ -342,6 +352,7 @@
+ extern mysql_pfs_key_t	srv_error_monitor_thread_key;
+ extern mysql_pfs_key_t	srv_monitor_thread_key;
+ extern mysql_pfs_key_t	srv_master_thread_key;
++extern mysql_pfs_key_t	srv_checkpoint_thread_key;
+ extern mysql_pfs_key_t	srv_purge_thread_key;
+ 
+ /* This macro register the current thread and its key with performance
+@@ -425,6 +436,7 @@
+ 	SRV_CONSOLE,	/**< thread serving console */
+ 	SRV_WORKER,	/**< threads serving parallelized queries and
+ 			queries released from lock wait */
++        SRV_CHECKPOINT, /* checkpointing thread */
+ #if 0
+ 	/* Utility threads */
+ 	SRV_BUFFER,	/**< thread flushing dirty buffer blocks */
+@@ -509,6 +521,12 @@
+ UNIV_INTERN
+ void
+ srv_wake_purge_thread(void);
++
++
++UNIV_INTERN
++void
++srv_wake_checkpoint_thread(void);
++
+ /*=======================*/
+ /*******************************************************************//**
+ Tells the Innobase server that there has been activity in the database
+@@ -652,6 +670,14 @@
+ 	void*	arg __attribute__((unused))); /*!< in: a dummy parameter
+ 					      required by os_thread_create */
+ 
++UNIV_INTERN
++os_thread_ret_t
++srv_checkpoint_thread(
++/*=============*/
++        void*   arg __attribute__((unused))); /*!< in: a dummy parameter
++                                              required by os_thread_create */
++
++
+ /**********************************************************************//**
+ Enqueues a task to server task queue and releases a worker thread, if there
+ is a suspended one. */
+Binary files storage/innobase/libinnobase.a and /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/libinnobase.a differ
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/log/log0log.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/log/log0log.c
+--- storage/innobase/log/log0log.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/log/log0log.c	2011-06-06 20:23:44.582213609 +0000
+@@ -358,6 +358,33 @@
+ 	srv_log_write_requests++;
+ }
+ 
++UNIV_INLINE
++ulint
++log_max_modified_age_async()
++{
++       if (srv_checkpoint_age_target) {
++               return(ut_min(log_sys->max_modified_age_async,
++                               srv_checkpoint_age_target
++                               - srv_checkpoint_age_target / 8));
++       } else {
++               return(log_sys->max_modified_age_async);
++       }
++}
++
++UNIV_INLINE
++ulint
++log_max_checkpoint_age_async()
++{
++       if (srv_checkpoint_age_target) {
++               return(ut_min(log_sys->max_checkpoint_age_async,
++                               srv_checkpoint_age_target));
++       } else {
++               return(log_sys->max_checkpoint_age_async);
++       }
++}
++
++
++
+ /************************************************************//**
+ Closes the log.
+ @return	lsn */
+@@ -427,7 +454,7 @@
+ 		}
+ 	}
+ 
+-	if (checkpoint_age <= log->max_modified_age_async) {
++	if (checkpoint_age <= log_max_modified_age_async()) {
+ 
+ 		goto function_exit;
+ 	}
+@@ -435,8 +462,8 @@
+ 	oldest_lsn = buf_pool_get_oldest_modification();
+ 
+ 	if (!oldest_lsn
+-	    || lsn - oldest_lsn > log->max_modified_age_async
+-	    || checkpoint_age > log->max_checkpoint_age_async) {
++	    || lsn - oldest_lsn > log_max_modified_age_async()
++	    || checkpoint_age > log_max_checkpoint_age_async()) {
+ 
+ 		log->check_flush_or_checkpoint = TRUE;
+ 	}
+@@ -2120,10 +2147,10 @@
+ 
+ 		sync = TRUE;
+ 		advance = 2 * (age - log->max_modified_age_sync);
+-	} else if (age > log->max_modified_age_async) {
++	} else if (age > log_max_modified_age_async()) {
+ 
+ 		/* A flush is not urgent: we do an asynchronous preflush */
+-		advance = age - log->max_modified_age_async;
++		advance = age - log_max_modified_age_async();
+ 	} else {
+ 		advance = 0;
+ 	}
+@@ -2137,7 +2164,7 @@
+ 
+ 		do_checkpoint = TRUE;
+ 
+-	} else if (checkpoint_age > log->max_checkpoint_age_async) {
++	} else if (checkpoint_age > log_max_checkpoint_age_async()) {
+ 		/* A checkpoint is not urgent: do it asynchronously */
+ 
+ 		do_checkpoint = TRUE;
+@@ -3344,10 +3371,20 @@
+ 	fprintf(file,
+ 		"Log sequence number %llu\n"
+ 		"Log flushed up to   %llu\n"
+-		"Last checkpoint at  %llu\n",
++		"Last checkpoint at  %llu\n"
++    "Max checkpoint age    %lu\n"
++    "Checkpoint age target %lu\n"
++    "Modified age          %lu\n"
++    "Checkpoint age        %lu\n",
+ 		log_sys->lsn,
+ 		log_sys->flushed_to_disk_lsn,
+-		log_sys->last_checkpoint_lsn);
++		log_sys->last_checkpoint_lsn,
++    (ulong) log_sys->max_checkpoint_age,
++    (ulong) log_max_checkpoint_age_async(),
++    (ulong) (log_sys->lsn -
++                log_buf_pool_get_oldest_modification()),
++     (ulong) (log_sys->lsn - log_sys->last_checkpoint_lsn)         
++          );
+ 
+ 	current_time = time(NULL);
+ 
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/srv/srv0srv.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/srv/srv0srv.c
+--- storage/innobase/srv/srv0srv.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/srv/srv0srv.c	2011-07-06 17:31:23.703259348 +0000
+@@ -231,6 +231,7 @@
+ in the buffer cache and accessed sequentially for InnoDB to trigger a
+ readahead request. */
+ UNIV_INTERN ulong	srv_read_ahead_threshold	= 56;
++ulint srv_tablespace_extra_extend = 0;
+ 
+ #ifdef UNIV_LOG_ARCHIVE
+ UNIV_INTERN ibool		srv_log_archive_on	= FALSE;
+@@ -267,6 +268,10 @@
+ /* the number of purge threads to use from the worker pool (currently 0 or 1).*/
+ UNIV_INTERN ulong srv_n_purge_threads = 0;
+ 
++UNIV_INTERN ulong srv_use_checkpoint_thread = 0;
++
++UNIV_INTERN ulint      srv_expand_import = 0; /* 0:disable 1:enable */
++
+ /* the number of records to purge in one batch */
+ UNIV_INTERN ulong srv_purge_batch_size = 20;
+ 
+@@ -394,6 +399,12 @@
+ 
+ UNIV_INTERN ulong	srv_replication_delay		= 0;
+ 
++UNIV_INTERN ulint      srv_flush_neighbor_pages = 1; 
++UNIV_INTERN ulint      srv_checkpoint_age_target = 0;
++UNIV_INTERN ulint      srv_checkpoint_thread_sleep = 10000;
++UNIV_INTERN ulint      srv_adaptive_checkpoint = 0; 
++/* 0: none  1: reflex  2: estimate */
++
+ /*-------------------------------------------*/
+ UNIV_INTERN ulong	srv_n_spin_wait_rounds	= 30;
+ UNIV_INTERN ulong	srv_n_free_tickets_to_enter = 500;
+@@ -2050,6 +2061,300 @@
+ 	mutex_exit(&srv_innodb_monitor_mutex);
+ }
+ 
++typedef struct t_prev_flush_info_struct {
++               ulint           count;
++               unsigned        space:32;
++               unsigned        offset:32;
++               ib_uint64_t     oldest_modification;
++} t_prev_flush_info;
++
++static inline ulint adaptive_cp_keep_average( 
++    ulint   prev_adaptive_checkpoint,
++    t_prev_flush_info* prev_flush_info,
++    ulint n_pages_flushed_prev, ib_uint64_t* lsn_old)
++{
++   buf_pool_t*     buf_pool;
++   buf_page_t*     bpage;
++   ib_uint64_t     lsn, oldest_lsn;
++   ulint           j;
++   ulint           n_pages_flushed;
++
++   mutex_enter(&(log_sys->mutex));
++   oldest_lsn = buf_pool_get_oldest_modification();
++   lsn = log_sys->lsn;
++   mutex_exit(&(log_sys->mutex));
++   
++   if (prev_adaptive_checkpoint == 3) 
++   {
++     lint    n_flush;
++     lint    blocks_sum, new_blocks_sum, flushed_blocks_sum;
++
++     blocks_sum = new_blocks_sum = flushed_blocks_sum = 0;
++     
++     for (j = 0; j < srv_buf_pool_instances; j++) 
++     {
++       lint    blocks_num, new_blocks_num, flushed_blocks_num;
++       ibool   found;
++
++       buf_pool = buf_pool_from_array(j);
++       blocks_num = UT_LIST_GET_LEN(buf_pool->flush_list);
++       bpage = UT_LIST_GET_FIRST(buf_pool->flush_list);
++       new_blocks_num = 0;
++       found = FALSE;
++       
++       while (bpage != NULL) 
++       {
++         if (prev_flush_info[j].space == bpage->space
++               && prev_flush_info[j].offset == bpage->offset
++               && prev_flush_info[j].oldest_modification == 
++                  bpage->oldest_modification) 
++         {
++            found = TRUE;
++            break;
++         }
++         
++         bpage = UT_LIST_GET_NEXT(list, bpage);
++         new_blocks_num++;
++        } /* while (bpage... */
++        
++        if (!found) 
++        {
++          new_blocks_num = blocks_num;
++        }
++
++        flushed_blocks_num = new_blocks_num +
++                  prev_flush_info[j].count - blocks_num;
++                  
++        if (flushed_blocks_num < 0) 
++        {
++          flushed_blocks_num = 0;
++        }
++
++        bpage = UT_LIST_GET_FIRST(buf_pool->flush_list);
++        prev_flush_info[j].count = UT_LIST_GET_LEN(
++                                buf_pool->flush_list);
++                                
++        if (bpage) 
++        {
++          prev_flush_info[j].space = bpage->space;
++          prev_flush_info[j].offset = bpage->offset;
++          prev_flush_info[j].oldest_modification = 
++               bpage->oldest_modification;
++         } 
++        else 
++        {
++          prev_flush_info[j].space = 0;
++          prev_flush_info[j].offset = 0;
++          prev_flush_info[j].oldest_modification = 0;
++        }
++        
++        new_blocks_sum += new_blocks_num;
++        flushed_blocks_sum += flushed_blocks_num;
++        blocks_sum += blocks_num;
++     } /* for */
++     
++      n_flush = blocks_sum * (lsn - *lsn_old) /
++                    log_sys->max_modified_age_async;
++                    
++      if (flushed_blocks_sum > n_pages_flushed_prev) 
++      {
++        n_flush -= (flushed_blocks_sum - n_pages_flushed_prev);
++      }
++
++      if (n_flush > 0) 
++      {
++        n_flush++;
++        n_pages_flushed = buf_flush_list(n_flush, 
++                                  oldest_lsn + (lsn - *lsn_old));
++      } 
++      else 
++      {
++        n_pages_flushed = 0;
++      }
++   }
++   else
++   {
++     for (j = 0; j < srv_buf_pool_instances; j++) 
++     {
++        buf_pool = buf_pool_from_array(j);
++        bpage = UT_LIST_GET_FIRST(buf_pool->flush_list);
++        prev_flush_info[j].count = 
++           UT_LIST_GET_LEN(buf_pool->flush_list);
++           
++        if (bpage) 
++        {
++          prev_flush_info[j].space = bpage->space;
++          prev_flush_info[j].offset = bpage->offset;
++          prev_flush_info[j].oldest_modification = 
++            bpage->oldest_modification;
++        } 
++        else 
++        {
++          prev_flush_info[j].space = 0;
++          prev_flush_info[j].offset = 0;
++          prev_flush_info[j].oldest_modification = 0;
++        }
++      }
++      
++     n_pages_flushed = 0;
++     *lsn_old = lsn;
++   }
++   
++   return n_pages_flushed;
++}
++
++static inline ulint adaptive_cp_estimate(ib_uint64_t* lsn_old)
++{
++   ulint n_pages_flushed;
++   ib_uint64_t     oldest_lsn;
++   
++   mutex_enter(&(log_sys->mutex));
++   *lsn_old = log_sys->lsn;
++   oldest_lsn = buf_pool_get_oldest_modification();
++   
++   if (oldest_lsn == 0) 
++   {
++       mutex_exit(&(log_sys->mutex));
++       return 0;
++   }
++  
++  if ((log_sys->lsn - oldest_lsn) >
++       (log_sys->max_checkpoint_age) - 
++         ((log_sys->max_checkpoint_age)/ 8)) 
++  {
++    /* LOG_POOL_PREFLUSH_RATIO_ASYNC is exceeded. */
++    /* We should not flush from here. */
++    *lsn_old = log_sys->lsn;
++    mutex_exit(&(log_sys->mutex));
++    return 0;
++   }
++   
++   if ((log_sys->lsn - oldest_lsn) >  
++     (log_sys->max_checkpoint_age)/4 ) 
++   {
++      /* defence line (max_checkpoint_age * 1/2) */
++       ib_uint64_t     lsn = log_sys->lsn;
++       ib_uint64_t     level, bpl;
++       buf_page_t*     bpage;
++       ulint           j;
++       mutex_exit(&(log_sys->mutex));
++       bpl = 0;
++       
++       for (j = 0; j < srv_buf_pool_instances; j++) 
++       {
++         buf_pool_t*     buf_pool;
++         ulint           n_blocks;
++
++         buf_pool = buf_pool_from_array(j);
++
++        /* The scanning flush_list is optimistic here */
++        level = 0;
++        n_blocks = 0;
++        bpage = UT_LIST_GET_FIRST(buf_pool->flush_list);
++        
++        while (bpage != NULL) 
++        {
++          ib_uint64_t   oldest_modification = 
++             bpage->oldest_modification;
++             
++          if (oldest_modification != 0) 
++          {
++            level += log_sys->max_checkpoint_age -                                                                               
++              (lsn - oldest_modification);
++          }
++          
++          bpage = UT_LIST_GET_NEXT(list, bpage);
++          n_blocks++;
++         } /* while */
++         
++         if (level) 
++         {
++           bpl += ((ib_uint64_t) n_blocks * n_blocks
++                              * (lsn - *lsn_old)) / level;
++         }
++        } /* for */
++        
++        if (!srv_use_doublewrite_buf) 
++        {
++          bpl = (bpl * 7) / 8;
++        }
++        
++        if (bpl) 
++        {
++retry_flush_batch:
++          n_pages_flushed =  buf_flush_list(
++                               bpl, oldest_lsn + (lsn - *lsn_old));
++            
++          if (n_pages_flushed == ULINT_UNDEFINED) 
++          {
++            os_thread_sleep(5000);
++            goto retry_flush_batch;
++          }
++         }
++         
++        *lsn_old = lsn;
++      
++   } /* if ((log_sys... */
++   else
++   {
++      *lsn_old = log_sys->lsn;
++      mutex_exit(&(log_sys->mutex));
++   }  
++   return n_pages_flushed;
++}
++  
++static inline ulint adaptive_cp_reflex(ibool* skip_sleep,
++   ib_uint64_t* lsn_old)
++{
++   ulint n_pages_flushed = 0;
++   ib_uint64_t     oldest_lsn;
++   
++   mutex_enter(&(log_sys->mutex));
++   *lsn_old = log_sys->lsn;
++   oldest_lsn = buf_pool_get_oldest_modification();
++   
++   if (oldest_lsn == 0) 
++   {
++       mutex_exit(&(log_sys->mutex));
++   }
++   else
++   {
++     if ((log_sys->lsn - oldest_lsn) >                             
++          (log_sys->max_checkpoint_age) -
++           ((log_sys->max_checkpoint_age) / 8))
++     {
++      /* LOG_POOL_PREFLUSH_RATIO_ASYNC is exceeded. */
++      /* We should not flush from here. */
++      mutex_exit(&(log_sys->mutex));
++     }
++     else if ((log_sys->lsn - oldest_lsn) > 
++       (log_sys->max_checkpoint_age) - 
++        ((log_sys->max_checkpoint_age)/ 4))
++     {
++       /* 2nd defence line (max_checkpoint_age * 3/4) */
++       mutex_exit(&(log_sys->mutex));
++       n_pages_flushed = buf_flush_list(PCT_IO(100),
++                                        IB_ULONGLONG_MAX);
++       *skip_sleep = TRUE;                                            
++     }
++     else if ((log_sys->lsn - oldest_lsn) >  
++        (log_sys->max_checkpoint_age)/2 )
++     {
++       /* 1st defence line (max_checkpoint_age * 1/2) */
++       mutex_exit(&(log_sys->mutex));
++       n_pages_flushed = buf_flush_list(PCT_IO(10),
++                                        IB_ULONGLONG_MAX);
++       *skip_sleep = TRUE;                                 
++     }
++     else
++     {
++       mutex_exit(&(log_sys->mutex));  
++     }
++   }
++  
++  return n_pages_flushed;
++}
++
+ /*********************************************************************//**
+ A thread which prints the info output by various InnoDB monitors.
+ @return	a dummy parameter */
+@@ -2522,6 +2827,22 @@
+ 	mutex_exit(&kernel_mutex);
+ }
+ 
++UNIV_INTERN
++void
++srv_wake_checkpoint_thread(void)
++/*=======================*/
++{
++  ut_ad(!mutex_own(&kernel_mutex));
++
++  if (srv_use_checkpoint_thread) 
++  {
++    mutex_enter(&kernel_mutex);
++    srv_release_threads(SRV_CHECKPOINT, 1);
++    mutex_exit(&kernel_mutex);
++  }
++}
++
++
+ /*******************************************************************//**
+ Wakes up the purge thread if it's not already awake. */
+ UNIV_INTERN
+@@ -2589,6 +2910,53 @@
+ 	} while (n_pages_purged > 0);
+ }
+ 
++UNIV_INTERN
++os_thread_ret_t
++srv_checkpoint_thread(
++/*==============*/
++  void* arg __attribute__((unused)))
++      /*!< in: a dummy parameter required by
++      os_thread_create */
++{
++  ib_uint64_t lsn_old;
++  ibool   skip_sleep = FALSE;
++  ulint   n_pages_flushed = ULINT_UNDEFINED;
++  srv_slot_t* slot;
++  ulint   slot_no = ULINT_UNDEFINED;
++  
++  mutex_enter(&kernel_mutex);
++
++  slot_no = srv_table_reserve_slot(SRV_CHECKPOINT);
++  slot = srv_table_get_nth_slot(slot_no);
++  ++srv_n_threads_active[SRV_CHECKPOINT];
++  mutex_exit(&kernel_mutex);
++
++  #ifdef UNIV_PFS_THREAD
++  pfs_register_thread(srv_checkpoint_thread_key);
++  #endif
++
++  while (srv_shutdown_state != SRV_SHUTDOWN_CLEANUP) 
++  {
++    skip_sleep = FALSE; 
++    n_pages_flushed = adaptive_cp_reflex(&skip_sleep,
++                                                &lsn_old); 
++    
++    if (!skip_sleep)
++    {
++      os_thread_sleep(srv_checkpoint_thread_sleep);
++    }
++  }
++  
++  mutex_enter(&kernel_mutex);
++  ut_ad(srv_table_get_nth_slot(slot_no) == slot);
++  srv_suspend_thread();
++  slot->in_use = FALSE;
++  thr_local_free(os_thread_get_curr_id());
++  mutex_exit(&kernel_mutex);
++  os_thread_exit(NULL);
++  OS_THREAD_DUMMY_RETURN; /* Not reached, avoid compiler warning */
++}
++
+ /*********************************************************************//**
+ The master thread controlling the server.
+ @return	a dummy parameter */
+@@ -2605,7 +2973,8 @@
+ 	ulint		old_activity_count;
+ 	ulint		n_pages_purged	= 0;
+ 	ulint		n_bytes_merged;
+-	ulint		n_pages_flushed;
++	ulint		n_pages_flushed = ULINT_UNDEFINED;
++  ulint   n_pages_flushed_prev = 0;
+ 	ulint		n_bytes_archived;
+ 	ulint		n_tables_to_drop;
+ 	ulint		n_ios;
+@@ -2614,6 +2983,13 @@
+ 	ulint		n_pend_ios;
+ 	ulint		next_itr_time;
+ 	ulint		i;
++  ulint   prev_adaptive_checkpoint = ULINT_UNDEFINED;
++  ibool   skip_sleep = FALSE;
++  ulint   inner_loop = 0;
++  ib_uint64_t lsn_old;
++
++  t_prev_flush_info prev_flush_info[MAX_BUFFER_POOLS];
++
+ 
+ #ifdef UNIV_DEBUG_THREAD_CREATION
+ 	fprintf(stderr, "Master thread starts, id %lu\n",
+@@ -2634,6 +3010,9 @@
+ 	srv_n_threads_active[SRV_MASTER]++;
+ 
+ 	mutex_exit(&kernel_mutex);
++  mutex_enter(&(log_sys->mutex));
++  lsn_old = log_sys->lsn;
++  mutex_exit(&(log_sys->mutex));
+ 
+ loop:
+ 	/*****************************************************************/
+@@ -2664,7 +3043,8 @@
+ 
+ 	/* Sleep for 1 second on entrying the for loop below the first time. */
+ 	next_itr_time = ut_time_ms() + 1000;
+-
++  skip_sleep = FALSE;
++  
+ 	for (i = 0; i < 10; i++) {
+ 		ulint	cur_time = ut_time_ms();
+ 
+@@ -2690,22 +3070,27 @@
+ 
+ 		srv_main_thread_op_info = "sleeping";
+ 		srv_main_1_second_loops++;
+-
+-		if (next_itr_time > cur_time
+-		    && srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+-
+-			/* Get sleep interval in micro seconds. We use
+-			ut_min() to avoid long sleep in case of
+-			wrap around. */
+-			os_thread_sleep(ut_min(1000000,
+-					(next_itr_time - cur_time)
+-					 * 1000));
+-			srv_main_sleeps++;
+-		}
+-
+-		/* Each iteration should happen at 1 second interval. */
+-		next_itr_time = ut_time_ms() + 1000;
+-
++  
++    if (!skip_sleep)
++    {  
++      if (next_itr_time > cur_time
++          && srv_shutdown_state == SRV_SHUTDOWN_NONE) {
++
++        /* Get sleep interval in micro seconds. We use
++        ut_min() to avoid long sleep in case of
++        wrap around. */
++        os_thread_sleep(ut_min(1000000,
++            (next_itr_time - cur_time)
++             * 1000));
++        srv_main_sleeps++;
++      }
++
++      /* Each iteration should happen at 1 second interval. */
++      next_itr_time = ut_time_ms() + 1000;
++    }
++   
++    skip_sleep = FALSE;
++   
+ 		/* Flush logs if needed */
+ 		srv_sync_log_buffer_in_background();
+ 
+@@ -2740,7 +3125,10 @@
+ 				"flushing buffer pool pages";
+ 			n_pages_flushed = buf_flush_list(
+ 				PCT_IO(100), IB_ULONGLONG_MAX);
+-
++      mutex_enter(&(log_sys->mutex));
++      lsn_old = log_sys->lsn;
++      mutex_exit(&(log_sys->mutex));
++      prev_adaptive_checkpoint = ULINT_UNDEFINED;       
+ 		} else if (srv_adaptive_flushing) {
+ 
+ 			/* Try to keep the rate of flushing of dirty
+@@ -2757,8 +3145,61 @@
+ 						n_flush,
+ 						IB_ULONGLONG_MAX);
+ 			}
+-		}
+-
++			
++      mutex_enter(&(log_sys->mutex));
++      lsn_old = log_sys->lsn;
++      mutex_exit(&(log_sys->mutex));
++      prev_adaptive_checkpoint = ULINT_UNDEFINED;
++		} 
++		else if (srv_adaptive_checkpoint == 1) 
++    {
++      /* adaptive_flushing option is prior to adaptive_checkpoint option, for now */
++       n_pages_flushed = adaptive_cp_reflex(&skip_sleep,
++                                                &lsn_old); 
++       prev_adaptive_checkpoint = 1;
++    }  
++    else if (srv_adaptive_checkpoint == 2)
++    {
++       n_pages_flushed = adaptive_cp_estimate(&lsn_old); 
++       prev_adaptive_checkpoint = 2;
++    }
++    else if (srv_adaptive_checkpoint == 3)
++    {
++       /* upper loop/sec. (x10) */
++       next_itr_time -= 900; /* 1000 - 900 == 100 */
++       inner_loop++;
++       
++       if (inner_loop < 10) 
++       {
++         i--;
++       } 
++       else 
++       {
++         inner_loop = 0;
++       }
++       
++       n_pages_flushed = adaptive_cp_keep_average(
++         prev_adaptive_checkpoint, prev_flush_info,
++         n_pages_flushed_prev, &lsn_old); 
++       prev_adaptive_checkpoint = 3;
++    }
++    else
++    {
++      mutex_enter(&(log_sys->mutex));
++      lsn_old = log_sys->lsn;
++      mutex_exit(&(log_sys->mutex));
++      prev_adaptive_checkpoint = ULINT_UNDEFINED;
++    }
++
++    if (n_pages_flushed == ULINT_UNDEFINED) 
++    {
++       n_pages_flushed_prev = 0;
++    } 
++    else 
++    {
++       n_pages_flushed_prev = n_pages_flushed;
++    }
++    
+ 		if (srv_activity_count == old_activity_count) {
+ 
+ 			/* There is no user activity at the moment, go to
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' storage/innobase/srv/srv0start.c /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/srv/srv0start.c
+--- storage/innobase/srv/srv0start.c	2010-12-03 17:58:26.000000000 +0000
++++ /export/home/eng/apachev/mysql-build-5.5.8/mysql-5.5.8/storage/innobase/srv/srv0start.c	2011-06-06 20:23:44.584213568 +0000
+@@ -144,6 +144,7 @@
+ UNIV_INTERN mysql_pfs_key_t	srv_error_monitor_thread_key;
+ UNIV_INTERN mysql_pfs_key_t	srv_monitor_thread_key;
+ UNIV_INTERN mysql_pfs_key_t	srv_master_thread_key;
++UNIV_INTERN mysql_pfs_key_t srv_checkpoint_thread_key;
+ UNIV_INTERN mysql_pfs_key_t	srv_purge_thread_key;
+ #endif /* UNIV_PFS_THREAD */
+ 
+@@ -1756,6 +1757,11 @@
+ 	if (srv_n_purge_threads == 1) {
+ 		os_thread_create(&srv_purge_thread, NULL, NULL);
+ 	}
++	
++	if (srv_use_checkpoint_thread)
++  {
++     os_thread_create(&srv_checkpoint_thread, NULL, NULL);
++  }
+ 
+ #ifdef UNIV_DEBUG
+ 	/* buf_debug_prints = TRUE; */
+@@ -2006,6 +2012,7 @@
+ 
+ 		/* d. We wake the purge thread so that it exits */
+ 		srv_wake_purge_thread();
++    srv_wake_checkpoint_thread();
+ 
+ 		/* e. Exit the i/o threads */
+ 

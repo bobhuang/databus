@@ -1,0 +1,19 @@
+{
+  "name" : "Email",
+  "index" : null,
+  "version" : 1,
+  "schemaType" : "TableSchema",
+  "doc" : "Espresso Schema for a simple Email Table",
+  "recordType" : "/schemata/document/EspressoDB24/Email",
+  "resourceKeyParts" : [ {
+    "name" : "mboxid",
+    "type" : "INT",
+    "autoincrement" : "NONE",
+    "maxsize" : 50
+  }, {
+    "name" : "docid",
+    "type" : "INT",
+    "autoincrement" : "LOCAL",
+    "maxsize" : 50
+  } ]
+}

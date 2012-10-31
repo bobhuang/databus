@@ -1,0 +1,279 @@
+#! /usr/bin/perl
+
+use Socket;
+
+my $mysql_user = "root";
+my $mysql_pw = "";
+my $slave_user = "rplespresso";
+my $slave_pw = "espresso";
+my $master_mysql_pw = ($ENV{MYSQL_MASTER_PW}) ? $ENV{MYSQL_MASTER_PW} : 
+  "";
+my $first_port = 29000;
+my $max_port = 65535;
+my $slave_dist_my_cnf = "/usr/share/mysql/my-linkedin-slave.cnf";
+my $default_mysql_home_dir = "/export/apps/mysql";
+my $mysqld_start_delay = 3;
+my $master_port = 3306;
+
+sub port_is_free
+{
+  my ($port) = @_;
+  socket(SOCK,PF_INET,SOCK_STREAM,(getprotobyname('tcp'))[2]) or
+    die "Could not create socket: $!\n" ;
+  my $res= bind( SOCK, pack( 'Sn4x8', AF_INET, $port, "\0\0\0\0" ));
+  close(SOCK);
+  return $res;
+}
+
+sub ask_user
+{
+  my ($q,$default,$env_var) = @_;
+  return $ENV{$env_var} if (defined($ENV{$env_var}));
+  
+  print $q."[$default]:\n";
+  $a = <STDIN>;
+  chop $a;
+  
+  return ($a) ? $a : $default;
+}
+
+sub shell_exec
+{
+  my ($cmd) = @_;
+  #print "$cmd\n";  
+  open CMD, "$cmd|" or die "Could not run $cmd\n";
+  my $out = "";
+  
+  while ($_ = <CMD>)
+  {
+    $out .= $_;
+  }
+  
+  close CMD;
+  return $out;
+}
+
+sub run_mysql_cmd
+{
+  my ($host,$cmd,$pw,$user,$allow_error) = @_;
+  $pw = $mysql_pw unless ($pw);
+  $user = $mysql_user unless ($user);
+  my $pw_arg = ($pw) ? "-p\"$pw\"" : "";
+  my $port;
+  
+  ($host,$port) = split(/:/,$host);
+  
+  my $port_arg = "";
+  
+  $port_arg = "--port=$port" if $port;
+  
+  my $out = shell_exec("mysql -u$user $pw_arg -h $host  $port_arg ".
+    "-e \"$cmd\" 2>&1");
+  if ($out =~ /ERROR/)
+  {
+    return -1 if ($allow_error);
+    die "Error running $cmd : $out\n";
+  }
+  return $out;
+}
+
+my $default_server_id = 0;
+my @str= grep /inet addr/ && !/127\.0\.\.1/, split(/\n/, `ifconfig -a `);
+
+if ($#str >= 0)
+{
+  if ($str[0] =~ /inet addr:[\d\.]+\.(\d+)\.(\d+)/)
+  {
+    $default_server_id = $1 * 256 + $2;
+  }
+}
+
+$master_host = ask_user("Enter master host", "127.0.0.1", 
+  "MYSQL_MASTER_HOST");
+print "Master host is $master_host\n";
+
+$master_port = ask_user("Enter master port", $master_port, 
+  "MYSQL_MASTER_PORT");
+print "Master host is $master_host on port $master_port\n";
+  
+
+my $port;
+my $found_port = 0;
+
+for ($port = $first_port; $port <= $max_port; $port++)
+{
+ print "Checking port $port\n";
+  
+ if (port_is_free($port)) 
+ { 
+   $found_port = $port; 
+   last; 
+ } 
+}
+
+die "Could not find free port \n" unless $found_port;
+
+print "Port $port appears available\n";
+
+$found_port = ask_user("Enter slave TCP port", $found_port, 
+  "MYSQL_SLAVE_PORT");
+
+my $out = run_mysql_cmd("$master_host:$master_port", "select \@\@server_id", $slave_pw,$slave_user,1);
+
+if ($out == -1)
+{
+ run_mysql_cmd("$master_host:$master_port", 
+   "delete from mysql.user where user=''; ".
+   " flush privileges; ".
+   "grant replication slave, select on *.* to '$slave_user'\@'%' ".
+   " identified by '$slave_pw'", $master_mysql_pw);
+  print "Created slave user on the master\n";  
+  $out = run_mysql_cmd("$master_host:$master_port", 
+    "select \@\@server_id", $slave_pw,$slave_user);
+}
+
+my ($junk, $master_server_id) = split(/\s+/,$out,2);
+
+die "Could not read master server_id \n" unless $master_server_id;
+
+print "Detected master server_id $master_server_id\n";
+
+my $server_id = 0;
+
+while (!$server_id)
+{
+  $server_id = ask_user("Specify the server ID of the slave", 
+ $default_server_id + $found_port * 65536,                                                  
+    "MYSQL_SLAVE_SERVER_ID");
+  
+  if ($server_id == $master_server_id)
+  {
+    print "Slave server ID cannot be the same as the master\n";
+    $server_id = 0;
+    next;
+  }
+}
+
+my $mysql_home_dir;
+my $mysql_unix_user;
+
+if ($< == 0)
+{
+  $mysql_home_dir = "/export/apps/mysql-$server_id";
+  $mysql_unix_user = "app";
+  
+  if (!defined(getpwnam($mysql_unix_user)))
+  {
+    shell_exec("useradd $mysql_unix_user");
+  }
+}
+else
+{
+  $mysql_home_dir = $ENV{HOME}."/mysql-$server_id";
+  $mysql_unix_user = $ENV{USER};
+}
+
+$mysql_home_dir = ask_user("Specify MySQL slave home directory", 
+  $mysql_home_dir, "MYSQL_SLAVE_HOME_DIR");
+  
+my $resp;
+  
+if (-d $mysql_home_dir)
+{
+   $resp = ask_user(
+     "Directory $mysql_home_dir already exits. OK to wipe out(Y/N)?",
+     "N", "MYSQL_SLAVE_HOME_DIR_WIPE");
+   if ($resp =~ /^y/i)
+   {
+     shell_exec("rm -rf $mysql_home_dir");
+   }  
+   else
+   {
+     die "Install aborted\n";
+   }
+}  
+
+shell_exec("mkdir -p $mysql_home_dir");
+
+my $my_cnf = "$mysql_home_dir/my.cnf";
+open MY_SRC, $slave_dist_my_cnf or 
+  die "Could not read $slave_dist_my_cnf,".
+  " make sure MySQL-server rpm is installed\n";
+open MY_DST, ">$my_cnf" or 
+  die "Could not write to $my_cnf\n"; 
+
+while ($_ = <MY_SRC>)
+{
+  if (/^port=/)
+  {
+    print MY_DST "port=$found_port\n";
+  }
+  elsif (/^server[-\_]id=/)
+  {
+    print MY_DST "server-id=$server_id\n";
+  }
+  elsif (/^user=/)
+  {
+    print MY_DST "user=$mysql_unix_user\n";
+  }
+  else
+  {
+    s/$default_mysql_home_dir/$mysql_home_dir/;
+    print MY_DST $_;
+  }
+}
+
+close MY_SRC;
+close MY_DST;
+
+print "Wrote $my_cnf\n";
+
+my $mysql_data_dir = $mysql_home_dir."/data";
+
+shell_exec("mkdir -p $mysql_data_dir $mysql_home_dir/tmp");
+
+if ($< == 0)
+{
+  shell_exec("chown -R $mysql_unix_user $mysql_home_dir");
+}
+
+
+$out = shell_exec("mysql_install_db --defaults-file=$my_cnf");
+
+print $out;
+
+# need to do it one more time to fix odd stuff from mysql_install_db
+if ($< == 0)
+{
+  shell_exec("chown -R $mysql_unix_user $mysql_home_dir");
+}
+
+print "Created slave privilege tables\n";
+system("mysqld_safe --defaults-file=$my_cnf &") and 
+  die "Could not start mysqld_safe";
+print "Started slave mysqld, giving it $mysqld_start_delay ".
+  "mysqladmin tries to start\n";
+
+$out = shell_exec("mysqladmin --defaults-file=$my_cnf --wait=$mysqld_start_delay -h 127.0.0.1 ".
+ " -uroot ping");
+
+run_mysql_cmd("127.0.0.1:$found_port", "create table mysql.rpl_dbus_config(prop_key varchar(50) not null
+  primary key, value varchar(50) not null) engine=myisam; insert into mysql.rpl_dbus_config values('databus2.mysql.port',
+  '11141')");
+$out = run_mysql_cmd("127.0.0.1:$found_port"," change master to master_host=".
+ "'$master_host', master_user='$slave_user',master_password='$slave_pw'".
+ ",master_port=$master_port;".
+ " start slave; select sleep(2); show slave status\\G"); 
+
+if ($out =~ /Slave_SQL_Running: Yes/ &&
+    $out =~ /Slave_IO_Running: Yes/)
+{    
+ 
+  print "The slave has been configured and is running\n"; 
+}  
+else
+{
+  print "There was a problem starting the slave.\n";
+  exit 1;
+}
+

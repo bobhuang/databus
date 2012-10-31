@@ -1,0 +1,20 @@
+{
+  "name" : "Table2",
+  "doc" : "test schema",
+  "version": 1,
+  "type" : "record",
+  "schemaType" : "DocumentSchema",
+  "namespace" : "com.linkedin.espresso.test.testdb",
+  "fields" : [ {
+    "name" : "field1",
+    "type" : "int",
+    "indexType" : "attribute"
+  }, {
+    "name" : "field2",
+    "type" : "string",
+    "indexType" : "text"
+  }, {
+    "name" : "field3",
+    "type" : "string"
+  } ]
+}

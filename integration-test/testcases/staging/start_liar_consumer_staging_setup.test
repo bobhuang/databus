@@ -1,0 +1,36 @@
+#!/bin/bash 
+# test liar db relay can run with a small buffer.
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=start_liar_consumer_staging_setup.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+relay_host=esv4-be38
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+bootstrap_host=esv4-bed03
+client_port=${CLIENT_PORT_BASE}
+db_config_file=config/sources-liar.json 
+# start the consumer
+
+num_consumers=3
+consumers_start=1
+
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+  consumer_log=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}.events
+  let client_port="${CLIENT_PORT_BASE} + ${i}"
+  let partitionListLow="${i}-1"
+  partitionListHigh=$i
+
+  $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=${client_port} --relay_host=${relay_host} --relay_port=${relay_port} --bootstrap_host=${bootstrap_host} --bootstrap_port=${bootstrap_server_port} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=liarckpt_${i};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000" --jvm_args="-Xms100m -Xmx100m -XX:NewSize=50m -XX:MaxNewSize=50m -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution "
+echo "Starting Client ${i}"
+sleep 10
+done

@@ -1,0 +1,136 @@
+{
+  "name" : "Recommendations_V1",
+  "doc" : "Auto-generated Avro schema for MBRREC.SY$RECOMMENDATIONS_1. Generated at Nov 21, 2011 10:35:23 AM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=MBRREC.SY$RECOMMENDATIONS_1;",
+  "namespace" : "com.linkedin.events.mbrrec",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "recRId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=REC_R_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "recommendationId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=RECOMMENDATION_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "createDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=4;"
+  }, {
+    "name" : "modifiedDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MODIFIED_DATE;dbFieldPosition=5;"
+  }, {
+    "name" : "visibilityForRecR",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VISIBILITY_FOR_REC_R;dbFieldPosition=6;"
+  }, {
+    "name" : "type",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TYPE;dbFieldPosition=7;"
+  }, {
+    "name" : "state",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATE;dbFieldPosition=8;"
+  }, {
+    "name" : "text",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TEXT;dbFieldPosition=9;"
+  }, {
+    "name" : "invitationId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=INVITATION_ID;dbFieldPosition=10;"
+  }, {
+    "name" : "relationshipCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=RELATIONSHIP_CODE;dbFieldPosition=11;"
+  }, {
+    "name" : "recRTitle",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_R_TITLE;dbFieldPosition=12;"
+  }, {
+    "name" : "recROrganization",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_R_ORGANIZATION;dbFieldPosition=13;"
+  }, {
+    "name" : "recEId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=REC_E_ID;dbFieldPosition=14;"
+  }, {
+    "name" : "recESubjectId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=REC_E_SUBJECT_ID;dbFieldPosition=15;"
+  }, {
+    "name" : "recEFirstName",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_FIRST_NAME;dbFieldPosition=16;"
+  }, {
+    "name" : "recELastName",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_LAST_NAME;dbFieldPosition=17;"
+  }, {
+    "name" : "recETitle",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_TITLE;dbFieldPosition=18;"
+  }, {
+    "name" : "recEOrganization",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_ORGANIZATION;dbFieldPosition=19;"
+  }, {
+    "name" : "recEEmailId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=REC_E_EMAIL_ID;dbFieldPosition=20;"
+  }, {
+    "name" : "recECountry",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_COUNTRY;dbFieldPosition=21;"
+  }, {
+    "name" : "recEPostalCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_POSTAL_CODE;dbFieldPosition=22;"
+  }, {
+    "name" : "recEProvince",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_PROVINCE;dbFieldPosition=23;"
+  }, {
+    "name" : "recECity",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REC_E_CITY;dbFieldPosition=24;"
+  }, {
+    "name" : "replacedBy",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=REPLACED_BY;dbFieldPosition=25;"
+  }, {
+    "name" : "serviceCategoryCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SERVICE_CATEGORY_CODE;dbFieldPosition=26;"
+  }, {
+    "name" : "serviceCategoryName",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SERVICE_CATEGORY_NAME;dbFieldPosition=27;"
+  }, {
+    "name" : "firstHiredYr",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=FIRST_HIRED_YR;dbFieldPosition=28;"
+  }, {
+    "name" : "usedMoreThanOnce",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=USED_MORE_THAN_ONCE;dbFieldPosition=29;"
+  }, {
+    "name" : "attributes",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ATTRIBUTES;dbFieldPosition=30;"
+  }, {
+    "name" : "excludeFromSprDir",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXCLUDE_FROM_SPR_DIR;dbFieldPosition=31;"
+  } ]
+}

@@ -1,0 +1,15 @@
+apply plugin: 'li-war'
+
+dependencies {
+  components project(':sec-consumer:sec-consumer-test-consumer-cmpt')
+
+
+  compile spec.product.'container-server-jetty'.emweb
+
+  compile spec.external.googleCollections
+}
+
+liWar {
+  appname = "sec-consumer-test-consumer"
+}
+

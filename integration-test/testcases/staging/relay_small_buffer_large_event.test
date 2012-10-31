@@ -1,0 +1,32 @@
+#!/bin/bash
+# test a relay can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-1.properties
+#  -. genernate event with size 2000 - 10000,  window size 10-100
+#  start client before the gen_event
+
+# start the relay on port 8080
+source setup_env.inc
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o start -p $CONFIG_DIR/relay-small-buffer-large-event.properties
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/profile_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --dump_file=${consumer_1_log}
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 5 -t 15000
+
+sleep 18 
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_profile_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o stop
+
+#compare result
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s $WORK_DIR/profile_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+exit $all_stat

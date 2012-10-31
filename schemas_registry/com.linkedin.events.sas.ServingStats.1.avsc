@@ -1,0 +1,44 @@
+{
+  "name" : "ServingStats_V1",
+  "doc" : "Auto-generated Avro schema for sas.sy$serving_stats. Generated at Sep 15, 2011 02:53:02 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sas.sy$serving_stats;",
+  "namespace" : "com.linkedin.events.sas",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "campaignId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "creativeId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CREATIVE_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "impressionsPerDay",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=IMPRESSIONS_PER_DAY;dbFieldPosition=4;"
+  }, {
+    "name" : "ctr",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CTR;dbFieldPosition=5;"
+  }, {
+    "name" : "urgency",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=URGENCY;dbFieldPosition=6;"
+  }, {
+    "name" : "viewingMemberIds",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VIEWING_MEMBER_IDS;dbFieldPosition=7;"
+  }, {
+    "name" : "attributes",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ATTRIBUTES;dbFieldPosition=8;"
+  } ]
+}

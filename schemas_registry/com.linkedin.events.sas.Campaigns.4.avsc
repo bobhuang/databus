@@ -1,0 +1,104 @@
+{
+  "name" : "Campaigns_V4",
+  "doc" : "Auto-generated Avro schema for sas.sy$campaigns_4. Generated at Sep 15, 2011 02:51:04 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sas.sy$campaigns_4;",
+  "namespace" : "com.linkedin.events.sas",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "campaignId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "name",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=NAME;dbFieldPosition=4;"
+  }, {
+    "name" : "campaignType",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_TYPE;dbFieldPosition=5;"
+  }, {
+    "name" : "costType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COST_TYPE;dbFieldPosition=6;"
+  }, {
+    "name" : "unitCost",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=UNIT_COST;dbFieldPosition=7;"
+  }, {
+    "name" : "dailyBudget",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DAILY_BUDGET;dbFieldPosition=8;"
+  }, {
+    "name" : "startDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=START_DATE;dbFieldPosition=9;"
+  }, {
+    "name" : "endDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=END_DATE;dbFieldPosition=10;"
+  }, {
+    "name" : "keyValTargeting",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY_VAL_TARGETING;dbFieldPosition=11;"
+  }, {
+    "name" : "status",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=STATUS;dbFieldPosition=12;"
+  }, {
+    "name" : "quantity",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=QUANTITY;dbFieldPosition=13;"
+  }, {
+    "name" : "completionForDay",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=COMPLETION_FOR_DAY;dbFieldPosition=14;"
+  }, {
+    "name" : "onAccountHold",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ON_ACCOUNT_HOLD;dbFieldPosition=15;"
+  }, {
+    "name" : "campaignAttributes",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_ATTRIBUTES;dbFieldPosition=16;"
+  }, {
+    "name" : "impressionsPerDay",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=IMPRESSIONS_PER_DAY;dbFieldPosition=17;"
+  }, {
+    "name" : "ctr",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CTR;dbFieldPosition=18;"
+  }, {
+    "name" : "urgency",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=URGENCY;dbFieldPosition=19;"
+  }, {
+    "name" : "viewingMemberIds",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VIEWING_MEMBER_IDS;dbFieldPosition=20;"
+  }, {
+    "name" : "attributes",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ATTRIBUTES;dbFieldPosition=21;"
+  }, {
+    "name" : "campaignData",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_DATA;dbFieldPosition=22;"
+  }, {
+    "name" : "typeId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TYPE_ID;dbFieldPosition=23;"
+  } ]
+}

@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# postflight - this script will be executed after the MySQL PKG
+# installation has been performed.
+#
+# This script will install the MySQL privilege tables using the
+# "mysql_install_db" script and will correct the ownerships of these files
+# afterwards.
+#
+datadir=/var/lib/mysql
+mkdir -p $datadir
+chown -R mysql $datadir
+cp /usr/share/mysql/my-linkedin.cnf /etc/my.cnf
+
+if cd $datadir ; then
+	if [ ! -f mysql/db.frm ] ; then
+		/usr/bin/mysql_install_db --rpm
+	fi
+        pwd > /tmp/mysql-install.out
+	chown -R mysql . 
+else
+	exit $?
+fi

@@ -1,0 +1,1 @@
+--binlog-format=row --binlog-mark-events=1 --binlog-id-auto-activate=1

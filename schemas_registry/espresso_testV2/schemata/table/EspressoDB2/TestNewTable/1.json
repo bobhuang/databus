@@ -1,0 +1,10 @@
+{
+  "name" : "TestNewTable",
+  "doc" : "Espresso Schema for a new Test Table",
+  "version" : 1,
+  "schemaType" : "TableSchema",
+  "recordType" : "/schemata/document/EspressoDB2/TestNewTable",
+  "resourceKeyParts" : [
+    {"name": "id", "type":"INT"}
+  ]
+}

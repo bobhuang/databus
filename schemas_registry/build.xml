@@ -1,0 +1,103 @@
+<project name="compile-profile-events" >
+	
+  <!-- Import Product Properties -->
+  <!-- import file="${basedir}/../product/product-properties.xml"/ -->
+	
+  <property name="gradle.cache.dir" value="${user.home}/.gradle/cache" />
+  <property name="sandbox-repo.dir" value="${basedir}/../sandbox-repo" />
+  <property name="java.src.dir" value="${basedir}/../databus-events/profile/java" />
+  <property name="generated.dir" value="${basedir}/generated" />
+  <property name="artifact.version.avro" value="1.4.0" />
+  <property name="artifact.version.jackson-core-asl" value="1.4.0" />
+  <property name="artifact.version.jackson-mapper-asl" value="1.4.0" />
+
+  <taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+  		classpath="${gradle.cache.dir}/org.apache.avro/avro/jars/avro-${artifact.version.avro}.jar:${gradle.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/jars/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${gradle.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/jars/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" />
+<!--	<taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+	   		 classpath="${sandbox-repo.dir}/org/apache/avro/avro/${artifact.version.avro}/avro-${artifact.version.avro}.jar:${gradle.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/${artifact.version.jackson-core-asl}/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${gradle.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/${artifact.version.jackson-mapper-asl}/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" /> -->
+	
+	
+  <target name="build-MemberProfile">
+  	<avro-schema-compile file="${basedir}/com.linkedin.events.member2.profile.MemberProfile.1.avsc" destdir="${java.src.dir}" />
+  </target>
+	
+  <target name="build" 
+  	      depends="build-MemberProfile">
+  </target>
+
+  <target name="build-anet">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-anet/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.anet.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+   <target name="build-company">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-company/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.company.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-conns">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-conns/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.conns.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-feeds">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-feeds/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.*feed.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-forum">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-forum/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.forum.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-entitlements">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-entitlements/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.entitlements.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+   <target name="build-eos">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-eos/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.eos.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-jobs">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-jobs/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.jobs.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-leo">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-leo/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.leo.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-news">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-news/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.news.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-sas">
+    <avro-schema-compile destdir="${basedir}/../databus-events/databus-events-sas/src/main/java">
+       <fileset dir="${basedir}" includes="com.linkedin.events.sas.*.avsc" />
+    </avro-schema-compile>
+  </target>
+
+  <target name="build-All">
+    <avro-schema-compile file="${basedir}/*.avsc" destdir="${generated.dir}"/>
+  </target>
+
+  <target name="buildAll"
+          depends="build-All">
+  </target>
+          
+	
+</project>

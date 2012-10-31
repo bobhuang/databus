@@ -1,0 +1,20 @@
+<!--**********************************************************
+  ** Properties Definition
+  **********************************************************-->
+  <!-- Load external properties file -->
+  <property name="home" value="${user.home}" />
+
+  <!-- developer's personal preferences for THIS project  -->
+  <property file="${home}/.ant.properties.${ant.project.name}" />
+
+  <!-- developer's personal preferences for ALL projects  -->
+  <property file="${home}/.ant.properties" />
+
+  <!-- project settings for everyone  -->
+  <property file=".ant.properties" />
+  
+  <!--config values  for the target environment-->
+  <property file="${config.dir}/${dist}.config" />
+  
+  <!-- default config values -->
+  <property file="${config.file.default}" />

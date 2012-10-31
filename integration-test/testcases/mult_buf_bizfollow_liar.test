@@ -1,0 +1,106 @@
+#!/bin/bash 
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+# test bizfollow db relay can run with a small buffer.
+export TEST_NAME=mult_buffer_1.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port_bf=${CLIENT_PORT_BASE}
+let client_port_liar="${CLIENT_PORT_BASE}+1"
+
+db_config_file_bf=config/sources-bizfollow.json
+db_config_file_li=config/sources-liar.json
+db_config_file=${db_config_file_bf},${db_config_file_li}
+relay_event_trace=$WORK_DIR_FROM_ROOT/profile_relay_event_trace
+consumer_bf_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+consumer_bf_value_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.values
+consumer_bf_cp_dir=${WORK_DIR_FROM_ROOT}/databus2-checkpoints
+
+consumer_li_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
+consumer_li_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
+consumer_li_cp_dir=${WORK_DIR_FROM_ROOT}/databus2-checkpoints
+
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.eventBuffer.trace.needFileSuffix=true;databus.relay.container.httpPort=${relay_port}" -l config/client-log4j2file.properties.debug
+
+## start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_bf_log} --http_port=${client_port_bf} --relay_port=${relay_port} --value_file=${consumer_bf_value_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_bf_cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --dump_file=${consumer_li_log} --http_port=${client_port_liar} --relay_port=${relay_port} --value_file=${consumer_li_value_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=./liarclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# for bizfollow
+## start db generator and reload test data
+##db_testdata_truncate - removes old data from Oracle databases for db_config_file_bf
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow  --db_testdata_truncate --db_config_file=${db_config_file_bf} 
+
+## this command issues a REST call to the relay to tell it to use this specific database (bizfollow in this case) as its source
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s bizfollow --from_scn=2 --db_config_file=${db_config_file_bf} --server_port=${relay_port}
+
+## generates actual data/updates in the database, and that cuses relay to get the events (num_events of them)
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow --db_testdata_insert --db_config_file=${db_config_file_bf} --num_events=50 
+
+#now for liar
+# start db generator and reload test data
+$SCRIPT_DIR/dbus2_gen_event.py -s liar --db_testdata_truncate --db_config_file=${db_config_file_li}  
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s liar --db_config_file=${db_config_file_li}  --from_scn=2 --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_gen_event.py -s liar --db_testdata_insert --db_config_file=${db_config_file_li} --num_events=50 --from_scn=1 
+
+
+#
+##wait for 2 secs before start checking relay and consumer inbound event
+#need to specify a physical source id to get to the right maxWinSCN (100 for bizfollow)
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --p_src_id=100 --sleep_before_wait=2 --http_port=${client_port_bf} --relay_port=${relay_port}
+
+#wait for 1 secs before start checking relay and consumer inbound event
+#need to specify a physical source id to get to the right maxWinSCN (20 for liar)
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event --p_src_id=20 --sleep_before_wait=1 --http_port=${client_port_liar} --relay_port=${relay_port}
+
+
+#
+## look at the log
+echo ==GREP ERROR
+
+ls -1tr $LOG_DIR/*db_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+#
+## stop
+stat_txt="Stop BizFollow Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+source report_pass_fail.inc
+stat_txt="Stop Liar Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+source report_pass_fail.inc
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o stop
+
+#
+#
+##compare result
+stat_txt="Test $0"
+
+#
+## sorting because all events are in the same window and order is underterministic
+#sort -o ../../${consumer_1_value_log}.sorted ../../${consumer_1_value_log}
+
+#
+#$SCRIPT_DIR/dbus2_json_compare.py --db_src_ids=101 --db_config_file=${db_config_file} ${consumer_1_value_log}.sorted
+
+#file format is <relay_event_trace}.partitionName_pId
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_trace}.liar_20 ${consumer_li_log}
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_trace}.bizfollow_100 ${consumer_bf_log}
+source report_pass_fail.inc
+#
+
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+
+exit $all_stat

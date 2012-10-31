@@ -1,0 +1,17 @@
+{"name":       "BizFlag",
+ "version":    1,
+ "doc":        "Company Flag",
+ "type":       "record",
+ "schemaType": "DocumentSchema",
+ "namespace":  "com.linkedin.company.bizprofile.ds.api.espresso",
+ "fields":
+  [
+    {"name": "flagId",       "type": "long", "indexType": "attribute"},
+
+    {"name": "createdDate",  "type": "long"},
+    {"name": "description",  "type": ["null", "string"]},
+    {"name": "modifiedDate", "type": "long"},
+
+    {"name": "status",
+     "type": {"name": "BizFlagStatus", "type": "enum", "symbols": ["ACTIVE", "DELETED"]}}
+]}

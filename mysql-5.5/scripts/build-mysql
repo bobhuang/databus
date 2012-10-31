@@ -1,0 +1,451 @@
+#! /usr/bin/perl
+
+my $verbose = 1;
+my $mysql_version = "5.5.8";
+my $mysql_base_version = "5.5";
+my $mysql_build_root = $ENV{HOME}."/mysql-build-".$mysql_version;
+my $mysql_tar_file = $mysql_version.".tar.gz";
+my $mysql_tar_path = $mysql_build_root."/mysql-".$mysql_tar_file;
+my $mysql_src_root = "$mysql_build_root/mysql-$mysql_version";
+my $rpm_build_root = $ENV{HOME}."/rpmbuild";
+my $rpl_dbus_se_dir_link = "$mysql_src_root/storage/rpl_dbus";
+my $li_socket_dir_link = "$mysql_src_root/plugin/li_socket";
+my $svn_home = get_svn_home();
+my $rpl_dbus_se_dir_real =
+  $svn_home."/mysql-$mysql_base_version/rpl_dbus_se/";
+my $li_socket_dir_real =
+  $svn_home."/mysql-$mysql_base_version/li_socket/";
+
+my $libservices_dir_real = $svn_home."/mysql-$mysql_base_version/libservices/";
+my $libservices_dir_link = $svn_home."/libservices";
+
+my $patch_dir = $svn_home."/mysql-$mysql_base_version/patches";  
+my $patches_applied_file = $mysql_src_root."/patches_applied";
+my $rpl_dbus_test_dir_link = $mysql_src_root."/mysql-test/suite/".
+  "rpl_dbus";
+my $rpl_dbus_test_dir_real = $svn_home."/mysql-$mysql_base_version".
+ "/mysql-test-files";
+
+my $li_socket_test_dir_link = $mysql_src_root."/mysql-test/suite/".
+  "li_socket";
+my $li_socket_test_dir_real = $svn_home."/mysql-$mysql_base_version".
+ "/li_socket_test";
+
+ 
+my $scripts_link = $rpl_dbus_test_dir_link."/scripts";
+my $scripts_real = $svn_home."/mysql-$mysql_base_version/scripts"; 
+
+my $utils_link = $mysql_src_root."/mysql-test/li-utils";
+my $utils_real = $svn_home."/mysql-$mysql_base_version/utils"; 
+
+my $li_bench_link = $mysql_src_root."/mysql-test/suite/".
+  "li_bench";
+my $li_bench_real = $svn_home."/mysql-$mysql_base_version/mysql-test-bench"; 
+
+my $svn_version = get_svn_version();
+my $release_tag = "r".$svn_version;
+my $version_extra = "Linkedin-r".$svn_version;
+my $full_version = $mysql_version."-".$version_extra;
+
+$ENV{CC} = "gcc";
+$ENV{CXX} = "gcc";
+
+shell_exec("mkdir -p $mysql_build_root");
+if (! -f $mysql_tar_path)
+{
+
+   fetch_mysql();
+}
+
+#print "src_root=$mysql_src_root\n";
+#print "rpl_dbus_se=$rpl_dbus_se_dir_link\n";
+
+if (! -d $mysql_src_root)
+{
+  shell_exec("tar zxvf $mysql_tar_path -C $mysql_build_root");
+}
+
+if (! -l $rpl_dbus_test_dir_link) 
+{
+  shell_exec("ln -s $rpl_dbus_test_dir_real ".
+    " $rpl_dbus_test_dir_link");
+}
+
+if (! -l $li_socket_test_dir_link) 
+{
+  shell_exec("ln -s $li_socket_test_dir_real ".
+    " $li_socket_test_dir_link");
+}
+
+
+if (! -l $rpl_dbus_se_dir_link) 
+{
+  shell_exec("ln -s $rpl_dbus_se_dir_real  $rpl_dbus_se_dir_link");
+}
+
+if (! -l $li_socket_dir_link) 
+{
+  shell_exec("ln -s $li_socket_dir_real  $li_socket_dir_link");
+}
+
+
+if (! -l $scripts_link)
+{
+  shell_exec("ln -s $scripts_real $scripts_link");
+}
+
+if (! -l $utils_link)
+{
+  shell_exec("ln -s $utils_real $utils_link");
+}
+
+if (! -l $li_bench_link)
+{
+  shell_exec("ln -s $li_bench_real $li_bench_link");
+}
+
+if (! -l $libservices_dir_link)
+{
+  shell_exec("ln -s $libservices_dir_real $libservices_dir_link");
+}
+
+
+if (! -f $patches_applied_file)
+{
+  shell_exec("cd $mysql_src_root; cat $patch_dir/*.patch | patch -p 0");
+  shell_exec("touch $patches_applied_file");
+}
+
+
+my $my_cnf_hash = {};
+init_my_cnf_params($my_cnf_hash,get_system(), "master");
+write_my_cnf($mysql_src_root."/support-files/my-linkedin-master.cnf.sh", $my_cnf_hash);
+$my_cnf_hash = {};
+init_my_cnf_params($my_cnf_hash,get_system(), "slave");
+write_my_cnf($mysql_src_root."/support-files/my-linkedin-slave.cnf.sh", $my_cnf_hash);
+
+shell_exec("export CXX=gcc CC=gcc CXXFLAGS='-felide-constructors -fno-exceptions -fno-rtti'".
+
+" && cd $mysql_src_root && cmake . ".
+"-DBUILD_CONFIG=mysql_release -DINSTALL_LAYOUT=RPM ".
+ "-DMYSQL_SERVER_SUFFIX='-$version_extra' && make -j 8 VERBOSE=1");
+#shell_exec("cd $mysql_src_root/mysql-test && ./mysql-test-run --suite=rpl_dbus --#nowarnings");
+
+if ($ARGV[0] eq "build-mac-os-package")
+{
+  build_mac_os_package();
+}
+elsif ($ARGV[0] eq "build-rpm-package" || $ARGV[0] eq "build-rpm" )
+{
+  build_rpm_package();
+}
+
+sub get_system
+{
+  my $sys = `uname -s`;
+  
+  if ($sys =~ /Darwin/)
+  { 
+    return "macos";
+  }
+  
+  return "linux";
+}
+
+sub get_svn_version
+{
+  my $out = `svn info $svn_home/mysql-5.5`;
+  my $rev;
+  if (!($out =~/Revision:\s+(\d+)/))
+  {
+    die "Could not determine svn revsion from: $out\n";
+  } 
+  $rev = $1;
+  print "svn: $rev\n";
+  return $rev;
+}
+
+sub write_mac_os_pkg_desc
+{
+  my ($out) = @_;
+  open OUT, ">$out" or die "Could not open output file $out: $!\n";
+  print OUT <<EOT;
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>IFPkgDescriptionDeleteWarning</key>
+        <string></string>
+        <key>IFPkgDescriptionDescription</key>
+        <string>MySQL $full_version for Mac OS X</string>
+        <key>IFPkgDescriptionTitle</key>
+        <string>MySQL $full_version for Mac OS X</string>
+        <key>IFPkgDescriptionVersion</key>
+        <string>$full_version</string>
+</dict>
+</plist>
+  
+EOT
+ close OUT;
+}
+
+sub write_mac_os_pkg_info
+{
+  my ($out) = @_;
+  open OUT, ">$out" or die "Could not open output file $out: $!\n";
+  print OUT <<EOT;
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>CFBundleGetInfoString</key>
+        <string>MySQL $full_version</string>
+        <key>CFBundleIdentifier</key>
+        <string>com.mysql.mysql</string>
+        <key>CFBundleName</key>
+        <string>MySQL</string>
+        <key>CFBundleShortVersionString</key>
+        <string>$full_version</string>
+        <key>IFMajorVersion</key>
+        <integer>1</integer>
+        <key>IFMinorVersion</key>
+        <integer>0</integer>
+        <key>IFPkgFlagAllowBackRev</key>
+        <false/>
+        <key>IFPkgFlagAuthorizationAction</key>
+        <string>RootAuthorization</string>
+        <key>IFPkgFlagDefaultLocation</key>
+        <string>/</string>
+        <key>IFPkgFlagFollowLinks</key>
+        <true/>
+        <key>IFPkgFlagInstallFat</key>
+        <false/>
+        <key>IFPkgFlagInstalledSize</key>
+        <integer>449172</integer>
+        <key>IFPkgFlagIsRequired</key>
+        <false/>
+        <key>IFPkgFlagOverwritePermissions</key>
+        <false/>
+        <key>IFPkgFlagRelocatable</key>
+        <false/>
+        <key>IFPkgFlagRestartAction</key>
+        <string>NoRestart</string>
+        <key>IFPkgFlagRootVolumeOnly</key>
+        <true/>
+        <key>IFPkgFlagUpdateInstalledLanguages</key>
+        <false/>
+        <key>IFPkgFormatVersion</key>
+        <real>0.10000000149011612</real>
+</dict>
+</plist>
+  
+EOT
+ close OUT;
+}
+
+sub fix_sh
+{
+  my ($in,$out) = @_;
+  my $year = (localtime())[5] + 1900;
+  open IN_SPEC,$in or die "Could not open $in: $!\n";
+  open OUT_SPEC,">$out" or die "Could not open $out: $!\n";
+  
+  while ($line = <IN_SPEC>)
+  {
+    $line =~ s/\@VERSION\@/$mysql_version/g;
+    $line =~ s/\@MYSQL_RPM_VERSION\@/$mysql_version/g;
+    $line =~ s/\@MYSQL_BASE_VERSION\@/$mysql_base_version/g;
+    $line =~ s/\@MYSQL_COPYRIGHT_YEAR\@/$year/g;
+    $line =~ s/\@MYSQL_LINKEDIN_SUFFIX\@/$version_extra/g;
+    $line =~ s/\@MYSQL_LINKEDIN_RELEASE_TAG\@/$release_tag/g;
+    print OUT_SPEC $line;
+  }
+  
+  close IN_SPEC;
+  close OUT_SPEC;
+}
+
+sub init_my_cnf_params
+{
+  my ($params,$sys_type,$role) = @_;
+  $params->{server_id} = "{server_id}";
+  my $db_prefix = "es_";
+  my $mysql_home = "/export/apps/mysql";
+  my  $datadir = "$mysql_home/data";
+  $params->{log_error} = $mysql_home."/mysqld.err";
+  $params->{pid_file} = $mysql_home."/mysqld.pid";
+  $params->{binlog_mark_events} = 1;
+  $params->{socket} = $mysql_home."/mysql.sock";
+  $params->{datadir} = $datadir;
+  $params->{max_allowed_packet} = "128M";
+  
+  if ($role eq "master")
+  {
+    $params->{skip_innodb_doublewrite} = 1;
+    $params->{innodb_file_per_table} = 1;
+    $params->{innodb_flush_log_at_trx_commit} = 0;
+    $params->{innodb_io_capacity} = 800;
+    $params->{innodb_use_checkpoint_thread} = 1;
+    $params->{max_connections} = 1000;
+    $params->{innodb_tablespace_extra_extend} = 128;
+    $params->{innodb_adaptive_checkpoint} = "none";
+    $params->{innodb_checkpoint_thread_sleep} = 10000;
+    $params->{log_bin} = "mysql-bin";
+    $params->{binlog_id_auto_activate} = 1;
+    $params->{binlog_format} = "row";
+    $params->{user} = "mysql";
+    $params->{slow_query_log} = 1;
+    $params->{long_query_time} = 0.1;
+    $params->{tmpdir} = "$mysql_home/tmp";
+    $params->{slow_query_log_file} = "$mysql_home/slow-queries.log";
+    $params->{innodb_data_home_dir} = $datadir;
+    $params->{innodb_log_group_home_dir} = "$mysql_home/logs";
+    $params->{innodb_buffer_pool_size} = "4G";
+    $params->{innodb_data_file_path} = "ibdata1:1000M:autoextend";
+    $params->{innodb_checkpoint_age_target} = "1GB";
+    $params->{innodb_log_file_size} = "2047MB";
+    $params->{expire_logs_days} = 3;
+   } 
+  elsif ($role eq "slave")
+  {
+    $params->{skip_innodb} = 1;
+    $params->{replicate_wild_fetch_nx_table} = "$db_prefix%.%";
+    $params->{force_rpl_dbus_prefix} = $db_prefix;
+    $params->{relay_log_space_limit} = "100MB";
+    $params->{default_storage_engine} = "myisam";
+    $params->{relay_log} = "mysqld-relay-bin";
+    $params->{port} = 29000;
+    $params->{datadir} = $mysql_home."/data";
+    $params->{user} = "app";
+    $params->{replicate_wild_ignore_table} = "mysql.%";
+  }
+   
+    
+}
+
+sub write_my_cnf
+{
+  my ($out,$params) = @_;
+  my $key;
+  open OUT_MY, ">$out" or die "Could not open $out: $!\n";
+  print OUT_MY "[mysqld]\n";
+  
+  foreach $key (keys %$params)
+  {
+    print OUT_MY "$key=".$params->{$key}."\n";
+  }
+  
+  print OUT_MY "[client]\n";
+  
+  if (defined($params->{socket}))
+  {
+    print OUT_MY "socket=".$params->{socket}."\n";
+  }
+  if (defined($params->{port}))
+  {
+    print OUT_MY "port=".$params->{port}."\n";
+  }
+  
+  close OUT_MY;
+}
+
+sub build_rpm_package
+{
+  my $sh_spec = $svn_home."/mysql-".$mysql_base_version."/rpm/mysql.spec.sh";
+  my $out_spec = $mysql_src_root."/support-files/mysql-linkedin.spec";
+  fix_sh($sh_spec,$out_spec);
+  my $my_cnf_params = {};
+  init_my_cnf_params($my_cnf_params,"linux","master");
+  write_my_cnf($mysql_src_root."/support-files/my-linkedin-master.cnf.sh",
+     $my_cnf_params);
+  $my_cnf_params = {};
+  init_my_cnf_params($my_cnf_params,"linux","slave");
+  write_my_cnf($mysql_src_root."/support-files/my-linkedin-slave.cnf.sh",
+     $my_cnf_params);
+     
+  $ENV{MYSQL_BUILD_MAKE_JFLAG} = "-j 8";
+  shell_exec("cp $svn_home/mysql-".$mysql_base_version.
+  "/rpm/cpack_source_ignore_files.cmake ".
+  " $mysql_src_root/cmake/".
+   " && cd $mysql_src_root && make dist && mkdir -p $rpm_build_root/SOURCES  &&".
+    "cp mysql-$mysql_tar_file $rpm_build_root/SOURCES/".
+    " && rpmbuild -ba $out_spec");
+}
+
+
+sub build_mac_os_package
+{
+  my $mysql_template_dir = $ENV{HOME}."/mysql-template";
+  if (! -d $mysql_template_dir)
+  {
+    die "Missing $mysql_template_dir, create it manually from the MySQL dmg package\n";
+  }
+  
+  my $mysql_package_dir = $ENV{HOME}."/mysql-package-dir";
+  shell_exec("rm -rf $mysql_package_dir");
+  shell_exec("cp -r $mysql_template_dir $mysql_package_dir");
+  my $mysql_pkg_subdir = $mysql_package_dir."/mysql-osx-$full_version".".pkg";
+  shell_exec("mv $mysql_package_dir/mysql-5.5.* $mysql_pkg_subdir");
+  my $mysql_install_dir = $ENV{HOME}."/mysql-install-dir";
+  
+  shell_exec("rm -rf $mysql_install_dir; mkdir -p $mysql_install_dir/");
+  shell_exec("cd $mysql_src_root; make DESTDIR=$mysql_install_dir install");
+  my $install_my_cnf = "/usr/share/mysql/my-linkedin.cnf";
+  
+  my $my_cnf_params = {};
+  init_my_cnf_params($my_cnf_params,"macos", "master");
+  write_my_cnf($mysql_install_dir.$install_my_cnf, $my_cnf_params);
+  shell_exec("cd $mysql_install_dir ; tar zcf " .
+    "$mysql_pkg_subdir/Contents/Archive.pax.gz".
+    " .");
+  shell_exec("mkbom $mysql_install_dir $mysql_pkg_subdir/Contents/Archive.bom"); 
+  write_mac_os_pkg_desc("$mysql_pkg_subdir/".
+    "Contents/Resources/en.lproj/Description.plist");
+  write_mac_os_pkg_info("$mysql_pkg_subdir/".
+    "Contents/Info.plist");
+  shell_exec("cp $scripts_real/macos-preflight ".
+     " $mysql_pkg_subdir/Contents/Resources/preflight");
+  shell_exec("cp $scripts_real/macos-postflight ".
+     " $mysql_pkg_subdir/Contents/Resources/postflight");
+  my $package_dmg = $ENV{HOME}."/mysql-$full_version".".dmg";
+  
+  shell_exec("rm -f $package_dmg; ".
+    "hdiutil create -srcfolder $mysql_package_dir $package_dmg"); 
+}
+
+sub dbug_print
+{
+  return unless $verbose;
+  my ($msg) = shift @_;
+  my $text = join(' ',@_);
+  print STDERR "dbug: $msg: $text\n";
+}
+
+sub shell_exec
+{
+  my $cmd = join(' ',@_);
+  dbug_print("Running command",$cmd); 
+  system(@_) == 0 || die "Command \"$cmd\" failed\n";
+}
+
+sub get_svn_home
+{
+  my $dir = `pwd`;
+  #print "mysql_base_version: $mysql_base_version\n";
+  if ($dir =~ /(.*)\/mysql\-$mysql_base_version/)
+  {
+    return $1;
+  }
+  else
+  {
+    die "Cannot determine SVN home from $dir\n";
+  }
+}
+
+sub fetch_mysql
+{
+  my $mysql_url = "http://apachev-md.linkedin.biz/~apachev/src/".
+  "mysql-".$mysql_version.
+  ".tar.gz";
+  shell_exec("wget -O '$mysql_tar_path' '$mysql_url'");
+}

@@ -1,0 +1,32 @@
+{
+  "id" : "db",
+  "simpleFields" : {
+    "id_generator" : "{\n  \"highWaterMark\" : 9,\n  \"unusedNumbers\" : [ ]\n}"
+  },
+  "mapFields" : {
+    "id_to_schema" : {
+      "0" : "/schemata/db/BizFollow/1",
+      "1" : "/schemata/db/BizProfile/1",
+      "2" : "/schemata/db/CommDB/1",
+      "3" : "/schemata/db/CommDB_Range/1",
+      "4" : "/schemata/db/EspressoDB/1",
+      "5" : "/schemata/db/MailboxDB/1",
+      "6" : "/schemata/db/MyDB/1",
+      "7" : "/schemata/db/TestDB/1",
+      "8" : "/schemata/db/schemata/1"
+    },
+    "schema_to_id" : {
+      "/schemata/db/BizFollow/1" : "0",
+      "/schemata/db/BizProfile/1" : "1",
+      "/schemata/db/CommDB/1" : "2",
+      "/schemata/db/CommDB_Range/1" : "3",
+      "/schemata/db/EspressoDB/1" : "4",
+      "/schemata/db/MailboxDB/1" : "5",
+      "/schemata/db/MyDB/1" : "6",
+      "/schemata/db/TestDB/1" : "7",
+      "/schemata/db/schemata/1" : "8"
+    }
+  },
+  "listFields" : {
+  }
+}

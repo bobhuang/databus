@@ -1,0 +1,8 @@
+{
+  "schemaType" : "DBSchema",
+  "name" : "MailboxDB",
+  "version": 1,
+  "doc" : "Database schema used for tests",
+  "partitionType" : "HASH",
+  "numBuckets" : 128
+}

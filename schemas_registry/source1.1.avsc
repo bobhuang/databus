@@ -1,0 +1,8 @@
+{
+	"type": "record",
+	"name": "source1",
+	"fields": 
+	[
+		{"type": "int", "name": "intField"}
+	]
+}

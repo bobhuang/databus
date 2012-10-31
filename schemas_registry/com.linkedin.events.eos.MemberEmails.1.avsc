@@ -1,0 +1,36 @@
+{
+  "name" : "MemberEmails_V1",
+  "doc" : "Auto-generated Avro schema for eos.sy$member_emails. Generated at Sep 15, 2011 11:59:19 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=eos.sy$member_emails;",
+  "namespace" : "com.linkedin.events.eos",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "emailId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=EMAIL_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "email",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EMAIL;dbFieldPosition=3;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=4;"
+  }, {
+    "name" : "isPrimary",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=IS_PRIMARY;dbFieldPosition=5;"
+  }, {
+    "name" : "isConfirmed",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=IS_CONFIRMED;dbFieldPosition=6;"
+  } ]
+}

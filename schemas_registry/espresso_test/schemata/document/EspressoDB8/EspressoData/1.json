@@ -1,0 +1,10 @@
+{
+    "type" : "record",
+  "version":   1,
+    "name" : "EspressoData",
+    "namespace" : "com.yahoo.ycsb.db",
+    "fields" : [
+        { "name" : "k", "type" : "string"}, 
+        { "name" : "v", "type": {"type" : "map", "values" : "string" }}
+    ]
+}

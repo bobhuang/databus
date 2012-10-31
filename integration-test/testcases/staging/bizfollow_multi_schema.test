@@ -1,0 +1,93 @@
+#!/bin/bash
+# simple bootstrap test, generate random event, put that in bootstrap
+
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+# Test change in schema version (Bootstrap has two versions of the schema)
+export TEST_NAME=bizfollow_multi_schema.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file= ${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace
+relay_event_dump_file1=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace_1
+relay_event_dump_file2=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace_2
+schema_temp_folder=$SCRIPT_DIR/../testcases/tmp
+schema_folder_from_root=integration-test/testcases/tmp
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+
+
+#make a temp folder and copy bizfollow v1 schema to the folder
+mkdir $schema_temp_folder
+cp $SCRIPT_DIR/../../schemas_registry/com.linkedin.events.bizfollow.bizfollow.BizFollow.1.avsc $schema_temp_folder
+#start the relay..point it to the temp folder to pickup the v1 bizfollow schema on startup
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file1};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.schemaRegistry.fileSystem.schemaDir=${schema_folder_from_root}" --jvm_direct_memory_size=10M
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer, use a given port to avoid conflict with consumer, temp folder to pickup v1 bizfollow schema
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.bizfollow.bizfollow.BizFollow;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=1024000"
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 --from_scn=2 --wait_until_suspend --num_events=200
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40
+
+#stop the relay
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+
+cp $SCRIPT_DIR/../../schemas_registry/com.linkedin.events.bizfollow.bizfollow.BizFollow.2.avsc $schema_temp_folder
+
+#start the relay..point it to the temp folder to pickup the v2 bizfollow schema on startup
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file2};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.schemaRegistry.fileSystem.schemaDir=${schema_folder_from_root}" --jvm_direct_memory_size=10M
+
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 --from_scn=10000000 --wait_until_suspend --num_events=200
+
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.bizfollow.bizfollow.BizFollow;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=1024000"
+
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40
+
+# start the bootstrap server on port 6060
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start
+
+# start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --bootstrap_port=6060 --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=./bfclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000"
+
+# wait for event
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event_bootstrap --timeout=60 --sleep_after_wait=2
+# The integrated consumer does not have client stats, will use it after it get fixed
+ 
+# look at the log, there should be some SCN not found errors
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_bizfollow_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+
+cat $SCRIPT_DIR/../var/work/$TEST_NAME/bizfollow_relay_event_trace_1 >> $SCRIPT_DIR/../var/work/$TEST_NAME/bizfollow_relay_event_trace
+cat $SCRIPT_DIR/../var/work/$TEST_NAME/bizfollow_relay_event_trace_2 >> $SCRIPT_DIR/../var/work/$TEST_NAME/bizfollow_relay_event_trace
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0"
+
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $SCRIPT_DIR/../var/work/$TEST_NAME/bizfollow_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+rm -f tmp/com*
+rmdir tmp
+exit $all_stat
+

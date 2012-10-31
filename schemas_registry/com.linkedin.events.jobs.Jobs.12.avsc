@@ -1,0 +1,352 @@
+{
+  "name" : "Jobs_V12",
+  "doc" : "Auto-generated Avro schema for sy$JOBS_12. Generated at May 16, 2012 03:17:35 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$JOBS_12;",
+  "namespace" : "com.linkedin.events.jobs",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "jobId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=JOB_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "jobTitle",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=JOB_TITLE;dbFieldPosition=4;"
+  }, {
+    "name" : "company",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY;dbFieldPosition=5;"
+  }, {
+    "name" : "companyUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_URL;dbFieldPosition=6;"
+  }, {
+    "name" : "jobFunctions",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=JOB_FUNCTIONS;dbFieldPosition=7;"
+  }, {
+    "name" : "industries",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=INDUSTRIES;dbFieldPosition=8;"
+  }, {
+    "name" : "locationDesc",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOCATION_DESC;dbFieldPosition=9;"
+  }, {
+    "name" : "jobType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=JOB_TYPE;dbFieldPosition=10;"
+  }, {
+    "name" : "experience",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXPERIENCE;dbFieldPosition=11;"
+  }, {
+    "name" : "jobCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=JOB_CODE;dbFieldPosition=12;"
+  }, {
+    "name" : "salary",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SALARY;dbFieldPosition=13;"
+  }, {
+    "name" : "description",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DESCRIPTION;dbFieldPosition=14;"
+  }, {
+    "name" : "description2",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DESCRIPTION_2;dbFieldPosition=15;"
+  }, {
+    "name" : "description3",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DESCRIPTION_3;dbFieldPosition=16;"
+  }, {
+    "name" : "showPoster",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SHOW_POSTER;dbFieldPosition=17;"
+  }, {
+    "name" : "posterHeadline",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=POSTER_HEADLINE;dbFieldPosition=18;"
+  }, {
+    "name" : "contactEmailId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CONTACT_EMAIL_ID;dbFieldPosition=19;"
+  }, {
+    "name" : "role",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ROLE;dbFieldPosition=20;"
+  }, {
+    "name" : "state",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATE;dbFieldPosition=21;"
+  }, {
+    "name" : "createDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=22;"
+  }, {
+    "name" : "listDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=LIST_DATE;dbFieldPosition=23;"
+  }, {
+    "name" : "expirationDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=EXPIRATION_DATE;dbFieldPosition=24;"
+  }, {
+    "name" : "lastModifiedDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=LAST_MODIFIED_DATE;dbFieldPosition=25;"
+  }, {
+    "name" : "closeDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CLOSE_DATE;dbFieldPosition=26;"
+  }, {
+    "name" : "sendConfirmationEmail",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SEND_CONFIRMATION_EMAIL;dbFieldPosition=27;"
+  }, {
+    "name" : "lastReminderSent",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=LAST_REMINDER_SENT;dbFieldPosition=28;"
+  }, {
+    "name" : "linkedinExclusive",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LINKEDIN_EXCLUSIVE;dbFieldPosition=29;"
+  }, {
+    "name" : "endorsementsPreferred",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ENDORSEMENTS_PREFERRED;dbFieldPosition=30;"
+  }, {
+    "name" : "referralsPreferred",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRALS_PREFERRED;dbFieldPosition=31;"
+  }, {
+    "name" : "localsOnly",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOCALS_ONLY;dbFieldPosition=32;"
+  }, {
+    "name" : "noThirdParties",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=NO_THIRD_PARTIES;dbFieldPosition=33;"
+  }, {
+    "name" : "geo",
+    "type" : {
+      "name" : "DATABUS_GEO_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "country",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=COUNTRY;dbFieldPosition=0;"
+      }, {
+        "name" : "postalCode",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=POSTAL_CODE;dbFieldPosition=1;"
+      }, {
+        "name" : "geoPostalCode",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=GEO_POSTAL_CODE;dbFieldPosition=2;"
+      }, {
+        "name" : "regionCode",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=REGION_CODE;dbFieldPosition=3;"
+      }, {
+        "name" : "geoPlaceCode",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=GEO_PLACE_CODE;dbFieldPosition=4;"
+      }, {
+        "name" : "geoPlaceMaskCode",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=GEO_PLACE_MASK_CODE;dbFieldPosition=5;"
+      }, {
+        "name" : "latitudeDeg",
+        "type" : [ "float", "null" ],
+        "meta" : "dbFieldName=LATITUDE_DEG;dbFieldPosition=6;"
+      }, {
+        "name" : "longitudeDeg",
+        "type" : [ "float", "null" ],
+        "meta" : "dbFieldName=LONGITUDE_DEG;dbFieldPosition=7;"
+      } ]
+    },
+    "meta" : "dbFieldName=GEO;dbFieldPosition=34;"
+  }, {
+    "name" : "companyId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=35;"
+  }, {
+    "name" : "language",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LANGUAGE;dbFieldPosition=36;"
+  }, {
+    "name" : "companyDescription",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_DESCRIPTION;dbFieldPosition=37;"
+  }, {
+    "name" : "skills",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SKILLS;dbFieldPosition=38;"
+  }, {
+    "name" : "orderId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ORDER_ID;dbFieldPosition=39;"
+  }, {
+    "name" : "extOriginId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=EXT_ORIGIN_ID;dbFieldPosition=40;"
+  }, {
+    "name" : "extOriginType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXT_ORIGIN_TYPE;dbFieldPosition=41;"
+  }, {
+    "name" : "candidateCompanies",
+    "type" : {
+      "items" : {
+        "name" : "databusCompanyT",
+        "type" : "record",
+        "meta" : "dbFieldName=CANDIDATE_COMPANIES;dbFieldPosition=42;",
+        "fields" : [ {
+          "name" : "companyId",
+          "type" : [ "long", "null" ],
+          "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=0;"
+        }, {
+          "name" : "companyName",
+          "type" : [ "string", "null" ],
+          "meta" : "dbFieldName=COMPANY_NAME;dbFieldPosition=1;"
+        } ]
+      },
+      "name" : "candidateCompaniesArray",
+      "type" : "array"
+    }
+  }, {
+    "name" : "updateReason",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=UPDATE_REASON;dbFieldPosition=43;"
+  }, {
+    "name" : "hideSalary",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=HIDE_SALARY;dbFieldPosition=44;"
+  }, {
+    "name" : "succeeded",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SUCCEEDED;dbFieldPosition=45;"
+  }, {
+    "name" : "currency",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=CURRENCY;dbFieldPosition=46;"
+  }, {
+    "name" : "totalCash50Pct",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TOTAL_CASH_50_PCT;dbFieldPosition=47;"
+  }, {
+    "name" : "minSalary",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=MIN_SALARY;dbFieldPosition=48;"
+  }, {
+    "name" : "maxSalary",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=MAX_SALARY;dbFieldPosition=49;"
+  }, {
+    "name" : "payPeriod",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=PAY_PERIOD;dbFieldPosition=50;"
+  }, {
+    "name" : "referralFee",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE;dbFieldPosition=51;"
+  }, {
+    "name" : "referralFeeDesc",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE_DESC;dbFieldPosition=52;"
+  }, {
+    "name" : "referralFeeCurrency",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE_CURRENCY;dbFieldPosition=53;"
+  }, {
+    "name" : "referralFeeEligibility",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE_ELIGIBILITY;dbFieldPosition=54;"
+  }, {
+    "name" : "referralFee2",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE2;dbFieldPosition=55;"
+  }, {
+    "name" : "referralFee2Desc",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE2_DESC;dbFieldPosition=56;"
+  }, {
+    "name" : "referralFee2Currency",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE2_CURRENCY;dbFieldPosition=57;"
+  }, {
+    "name" : "referralFee2Eligibility",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=REFERRAL_FEE2_ELIGIBILITY;dbFieldPosition=58;"
+  }, {
+    "name" : "grantId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=GRANT_ID;dbFieldPosition=59;"
+  }, {
+    "name" : "extApplyUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXT_APPLY_URL;dbFieldPosition=60;"
+  }, {
+    "name" : "partnerId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PARTNER_ID;dbFieldPosition=61;"
+  }, {
+    "name" : "partnerJobCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=PARTNER_JOB_CODE;dbFieldPosition=62;"
+  }, {
+    "name" : "trackingPixelUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TRACKING_PIXEL_URL;dbFieldPosition=63;"
+  }, {
+    "name" : "descriptionRtdata",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DESCRIPTION_RTDATA;dbFieldPosition=64;"
+  }, {
+    "name" : "companyDescriptionRtdata",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_DESCRIPTION_RTDATA;dbFieldPosition=65;"
+  }, {
+    "name" : "skillsRtdata",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SKILLS_RTDATA;dbFieldPosition=66;"
+  }, {
+    "name" : "productCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=PRODUCT_CODE;dbFieldPosition=67;"
+  }, {
+    "name" : "originalListDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ORIGINAL_LIST_DATE;dbFieldPosition=68;"
+  }, {
+    "name" : "creatorId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATOR_ID;dbFieldPosition=69;"
+  }, {
+    "name" : "veteranCommit",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VETERAN_COMMIT;dbFieldPosition=70;"
+  }, {
+    "name" : "isSponsored",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=IS_SPONSORED;dbFieldPosition=71;"
+  }, {
+    "name" : "campaignId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CAMPAIGN_ID;dbFieldPosition=72;"
+  } ]
+}

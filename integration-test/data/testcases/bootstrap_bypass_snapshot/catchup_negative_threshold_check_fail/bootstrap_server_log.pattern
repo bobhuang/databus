@@ -1,0 +1,2 @@
+Threshold check failed for source \(com.linkedin.events.liar.jobrelay.LiarJobRelay\) Threshold:200,Approx Rows:470,[1-2]
+StartSCN is less than or equal to sinceSCN. Bypassing snapshot phase,0

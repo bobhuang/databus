@@ -1,0 +1,5 @@
+apply plugin: 'li-java'
+
+dependencies {
+  compile project(':databus-client:databus-client-impl')
+}

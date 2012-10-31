@@ -1,0 +1,1 @@
+--binlog-mark-events=1 --binlog-format=row --binlog-gen-id-required-prefix=exp_ --binlog-id-auto-activate=1

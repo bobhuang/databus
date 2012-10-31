@@ -1,0 +1,32 @@
+apply plugin: 'li-java'
+
+test.workingDir = "${project.rootDir}"
+
+dependencies {
+  compile project(':databus-core:databus-core-impl')
+  compile project(':databus-core:databus-core-schemas')
+  compile project(':databus-bootstrap-utils:databus-bootstrap-utils-impl')
+
+  compile spec.external.avro
+  compile spec.external.commonsCodec
+  compile spec.external.commonsIo
+  compile spec.external.commonsLang
+  compile spec.external.commonsLogging
+  compile spec.product.container.healthcheckApi
+  compile spec.external.hadoopCore
+  compile spec.external.jacksonCoreAsl
+  compile spec.external.jacksonMapperAsl
+  compile spec.external.json
+  compile spec.external.log4j
+  compile spec.external.netty
+
+  testCompile spec.external.testng
+  testCompile project(':databus-events:databus-events-anet')
+}
+
+jar {
+	dependsOn configurations.runtime
+	from {configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+test.useTestNG()

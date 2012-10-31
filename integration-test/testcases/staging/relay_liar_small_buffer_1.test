@@ -1,0 +1,38 @@
+#!/bin/bash
+# simple liar generation test
+
+export TEST_NAME=relay_liar_small_buffer_1.test
+
+source setup_env.inc
+relay_event_dump_file=integration-test/var/work/${TEST_NAME}/liar_relay_event_trace
+relay_gc_file=integration-test/var/work/${TEST_NAME}/liar_relay_gc.log
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:8999,server=y " --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false"
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
+cp_dir=integration-test/var/work/${TEST_NAME}/ckpt_1
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true"
+
+# generate events
+#$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=1000 --wait_until_suspend
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 20,21 --num_events=1000 
+
+#echo == Event generation started. Please check $WORK_DIR/profile_relay_event_trace and ${consumer_1_log}
+#sleep 6  more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event --timeout=60
+ 
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_liar_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_dump_file} ${consumer_1_log} --fk_src_order=20,21 
+source report_pass_fail.inc
+
+exit $all_stat

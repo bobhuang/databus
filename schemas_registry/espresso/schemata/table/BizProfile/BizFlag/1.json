@@ -1,0 +1,10 @@
+{"name":       "BizFlag",
+ "doc":        "Table Schema for Flag entities",
+ "schemaType": "TableSchema",
+ "version":    1,
+ "recordType": "/schemata/document/BizProfile/BizFlag",
+ "resourceKeyParts":
+  [
+    {"name": "entityReference", "type": "STRING"},
+    {"name": "memberId",        "type": "INT"}
+]}

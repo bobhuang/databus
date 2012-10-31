@@ -1,0 +1,28 @@
+{
+  "name" : "JobMatchUpdate_V1",
+  "doc" : "Auto-generated Avro schema for SY$JOB_MATCH_UPDATE. Generated at Jun 21, 2012 11:25:14 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=SY$JOB_MATCH_UPDATE;",
+  "namespace" : "com.linkedin.events.jobs",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "state",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATE;dbFieldPosition=2;"
+  }, {
+    "name" : "listDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=LIST_DATE;dbFieldPosition=3;"
+  }, {
+    "name" : "tmLastUpdatedTime",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TM_LAST_UPDATED_TIME;dbFieldPosition=4;"
+  } ]
+}

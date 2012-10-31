@@ -1,0 +1,1 @@
+{"name":"Company", "doc":"Table schema for company", "schemaType":"TableSchema", "recordType":"/schemata/document/MyDB/Company", "version":1, "resourceKeyParts":[{"name":"companyId", "type":"INT"}]}

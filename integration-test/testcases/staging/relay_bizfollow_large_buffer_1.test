@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# start the relay on port 8080
+source setup_env.inc
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props=databus.relay.eventBuffer.maxSize=1024000000 --jvm_direct_memory_size=11g
+#$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=integration-test/var/work/bizfollow_relay_event_trace;databus.relay.eventBuffer.trace.appendOnly=false"
+
+HOST_NAME=esv4-be42
+#HOST_NAME=localhost
+NUM_CONSUMERS=2
+num=1
+while [ "$num" -le $NUM_CONSUMERS ]
+do
+  port=$((8080+$num))
+  ($SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=$HOST_NAME --http_port=$port &)
+  let "num+=1"
+done     
+
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 1000
+
+exit 0
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log}
+
+# generate events
+#$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 10000 -t 30000
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 --num_events=1000
+
+#echo == Event generation started. Please check $WORK_DIR/profile_relay_event_trace and ${consumer_1_log}
+#sleep 6  more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --sleep_before_wait=10 --timeout=60
+ 
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/bizfollow_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+exit $all_stat

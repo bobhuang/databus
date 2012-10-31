@@ -1,0 +1,17 @@
+{
+  "name" : "EmailDetail",
+  "doc" : "Document schema for email body, etc",
+  "version": 1,
+  "type" : "record",
+  "schemaType" : "DocumentSchema",
+  "namespace" : "com.linkedin.espresso.test.mailboxdb",
+  "fields" : [ {
+    "name" : "subject",
+    "type" : "string",
+    "indexType" : "text"
+  }, {
+    "name" : "body",
+    "type" : "string",
+    "indexType" : "text"
+  } ]
+}
