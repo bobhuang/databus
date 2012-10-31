@@ -1,4 +1,3 @@
-apply plugin: 'li-war'
 
 dependencies {
   components project(':sec-consumer:sec-consumer-test-consumer-cmpt')

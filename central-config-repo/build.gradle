@@ -1,4 +1,3 @@
-apply plugin: 'li-base'
 
 
 // copy central configs to build/ dir, e.g.

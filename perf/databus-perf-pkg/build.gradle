@@ -1,4 +1,3 @@
-apply plugin: 'li-cmdline'
 
 dependencies {
   compile project(':perf:databus-perf-core')

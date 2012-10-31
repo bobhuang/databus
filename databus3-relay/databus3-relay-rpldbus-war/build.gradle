@@ -1,4 +1,3 @@
-apply plugin: 'li-war'
 
 dependencies {
   components spec.product.'dds-mysql'.MySQLServiceCmpt

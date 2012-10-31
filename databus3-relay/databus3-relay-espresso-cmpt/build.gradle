@@ -1,4 +1,3 @@
-apply plugin: 'li-spring'
 
 dependencies {
   runtime project(':databus3-relay:databus3-relay-espresso-li')

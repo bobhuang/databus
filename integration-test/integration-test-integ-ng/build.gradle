@@ -1,5 +1,3 @@
-apply plugin: 'li-java'
-apply plugin: 'li-test'
 
 test {
   if (!project.hasProperty('integ.test')) {

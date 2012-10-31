@@ -1,4 +1,3 @@
-apply plugin: 'li-java'
 logging.captureStandardOutput LogLevel.INFO
 
 dependencies {

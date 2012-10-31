@@ -1,4 +1,3 @@
-apply plugin: 'li-cmdline'
 
 dependencies {
   compile project(':hadoop:databus2-hadoop-impl')

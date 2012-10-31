@@ -1,5 +1,3 @@
-apply plugin: 'li-java'
-apply plugin: 'li-cmdline'
 
 dependencies {
   runtime spec.external.zookeeper
