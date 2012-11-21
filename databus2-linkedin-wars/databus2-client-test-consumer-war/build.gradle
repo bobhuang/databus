@@ -1,10 +1,10 @@
-apply plugin: 'li-war'
+apply plugin: 'war'
 
 dependencies {
   components project(':databus2-linkedin-wars:databus2-client-test-consumer-cmpt')
 
   compile spec.product.'container-server-jetty'.emweb
-  compile spec.external.googleCollections
+  compile externalDependency.googleCollections
 }
 
 liWar {

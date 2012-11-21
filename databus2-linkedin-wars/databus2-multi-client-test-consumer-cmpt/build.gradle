@@ -1,4 +1,4 @@
-apply plugin: 'li-spring'
+apply plugin: 'spring'
 
 dependencies {
   runtime project(':databus-client:databus-client-impl')

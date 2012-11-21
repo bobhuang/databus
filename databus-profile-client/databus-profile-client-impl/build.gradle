@@ -1,4 +1,4 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 test.workingDir = "${project.rootDir}"
 
@@ -12,14 +12,14 @@ dependencies {
   compile project(':databus-events:databus-events-conns')
   compile project(':databus-profile-relay:databus-profile-relay-impl')
 
-  compile spec.external.avro
-  compile spec.external.jacksonCoreAsl
-  compile spec.external.jacksonMapperAsl
-  compile spec.external.log4j
-  compile spec.external.netty
+  compile externalDependency.avro
+  compile externalDependency.jacksonCoreAsl
+  compile externalDependency.jacksonMapperAsl
+  compile externalDependency.log4j
+  compile externalDependency.netty
 
-  testCompile spec.external.testng
-  testCompile spec.external.easymock
+  testCompile externalDependency.testng
+  testCompile externalDependency.easymock
 }
 
 test.useTestNG()

@@ -1,5 +1,5 @@
-apply plugin: 'li-java'
-apply plugin: 'li-test'
+apply plugin: 'java'
+apply plugin: 'test'
 
 test {
   if (!project.hasProperty('integ.test')) {
@@ -20,18 +20,18 @@ dependencies {
   compile project(':databus-client:databus-client-api')
   compile project(':databus-client:databus3-client-impl')
 
-  compile spec.external.log4j
-  compile spec.external.zookeeper
-  compile spec.external.helixCore
-  compile spec.external.commonsCli
-  compile spec.external.jacksonMapperAsl
-  compile spec.external.jacksonCoreAsl
-  compile spec.external.commonsCodec
-  compile spec.external.luceneAnalyzers
-  compile spec.external.luceneCore
-  compile spec.external.luceneQueries
-  compile spec.external.commonsParent
-  compile spec.external.commonsCollections
+  compile externalDependency.log4j
+  compile externalDependency.zookeeper
+  compile externalDependency.helixCore
+  compile externalDependency.commonsCli
+  compile externalDependency.jacksonMapperAsl
+  compile externalDependency.jacksonCoreAsl
+  compile externalDependency.commonsCodec
+  compile externalDependency.luceneAnalyzers
+  compile externalDependency.luceneCore
+  compile externalDependency.luceneQueries
+  compile externalDependency.commonsParent
+  compile externalDependency.commonsCollections
 
-  testCompile spec.external.testng
+  testCompile externalDependency.testng
 }

@@ -1,4 +1,4 @@
-apply plugin: 'li-cmdline'
+apply plugin: 'cmdline'
 
 project.tasks.cmdline {
 

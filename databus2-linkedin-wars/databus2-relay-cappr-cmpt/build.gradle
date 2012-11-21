@@ -1,4 +1,4 @@
-apply plugin: 'li-spring'
+apply plugin: 'spring'
 
 dependencies {
   runtime project(':databus2-linkedin:databus2-relay-linkedin-startables')
