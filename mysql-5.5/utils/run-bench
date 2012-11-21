@@ -1,0 +1,458 @@
+#! /usr/bin/perl
+
+use Getopt::Long;
+use Cwd;
+
+$MYSQL_TEST_DIR = getcwd();
+$PLUGIN_DIR="$MYSQL_TEST_DIR/../plugin/semisync";
+
+my $num_tables = 100;
+my $num_dbs = 1;
+my $num_rounds = 1000;
+my $num_threads = 10;
+my $num_rows = 100;
+my $num_joins = 1;
+my $num_secondary_keys = 0;
+my $innodb_file_per_table = 0;
+my $innodb_buffer_pool_size = "256M";
+my $innodb_buffer_pool_instances = 0;
+my $innodb_flush_log_at_trx_commit = 0;
+my $innodb_flush_method = 0;
+my $innodb_log_file_size = "8M";
+my $innodb_adaptive_checkpoint = 0;
+my $innodb_adaptive_hash_index = 1;
+my $innodb_checkpoint_age_target = 0;
+my $skip_innodb_doublewrite = 0;
+my $sleep_between_queries = 0;
+my $innodb_thread_concurrency = 0;
+my $innodb_tablespace_extra_extend = 0;
+my $innodb_flush_neighbor_pages = 1;
+my $innodb_io_capacity = 800;
+my $innodb_adaptive_flushing = 1;
+my $innodb_purge_threads = 0;
+my $innodb_locks_unsafe_for_binlog = 0;
+my $innodb_use_checkpoint_thread = 0;
+my $innodb_checkpoint_thread_sleep = 10000;
+my $run_slave = 0;
+my $semi_sync_rpl = 0;
+my $use_running_server = 0;
+my $socket = 0;
+my $port = 0;
+my $user = "root";
+my $pw = "";
+my $db = "test";
+
+
+my $innodb_use_sys_malloc = 1;
+my $blob_len = 65535;
+my $table_opts = "";
+my $src_dir = "";
+my $pre_warm = 0;
+my $load_ratios = "1:1:1:1";
+
+my $output_dir = $ENV{HOME}."/mysql-bench-results";
+my $d = `date +%Y-%m-%d-%H%M%S`;
+chop $d;
+my $output_file = "multi-table-bench-$d";
+my @save_argv = @ARGV;
+
+my %opts = ("num-tables=s" => \$num_tables,
+                    "num-dbs=s" => \$num_dbs,
+                    "num-rounds=s" => \$num_rounds,
+                    "num-threads=s" => \$num_threads,
+                    "num-rows=s" => \$num_rows,
+                    "num-joins=s" => \$num_joins,
+                    "num-secondary-keys=s" => \$num_secondary_keys,
+                    "output-dir=s" => \$output_dir,
+                    "output-file=s" => \$output_file,
+                    "blob-len=s" => \$blob_len,
+                    "table-opts=s" => \$table_opts,
+                    "pre-warm=s", => \$pre_warm,
+                    "load-ratios=s", => \$load_ratios,
+                    "innodb-file-per-table=s" =>
+                     \$innodb_file_per_table,
+                    "innodb-flush-log-at-trx-commit=s" =>
+                     \$innodb_flush_log_at_trx_commit,
+                    "innodb-buffer-pool-size=s" =>
+                    \$innodb_buffer_pool_size,
+                    "innodb-buffer-pool-instances=s" =>
+                    \$innodb_buffer_pool_instances,
+                    "innodb-thread-concurrency=s" =>
+                     \$innodb_thread_concurrency,
+                    "innodb-tablespace-extra-extend=s" =>
+                     \$innodb_tablespace_extra_extend,
+                    "skip-innodb-doublewrite" =>
+                      \$skip_innodb_doublewrite,
+                    "innodb-flush-method=s" =>
+                     \$innodb_flush_method,
+                    "innodb-log-file-size=s" =>
+                    \$innodb_log_file_size,
+                    "innodb-flush-neighbor-pages=s" =>
+                    \$innodb_flush_neighbor_pages,
+                    "innodb-use-sys-malloc=s" =>
+                    \$innodb_use_sys_malloc,
+                    "innodb-adaptive-hash-index=s" =>
+                    \$innodb_adaptive_hash_index,
+                    "innodb-io-capacity=s" =>
+                    \$innodb_io_capacity,
+                    "innodb-checkpoint-age-target=s" =>
+                    \$innodb_checkpoint_age_target,
+                    "innodb-checkpoint-thread-sleep=s" =>
+                    \$innodb_checkpoint_thread_sleep,
+                    "innodb-use-checkpoint-thread=s" =>
+                    \$innodb_use_checkpoint_thread,
+                    "innodb-adaptive-checkpoint=s" =>
+                    \$innodb_adaptive_checkpoint,
+                    "innodb-adaptive-flushing=s" =>
+                    \$innodb_adaptive_flushing,
+                    "innodb-purge-threads=s" =>
+                    \$innodb_purge_threads,
+                    "innodb-locks-unsafe-for-binlog=s" =>
+                    \$innodb_locks_unsafe_for_binlog,
+                    "sleep-between-queries=s" =>
+                    \$sleep_between_queries,
+                    "src-dir=s",
+                    \$src_dir,
+                    "run-slave",
+                    \$run_slave,
+                    "semi-sync-rpl",
+                    \$semi_sync_rpl,
+                    "use-running-server",
+                    \$use_running_server,
+                    "socket=s",
+                    \$socket,
+                    "port=s",
+                    \$port,
+                    "user=s",
+                    \$user,
+                    "pw=s",
+                    \$pw,
+                    "db=s",
+                    \$db     
+                  );   
+
+die "Error parsing options\n" 
+  unless GetOptions(%opts);
+
+
+system("mkdir -p $output_dir") && 
+    die("Could not create the output directory");
+    
+record_test_info();
+run_tests();
+
+sub get_db
+{
+  my ($table_num) = @_;
+  return ($table_num-1)%$num_dbs + 1;
+}
+
+sub get_rpl_dbus_config
+{
+  my ($db_name,$table_name,$src_id,$logical_id,$file) = @_;
+  my $var_name_prefix = "databus2.mysql.source($db_name.$table_name)";
+  return " insert into rpl_dbus_config values  ".
+    "('$var_name_prefix.srcId','$src_id'),".
+    "('$var_name_prefix.logicalPartitionId','$logical_id'),".
+    "('$var_name_prefix.schemaFile','$file');\n";
+}
+
+sub setup_slave
+{
+  my $slave_conf_file = "suite/li_bench/t/tablespace_bench-slave.opt";
+  my $slave_test_file = "suite/li_bench/t/tablespace_bench_slave.inc"; 
+  
+  open SLAVE_TEST_FH,">$slave_test_file" or 
+    die "Could not open $slave_test_file: $!\n";
+    
+  if ($run_slave)
+  {
+    my $setup_semi_sync_rpl = "";
+    
+    if ($semi_sync_rpl)
+    {
+      $setup_semi_sync_rpl = <<EOT;
+connection master;
+install plugin  rpl_semi_sync_master soname 'semisync_master.so'; 
+set global rpl_semi_sync_master_enabled = 1;
+connection slave;
+install plugin  rpl_semi_sync_slave soname 'semisync_slave.so'; 
+set global rpl_semi_sync_slave_enabled = 1;
+EOT
+      
+    }
+    
+    open SLAVE_CONF_FH,">$slave_conf_file" or 
+     die "Could not open $slave_conf_file: $!\n";  
+print SLAVE_CONF_FH <<EOT;
+--binlog-mark-events=1 --binlog-format=row --force-rpl-dbus-prefix=db_ --plugin-dir=$PLUGIN_DIR
+EOT
+    close SLAVE_CONF_FH; 
+    print SLAVE_TEST_FH <<EOT;
+--source include/master-slave.inc
+connection slave;
+set global rpl_dbus_debug=0;
+use mysql;
+create table rpl_dbus_config(prop_key varchar(50) not null
+  primary key, value varchar(50) not null) engine=myisam;
+insert into rpl_dbus_config values
+  ('databus2.mysql.physicalPartitionId','3'),
+  ('databus2.mysql.host','127.0.0.1'),
+  ('databus2.mysql.port','8888');
+$setup_semi_sync_rpl  
+EOT
+
+    my $i;  
+    
+    for ($i = 1; $i <= $num_tables; $i++)
+    {
+    
+      print SLAVE_TEST_FH get_rpl_dbus_config("t_$i",get_db($i),$i,$i,
+        "/var/databus2/foo");
+      print SLAVE_TEST_FH get_rpl_dbus_config("tk_$i",get_db($i),$i,$i,
+        "/var/databus2/foo");
+        
+      my $j;
+      for ($j = 1; $j <= $num_secondary_keys; $j++)
+      {
+        my $src_id = $num_tables*$num_secondary_keys + 
+            $i*$num_secondary_keys + $j;
+        print SLAVE_TEST_FH get_rpl_dbus_config("t_ext_k_$i_%j",
+          get_db($i),$src_id, $src_id,
+          "/var/databus2/foo");
+      } 
+    }  
+    
+    print SLAVE_TEST_FH "connection master;\n";
+  }
+  else
+  {
+    system("rm -f $slave_conf_file");
+  }
+  
+  close SLAVE_TEST_FH;
+}
+
+sub find_var_opt
+{
+  my ($key,$val);
+  foreach $key (keys(%opts))
+  {
+    $val = $opts{$key};
+    if ($$val =~ /^{/)
+    {
+      my ($var,$tmp);
+      ($var,$tmp) = split(/=/,$key);
+      return ($var,$$val);
+    }
+  }
+  
+  return (undef,undef);
+}
+
+sub run_tests
+{
+  my ($var,$val) = find_var_opt();
+  my $iter_h = {};
+  
+  if ($var)
+  {
+    my @vals = split(/\,/,substr($val,1,length($val)-2));
+    my $cur_val;
+    foreach $cur_val (@vals)
+    {
+      $iter_h->{$var} = $cur_val;
+      print "Running test with $var = $cur_val\n";
+      run_test($iter_h);
+    } 
+  }
+  else
+  {
+    run_test($iter_h);
+  }
+}
+
+sub get_cur_val
+{
+  my ($val,$iter) = @_;
+  return defined($iter) ? $iter : $val;
+}
+
+sub env_set
+{
+  my ($var,$val,$iter_h) = @_;
+  my ($iter_h_var) = lc($var);
+  $iter_h_var =~ s/_/\-/;
+  $ENV{$var} = get_cur_val($val,$iter_h->{$iter_h_var});
+}
+
+sub cmd_var_arg
+{
+  my ($var,$val,$iter_h) = @_;
+  my ($iter_h_var) = lc($var);
+  $iter_h_var =~ s/_/\-/;
+  my $cur_val = get_cur_val($val,$iter_h->{$iter_h_var});
+  return $cur_val ? "  --$iter_h_var=$cur_val" :"";
+}
+
+sub record_test_info
+{
+  my $outfile = "$output_dir/$output_file";
+  print "Logging to $outfile\n";
+  open FH, ">>$outfile" or 
+    die "Could not open output file $outfile: $!\n";
+  print FH "run-bench ".join(' ',@save_argv)."\n";  
+  close FH;  
+}
+
+sub run_running_server_test
+{
+  my ($iter_h) = @_; 
+  my $cmd = "$MYSQL_TEST_DIR/li-utils/multi-table-bench --no-xtrabackup".
+  " --min-key=1 ";
+  my $outfile = "$output_dir/$output_file";
+
+  $cmd .= " --socket=".$socket if ($socket);
+  $cmd .= " --port=".$port if ($port);
+  $cmd .= " --user=".$user if ($user);
+  $cmd .= " --password=".$pw if ($pw);
+
+  $cmd .= cmd_var_arg("num-threads",$num_threads,$iter_h);
+  $cmd .= cmd_var_arg("num-rounds",$num_rounds,$iter_h);
+  $cmd .= cmd_var_arg("max-key",$num_rows,$iter_h);
+  $cmd .= cmd_var_arg("num-tables",$num_tables,$iter_h);
+  $cmd .= cmd_var_arg("pre-warm",$pre_warm,$iter_h);
+  $cmd .= cmd_var_arg("load-ratios",$load_ratios,$iter_h);
+  $cmd .= cmd_var_arg("blob-len",$blob_len,$iter_h);
+  $cmd .= cmd_var_arg("table-opts",$table_opts,$iter_h);
+  $cmd .= cmd_var_arg("num-secondary-keys",$num_secondary_keys,$iter_h);
+  $cmd .= cmd_var_arg("num-joins",$num_joins,$iter_h);
+  $cmd .= cmd_var_arg("sleep-between-queries",$sleep_between_queries,
+    $iter_h);
+    
+  $cmd .= ">>$outfile 2>&1"; 
+  print "Running $cmd\n";
+  system($cmd) and die "Error running $cmd\n";
+}
+
+sub run_test
+{
+  my ($iter_h) = @_; 
+  
+  if ($use_running_server)
+  {
+    run_running_server_test($iter_h);
+    return;
+  }
+  
+  env_set("NUM_TABLES",$num_tables,$iter_h);
+  env_set("NUM_DBS", $num_dbs,$iter_h);
+  env_set("NUM_THREADS",$num_threads,$iter_h);
+  env_set("NUM_ROWS",$num_rows,$iter_h);
+  env_set("NUM_ROUNDS",$num_rounds,$iter_h);
+  env_set("OUTPUT_DIR",$output_dir,$iter_h);
+  env_set("SRC_DIR",$src_dir,$iter_h);
+  env_set("PRE_WARM",$pre_warm,$iter_h);
+  env_set("LOAD_RATIOS",$load_ratios,$iter_h);
+  env_set("OUTPUT_FILE",$output_file,$iter_h);
+  env_set("BLOB_LEN",$blob_len,$iter_h);
+  env_set("TABLE_OPTS",$table_opts,$iter_h);
+  env_set("NUM_SECONDARY_KEYS",$num_secondary_keys,$iter_h);
+  env_set("NUM_JOINS",$num_joins,$iter_h);
+  env_set("SLEEP_BETWEEN_QUERIES",$sleep_between_queries,$iter_h);
+
+  @mysql_opts = ();
+  add_mysql_opt(\@mysql_opts,"innodb-buffer-pool-size",
+     $innodb_buffer_pool_size,$iter_h);
+  add_mysql_opt(\@mysql_opts,"innodb-log-file-size",
+     $innodb_log_file_size,$iter_h);
+  add_mysql_opt(\@mysql_opts,
+    "innodb-log-group-home-dir",getcwd()."/var/",$iter_h);   
+  add_mysql_opt(\@mysql_opts,"innodb-flush-log-at-trx-commit",
+     $innodb_flush_log_at_trx_commit,$iter_h);
+  add_mysql_opt(\@mysql_opts,"innodb-flush-method",
+     $innodb_flush_method,$iter_h) if ($innodb_flush_method);
+  add_mysql_opt(\@mysql_opts,"innodb-thread-concurrency",
+     $innodb_thread_concurrency,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-flush-neighbor-pages",
+     $innodb_flush_neighbor_pages,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-adaptive-hash-index",
+     $innodb_adaptive_hash_index,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-io-capacity",
+     $innodb_io_capacity,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-use-sys-malloc",
+     $innodb_use_sys_malloc,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-locks-unsafe-for-binlog",
+     $innodb_locks_unsafe_for_binlog,$iter_h);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-adaptive-flushing",
+     $innodb_adaptive_flushing,$iter_h) ;
+     
+  add_mysql_opt(\@mysql_opts,"innodb-buffer-pool-instances",
+     $innodb_buffer_pool_instances,$iter_h) 
+     if ($innodb_buffer_pool_instances);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-adaptive-checkpoint",
+     $innodb_adaptive_checkpoint,$iter_h) 
+     if ($innodb_adaptive_checkpoint);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-use-checkpoint-thread",
+     $innodb_use_checkpoint_thread,$iter_h) 
+     if ($innodb_use_checkpoint_thread);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-checkpoint-thread-sleep",
+     $innodb_checkpoint_thread_sleep,$iter_h) 
+     if ($innodb_checkpoint_thread_sleep);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-purge-threads",
+     $innodb_purge_threads,$iter_h) 
+     if ($innodb_purge_threads);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-checkpoint-age-target",
+     $innodb_checkpoint_age_target,$iter_h) 
+     if ($innodb_checkpoint_age_target);
+     
+  add_mysql_opt(\@mysql_opts,"innodb-file-per-table",
+     "ON",$iter_h) if ($innodb_file_per_table);
+  add_mysql_opt(\@mysql_opts,"skip-innodb-doublewrite",
+     "ON",$iter_h) if ($skip_innodb_doublewrite);
+     
+  if ($innodb_tablespace_extra_extend)
+  {
+   add_mysql_opt(\@mysql_opts,"innodb-tablespace-extra-extend",
+      $innodb_tablespace_extra_extend,$iter_h);
+  }   
+
+  $mysqld_opts = join(' ',@mysql_opts);
+
+  open FH,">suite/li_bench/t/tablespace_bench-master.opt" or 
+    die "Could not open the options file: $!\n";
+
+  print FH "$mysqld_opts --binlog-mark-events=1 --plugin-dir=$PLUGIN_DIR\n";  
+  close FH;
+
+  setup_slave();
+
+  system("./mysql-test-run --no-warnings --record ".
+   " --no-check-testcase --testcase-timeout=86400 ".
+   " li_bench.tablespace_bench");
+}
+
+sub add_mysql_opt
+{
+  my ($arr,$name,$val,$iter_h) = @_;
+  
+  if ($val eq "ON")
+  {
+    push (@$arr,"--$name");
+  }
+  else
+  {
+    push (@$arr,"--$name=".get_cur_val($val,$iter_h->{$name}));
+  }
+}

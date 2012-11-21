@@ -1,0 +1,5 @@
+apply plugin: 'li-java'
+
+dependencies {
+  compile project(':databus2-relay:databus2-relay-impl')
+}

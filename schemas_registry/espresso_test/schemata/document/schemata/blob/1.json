@@ -1,0 +1,6 @@
+{
+  "name" : "blob",
+  "version": 1,
+  "storageEncoding": "bytes",
+  "doc" : "Espresso Schema for a blob document schema record"
+}

@@ -1,0 +1,83 @@
+#!/bin/bash
+# $Id: rmiregistrystop 33147 2007-11-18 22:29:12Z dmccutch $
+usage() {
+        echo "error : $1"
+        echo "Usage: rmiregistystop [-k[ill]] "
+}
+# resolve links - $0 may be a softlink
+PRG="$0"
+
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+# Get where we are
+PRGDIR=`dirname "$PRG"`
+
+RMI_HOME=`cd "$PRGDIR/.." ; pwd`
+echo "RMI_HOME : ${RMI_HOME}"
+source $RMI_HOME/bin/rmifuncs
+#-------------------------------------------------------------------------------
+
+killMode=false
+
+while [ "$#" -ne 0 ]; do
+    case "$1" in
+
+    # Documented argument
+    -k|-kill)   killMode=true; 
+        shift
+        ;;
+    -*) usage "unknown option ($1)"
+        exit 1
+        ;;
+    *)  break
+    esac
+done
+if [ "$#" -ne 0 ]; then
+        usage "$# too many arguments: "
+        exit 1
+fi
+
+servername=rmiregistry 
+rmi_conf=${RMI_HOME}/conf/rmi_conf.sh
+
+if [ -f ${rmi_conf} ] ; then 
+  source $rmi_conf
+else
+  # reasonable defaults
+  log_dir=${RMI_HOME}/logs
+  pid_dir=${log_dir}
+  echo "warning: ${rmi_config} not found."
+fi
+
+logfile=${log_dir}/${servername}.log
+pidfile=${pid_dir}/${servername}.pid
+
+echo "pidfile: $pidfile"
+#-------------------------------------------------------------------------------
+
+
+
+if [ -f $pidfile ]; then
+  pid=`head -1 $pidfile`
+  status=`ps -p $pid -o'user,pid=' | tail -1 | awk '{print $2}'`
+  echo "Status: $status"
+  if [ ! -z "$status" ] ; then
+    kill $pid
+    echo "killed $servername process id $pid"
+  else
+    echo "$servername was already down"
+  fi
+  rm $pidfile
+else
+  echo "$servername is not running"
+fi
+
+#-------------------------------------------------------------------------------

@@ -1,0 +1,81 @@
+source include/master-slave.inc;
+--error 1582
+select binlog_undo_batch("db1",1);
+--disable_query_log
+let $i=10;
+
+while ($i)
+{
+  eval create database d$i;
+  eval select set_binlog_gen_id("d$i",1);
+  eval select set_binlog_seq_id("d$i",1);
+  eval use d$i;
+  CREATE TABLE `EmailTest` (
+  `mboxid` int(11) NOT NULL,
+  `docid` int(11) NOT NULL,
+  `timestamp` bigint(20) NOT NULL,
+  `etag` varchar(10) NOT NULL,
+  `val` blob,
+  `schema_version` smallint(6) NOT NULL,
+   PRIMARY KEY (`mboxid`,`docid`)
+ ) ENGINE=INNODB;
+
+  let $j = 1000;
+  begin;
+  while ($j)
+  {
+    eval insert 
+       into EmailTest values ($i,$j, 1000, '$i', repeat('$i $j',$i), 1);
+    dec $j;   
+  }
+  commit;
+  let $j = 10;
+  while ($j)
+  {
+    eval insert 
+       into EmailTest values ($i+10000,$j, 1000, '$i', repeat('$i $j',$i), 1);
+    dec $j;   
+  }
+  
+  flush logs;
+  dec $i;
+  --enable_query_log
+  select count(*) from EmailTest;
+  --disable_query_log
+}
+commit;
+#source suite/rpl_dbus/t/binlog_undo_batch_large.inc;
+select @gen_id:=get_binlog_gen_id("d4"),@seq_id:=get_binlog_seq_id("d4");
+select binlog_undo_batch("d1",1,1,"d2",1,2,"d3",1,3,"d4",1,4,
+  "d10",1,10);
+select @gen_id:=get_binlog_gen_id("d4"),@seq_id:=get_binlog_seq_id("d4");
+let $i=10;
+--enable_query_log
+while ($i)
+{
+  eval use d$i;
+  select count(*) from EmailTest;
+  dec $i;
+}  
+
+use d4;
+select @gen_id:=get_binlog_gen_id("d4"),@seq_id:=get_binlog_seq_id("d4");
+delete from EmailTest where docId > 10;
+select * from EmailTest;
+select @gen_id:=get_binlog_gen_id("d4"),@seq_id:=get_binlog_seq_id("d4");
+update EmailTest set docId = docid + 100;
+update EmailTest set mboxid = mboxid + 30;
+delete from EmailTest where mboxid = 34;
+insert into EmailTest values(300,3000,2000,'foo','foo foo',2);
+select * from EmailTest;
+select binlog_undo_batch("d4",@gen_id,@seq_id);
+select * from EmailTest;
+let $i=10;
+
+while ($i)
+{
+  eval drop database d$i;
+  dec $i;
+}  
+
+sync_slave_with_master;

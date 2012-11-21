@@ -1,0 +1,95 @@
+#
+# Test the server side filtering for  bootstrap -> online -> bootstrap again
+# based on bootstrap_bizfollow_generator_2
+source setup_env.inc
+relay_event_dump_file=integration-test/var/work/bizfollow_relay_event_trace
+# 10M buffer , event dump file 
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.randomProducer.generationPattern=EqualSumScnAndKey" --jvm_direct_memory_size=100M
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer, use a given port to avoid conflict with consumer
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.bizfollow.bizfollow.BizFollow;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=102400;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=102400"
+
+# generate events
+PRODUCER_KEY_MIN=20
+PRODUCER_KEY_MAX=2000
+
+# may need to break it to 80%, 40% if producer cannot catch up
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 5000 --percent_buff=80 --wait_until_suspend --keyMin $PRODUCER_KEY_MIN --keyMax $PRODUCER_KEY_MAX 
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=20
+# wrap around the buffer to 80 + 40 = 120 percent
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 5000 --resume_gen --percent_buff=40 --wait_until_suspen --keyMin 300 --keyMax 400
+
+# start the bootstrap server on port 6060
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --bootstrap_port=6060 --consumer_event_pattern=EqualSumScnAndKey --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=1024000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=102400;databus.client.connectionDefaults.eventBuffer.scnIndexSize=102400;databus.client.checkpointPersistence.fileSystem.rootDirectory=./bfclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;serversidefilter.filter(com.linkedin.events.bizfollow.bizfollow.BizFollow).type=RANGE;serversidefilter.filter(com.linkedin.events.bizfollow.bizfollow.BizFollow).range.size=100;serversidefilter.filter(com.linkedin.events.bizfollow.bizfollow.BizFollow).range.partitions=[1,3-4]"
+
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event_bootstrap --timeout=10
+ 
+# look at the log, there should be some SCN not found errors
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_*_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+ls -1tr $LOG_DIR/default_*_consumer_start* | ${TAIL_PATH} -n 1 | xargs grep "Bootstrap completed"
+
+stat_txt="Test $0 Step 1"
+echo ==$stat_txt :Compare JSON
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s --server_side_filter="type=range;range.size=100;range.partitions=[1,3-4]" $VIEW_ROOT/${relay_event_dump_file} ${consumer_1_log}
+source report_pass_fail.inc
+
+# generate some more, online consumption
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 5000 --resume_gen --percent_buff=40 --wait_until_suspend --keyMin $PRODUCER_KEY_MIN --keyMax $PRODUCER_KEY_MAX 
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60
+
+stat_txt="Test $0 Step 2"
+echo ==$stat_txt :Compare JSON
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s --server_side_filter="type=range;range.size=100;range.partitions=[1,3-4]" $VIEW_ROOT/${relay_event_dump_file} ${consumer_1_log}
+source report_pass_fail.inc
+
+# pause consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o pause
+
+# 10M read buffer in client and 10M buffer in relay, so we need to generate > 2000 to force the consumer to bootstrap again
+# Off the relay again, need to fill up the client read buffer size, 10M
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 5000 --resume_gen --percent_buff=180 --wait_until_suspend --keyMin $PRODUCER_KEY_MIN --keyMax $PRODUCER_KEY_MAX 
+#
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=20
+
+# wrap around the buffer to 80 + 40 = 120 percent
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 5000 --resume_gen --percent_buff=40 --wait_until_suspend --keyMin $PRODUCER_KEY_MIN --keyMax $PRODUCER_KEY_MAX
+
+# start generation and resume
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 1000 --resume_gen -t 2
+
+# resume consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o resume
+
+# wait for the event generation to end
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 1000 --num_events=20 --resume_gen -t 2 --wait_until_suspend --keyMin 300 --keyMax 400
+
+# wait for consumer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event_bootstrap --timeout=60 --sleep_after_wait=2
+
+# compare
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_*_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+ls -1tr $LOG_DIR/default_*_consumer_start* | ${TAIL_PATH} -n 1 | xargs grep "Bootstrap completed"
+
+stat_txt="Test $0 Step 3"
+echo ==$stat_txt :Compare JSON
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s --server_side_filter="type=range;range.size=100;range.partitions=[1,3-4]" $VIEW_ROOT/${relay_event_dump_file} ${consumer_1_log}
+source report_pass_fail.inc
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+
+exit $all_stat

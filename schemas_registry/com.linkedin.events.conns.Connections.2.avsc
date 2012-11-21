@@ -1,0 +1,36 @@
+{
+  "name" : "Connections_V2",
+  "doc" : "Auto-generated Avro schema for conns.sy$connections. Generated at Feb 10, 2012 05:39:40 PM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=conns.sy$connections;",
+  "namespace" : "com.linkedin.events.conns",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "sourceId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=SOURCE_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "destId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DEST_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=4;"
+  }, {
+    "name" : "modifiedDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MODIFIED_DATE;dbFieldPosition=5;"
+  }, {
+    "name" : "createDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=6;"
+  } ]
+}

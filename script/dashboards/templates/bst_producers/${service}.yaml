@@ -1,0 +1,141 @@
+0:
+  title: Events
+  defs:
+    - service: ${service}
+      label: in_data_events
+      rrd: ${service}/${service}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.NumDataEvents.rrd
+  params:
+    vlabel: events/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+1:
+  title: forum Boot_Prod_Events_Err
+  defs:
+    - service: ${service}
+      label: bootstrap-producer_in_events_invalid
+      rrd: ${service}/${service}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.NumInvalidEvents.rrd
+  params:
+    vlabel: errors/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+2:
+  title: JVM_Memory
+  defs:
+    - service: ${service}
+      label: JVM_Free_Memory
+      rrd: ${service}/${service}.i001.JVM_Memory_Sensor-JVM_Memory_Sensor-FreeMemory.rrd
+  params:
+    vlabel: bytes
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 1
+    legend: true
+3:
+  title: MySQL queries
+  defs:
+    - service: ${service}
+      label: MYSQL_updates
+      rrd: DatabusV2-MySql_Com_update.rrd
+    - service: ${service}
+      label: MYSQL_inserts
+      rrd: DatabusV2-MySql_Com_insert.rrd
+    - service: ${service}
+      label: MYSQL_selects
+      rrd: DatabusV2-MySql_Com_select.rrd
+  params:
+    vlabel: qps
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 1
+    legend: true
+7:
+  title: forum HTTP calls
+  defs:
+    - service: ${service}
+      label: sources
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-NumSourcesCalls.rrd
+    - service: ${service}
+      label: register
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-NumRegisterCalls.rrd
+    - service: ${service}
+      label: stream
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-NumStreamCalls.rrd
+  params:
+    vlabel: calls/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+8:
+  title: forum HTTP Latencies
+  defs:
+    - service: ${service}
+      label: stream
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-LatencyStreamCalls.rrd
+  params:
+    vlabel: ms
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 1
+    legend: true
+9:
+  title: forum HTTP errors
+  defs:
+    - service: ${service}
+      label: stream_req_err
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-NumErrStreamReq.rrd
+    - service: ${service}
+      label: stream_resp_err
+      rrd: ${service}/${service}.i001.BootstrapProducerHttpMetrics-BootstrapProducerHttpMetrics-NumErrStream.rrd
+  params:
+    vlabel: errors/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+10:
+  title: forum Network Stats
+  defs:
+    - service: ${service}
+      label: inbound_open_connections
+      rrd: ${service}/${service}.i001.BootstrapProducerInboundConn-BootstrapProducerInboundConn-NumOpenConns.rrd
+    - service: ${service}
+      label: inbound_closed_connections
+      rrd: ${service}/${service}.i001.BootstrapProducerInboundConn-BootstrapProducerInboundConn-NumClosedConns.rrd
+    - service: ${service}
+      label: inbound_num_peers
+      rrd: ${service}/${service}.i001.BootstrapProducerInboundConn-BootstrapProducerInboundConn-NumClients.rrd
+  params:
+    vlabel: connections
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 1
+    legend: true

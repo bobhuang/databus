@@ -1,0 +1,14 @@
+source include/master-slave.inc;
+connection slave;
+connection master;
+use test;
+create table t1 (id int, b blob) engine=myisam;
+insert into t1 values(1,'old');
+update t1 set b='new' where id=1;   
+sync_slave_with_master;
+connection slave;
+use test;
+select * from t1;
+connection master;
+drop table t1;
+sync_slave_with_master;

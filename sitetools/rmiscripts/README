@@ -1,0 +1,50 @@
+$Id: README 33147 2007-11-18 22:29:12Z dmccutch $
+
+RMI servers scripts: 
+
+RMI server directory layout:
+
+$RMI_HOME/
+         /bin/rmifuncs
+             /rmiregistrystart
+             /rmiregistrystop
+             /rmistart
+             /rmistatus
+             /rmistop
+         /codebase/
+                  /<servername>
+                              /serverAstubs.jar
+
+         /conf/rmi_conf.sh
+
+         /lib/
+             /supporting.jar
+
+         /logs/
+              /<servername>.log
+              /<servername>.pid
+
+         /servers/
+                 /<servername>/
+                         /conf/
+                              /server_conf.sh
+                         /lib/
+                              /serverAmain.jar
+                              /supporting.jar 
+
+
+Configuration is done via two files that are 'source'd by the rmiscripts.
+Should not contain logic, simply name/value pairs in sh assignment syntax.
+
+$RMI_HOME/conf/rmi_conf.sh 
+$RMI_HOME/servers/<servername>/conf/server_conf.sh:  
+
+See comments in these files for what needs to be configured.
+
+Each server is has two deployment directories;
+  
+  $RMI_HOME/codebase/<servername>
+    put any class files or jar files that are to be available to clients
+    
+  $RMI_HOME/servers/<servername>
+    configuration file for this server and library jars.

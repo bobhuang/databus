@@ -1,0 +1,25 @@
+{
+  "id" : "EspressoDB2",
+  "deltaList" : [ ],
+  "mapFields" : {
+    "EspressoDB2_0" : {
+      "localhost_12818" : "OFFLINE",
+      "localhost_12918" : "SLAVE"
+    },
+    "EspressoDB2_1" : {
+      "localhost_12818" : "SLAVE",
+      "localhost_12918" : "MASTER"
+    }
+  },
+  "listFields" : {
+    "EspressoDB2_0" : [ "localhost_12818", "localhost_12918" ],
+    "EspressoDB2_1" : [ "localhost_12918", "localhost_12818" ]
+  },
+  "simpleFields" : {
+    "IDEAL_STATE_MODE" : "CUSTOMIZED",
+    "NUM_PARTITIONS" : "2",
+    "REPLICAS" : "2",
+    "STATE_MODEL_DEF_REF" : "MasterSlave",
+    "STATE_MODEL_FACTORY_NAME" : "DEFAULT"
+  }
+}

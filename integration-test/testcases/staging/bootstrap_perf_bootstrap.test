@@ -1,0 +1,13 @@
+source setup_env.inc
+
+#start relay
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --cmdline_props="databus.relay.eventBuffer.maxSize=102400;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=10M
+
+#load data
+
+#start bootstrap
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start
+
+#wait for bootstrap to read events
+
+

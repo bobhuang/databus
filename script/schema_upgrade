@@ -1,0 +1,105 @@
+#!/usr/bin/perl -w
+use warnings;
+use File::Basename;
+use Data::Dumper;
+
+#/dbus2-avro-schema-gen.sh -namespace com.linkedin.events.member2.account -recordName MemberAccount -viewName "sy\$member_account_2" -avroOutDir /home/snagaraj/workspace/trunk/schemas_registry -avroOutVersion 3 -javaOutDir ~/workspace/trunk/databus-events/databus-events-member2/src/main/java  -userName member2 -password member2
+
+#com.linkedin.events.anet.AnetMembers.5.avsc
+#com.linkedin.events.member2.privacy.PrivacySettings.106.avsc
+
+my @schemas;
+
+my $root = "~/workspace/trunk";
+my $hash_of_schemas = {}; 
+while (<STDIN>) {
+	chomp;
+	my $info = schema_info($_);
+	my $record_name = $info->{'record_name'} ;
+	if (!exists $hash_of_schemas->{$record_name} ) {
+		$hash_of_schemas->{$record_name} = $info ;
+	} else {
+		my $cur_version = $hash_of_schemas->{$record_name}->{'version'} ; 
+		if ($info->{'version'} > $cur_version) {
+			$hash_of_schemas->{$record_name} = $info;	
+		} 	
+	}
+} 
+
+
+#print STDERR Data::Dumper->Dump([$hash_of_schemas]);
+
+#foreach record; determine the latest schema; extract contents;
+foreach my $record_name (keys %$hash_of_schemas) {
+	my $info = $hash_of_schemas->{$record_name};
+	my $ver = $info->{'version'} ;
+	my $pk = $info->{'pk'} || "";
+	$ver++;
+	my $cmd = command_builder($info->{'source'},$info->{'namespace'},$info->{'record_name'},$info->{'view_name'},$ver,$pk);	
+	print STDERR "$cmd\n";
+	system($cmd);
+}
+
+
+#cmd;
+sub command_builder {
+	my ($source,$namespace,$record_name,$view_name,$avro_version,$pk) = @_;
+	my $dest_dir = "$root/schemas_registry";
+	my $java_dir = "$root/databus-events/databus-events-${source}/src/main/java";
+	my $user_name = $source;
+	my $password = $source; 
+	my $cmd = "./dbus2-avro-schema-gen.sh -namespace $namespace -recordName $record_name -viewName \"${view_name}\" -avroOutDir $dest_dir -avroOutVersion $avro_version -javaOutDir $java_dir -userName $user_name -password $password";  
+	$cmd .= " -primaryKey $pk" if ($pk ne "");
+	return $cmd;
+}
+
+
+sub schema_info {
+	my $schema_name = shift;
+	my $hash={};
+	my $prefix = "com.linkedin.events";
+	my $schema_base_name = basename($schema_name);
+	if ($schema_base_name =~ m/${prefix}\.(.*?)\.avsc/) {
+		my @meta_data = split(/\./,$1) ;	
+		$hash->{'path'} = $schema_name;
+		$hash->{'version'} = pop @meta_data;
+		$hash->{'record_name'} = pop @meta_data;
+		$hash->{'source'} =$meta_data[0]; 
+		$hash->{'namespace'} = $prefix.".".join(".",@meta_data);
+	}
+	extract_contents($schema_name,$hash);	
+	return $hash;
+}
+
+
+sub extract_contents {
+	my ($schema_file,$hash) = @_;
+	open(F,"<$schema_file") || die "cannot open $schema_file for read\n";
+	my $done =0 ;
+	while (<F>) {	 	
+		chomp;
+		s/\"//g; s/\s+//g;s/,//g;
+		if (m/meta/) {
+			my @record = split(/:/,$_);
+			my $meta_info = kvp_to_hash($record[1]);
+			$hash->{'pk'} = $meta_info->{'pk'} if (exists $meta_info->{'pk'} ) ;
+			$hash->{'view_name'} = $meta_info->{'dbFieldName'} ;			
+			$done=1;
+		}
+		last if ($done);
+	}
+	close(F);
+	$hash->{'view_name'} =~ s/\$/\\\$/;
+} 
+
+sub kvp_to_hash {
+	my $string = shift;
+	my $hash = {};
+	my @kvp = split(/;/,$string) ;
+	foreach my $kv (@kvp) {
+		my ($k,$v) = split(/=/,$kv);
+		$hash->{$k} = $v;
+	}	
+	return $hash;
+}
+

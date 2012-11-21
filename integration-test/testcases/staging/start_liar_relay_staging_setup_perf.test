@@ -1,0 +1,21 @@
+#!/bin/bash
+# simple liar generation test
+
+export TEST_NAME=start_liar_relay_staging_setup_perf.test
+
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
+relay_gc_file=${WORK_DIR_FROM_ROOT}/liar_relay_gc.log
+
+# Start the relay
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start -l config/relay-log4j2file.properties.error --timeout=10 --jvm_args="-Xms10240m -Xmx10240m -XX:MaxDirectMemorySize=10240m -XX:NewSize=512m -XX:MaxNewSize=512m -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:8999,server=y " --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=262144000;databus.bootstrap.client.runtime.relay(1).port=${relay_port};databus.relay.eventLogReader.enabled=true;databus.relay.eventLogReader.readSessionDir=integration-test/testcases/staging/eventLog/session_1316203753643;databus.relay.eventBuffer.allocationPolicy=DIRECT_MEMORY"
+

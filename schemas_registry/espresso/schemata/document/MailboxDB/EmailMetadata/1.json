@@ -1,0 +1,40 @@
+{
+  "name" : "EmailMetadata",
+  "doc" : "Document schema for email metadata",
+  "version": 1,
+  "type" : "record",
+  "schemaType" : "DocumentSchema",
+  "namespace" : "com.linkedin.espresso.test.mailboxdb",
+  "fields" : [ {
+    "name" : "isInbox",
+    "type" : "boolean",
+    "indexType" : "attribute"
+  }, {
+    "name" : "isStarred",
+    "type" : "boolean",
+    "indexType" : "attribute"
+  }, {
+    "name" : "isUnread",
+    "type" : "boolean",
+    "indexType" : "attribute"
+  }, {
+    "name" : "createdOn",
+    "type" : "long"
+  }, {
+    "name" : "fromMemberId",
+    "type" : "int",
+    "indexType" : "attribute"
+  }, {
+    "name" : "fromField",
+    "type" : "string"
+  }, {
+    "name" : "toField",
+    "type" : "string"
+  }, {
+    "name" : "subject",
+    "type" : "string"
+  }, {
+    "name" : "shortBody",
+    "type" : "string"
+  } ]
+}

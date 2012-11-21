@@ -1,0 +1,98 @@
+#!/bin/bash
+#******************************************************
+# liar range filter mod predicate pushdown test
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=bootstrap_liar_mod_predicatePushDown.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+# The test verifies if the predicate push down works for the mod filter
+# 1. Produce events in the relay and producer consumes them.
+# 2. The consumer bootstraps and consumes all events
+# 3. The relay events are filtered and compared against the consumer events 
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
+relay_gc_file=${WORK_DIR_FROM_ROOT}/liar_relay_gc.log
+num_consumers=10
+consumers_start=0
+
+#start the relay
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m" --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}"
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer, use a given port to avoid conflict with consumer
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.liar.jobrelay.LiarJobRelay,com.linkedin.events.liar.memberrelay.LiarMemberRelay;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=102400;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=102400;databus.bootstrap.client.container.httpPort=${bootstrap_producer_port};databus.bootstrap.client.runtime.relay(1).port=${relay_port};databus.bootstrap.client.connectionDefaults.pullerRetries.initSleep=10;databus.bootstrap.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# generate events
+# may need to break it to 80%, 40% if producer cannot catch up
+$SCRIPT_DIR/dbus2_gen_event.py -s 20,21 -e 500 --percent_buff=80 --keyMin=0 --keyMax=9999 --wait_until_suspend --server_port=${relay_port}
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40 --relay_port=${relay_port}
+
+# wrap around the buffer to 80 + 40 = 120 percent
+$SCRIPT_DIR/dbus2_gen_event.py -s 20,21 -e 500 --resume_gen --percent_buff=40 --keyMin=0 --keyMax=9999 --wait_until_suspend --server_port=${relay_port}
+
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --cmdline_props="databus.bootstrap.db.container.httpPort=${bootstrap_server_port}"
+
+
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40 --relay_port=${relay_port}
+
+# start the consumers
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    cp_dir=${WORK_DIR_FROM_ROOT}/ckpt_${i}
+    consumer_log=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}.events
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+
+    $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --relay_port=${relay_port} --http_port=${client_port} --dump_file=${consumer_log} --bootstrap_port=${bootstrap_server_port} --cmdline_props="serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).type=MOD;serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).mod.numBuckets=${num_consumers};serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).mod.buckets=[${i}];serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).type=MOD;serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).mod.numBuckets=${num_consumers};serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).mod.buckets=[${i}];databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.pullerRetries.initSleep=10;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true" 
+
+done
+
+# check the consumers
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+    $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event_bootstrap --timeout=20 --http_port=${client_port} --relay_port=${relay_port} 
+done
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*liar_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+stat_txt="Stop Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+source report_pass_fail.inc
+
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o stop
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0"
+
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    consumer_log=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}.events
+    $SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s --server_side_filter="type=mod;mod.numBuckets=${num_consumers};mod.buckets=[${i}]" $VIEW_ROOT/${relay_event_dump_file} ${consumer_log}
+    source report_pass_fail.inc
+done
+final_report=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+exit $all_stat
+

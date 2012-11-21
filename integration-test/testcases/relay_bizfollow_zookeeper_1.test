@@ -1,0 +1,95 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=relay_bizfollow_zookeeper_1.test
+#******************************************************
+# Test multiple consumer with zookeeper
+#   -. start localzookeeper (three servers in the cluster)
+#   -. start three consumer with shared mode, verify the one is master and the other two are slaves
+#   -. kill the first 
+#   -. restart relay from the last seen scn , generate some events, start consumer from checkpoint
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+consumer_port_1=${client_port}
+let consumer_port_2="${client_port}+1"
+debug_port_1=8991
+debug_port_2=8992
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace
+consumer_cp_dir=${WORK_DIR_FROM_ROOT}/consumer_checkpoint_bizfollow_1
+consumer_log_combined=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_combined.events
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+consumer_2_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_2.events
+zookeeper_server_ports="localhost:12181,localhost:12182,localhost:12183"
+
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" --jvm_direct_memory_size=10M
+
+# default datadir integration_test/var/work/zookeeper/data/1
+# start the zookeeper cluster
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o start --zookeeper_reset --zookeeper_server_ports=${zookeeper_server_ports}  --cmdline_props="tickTime=2000;initLimit=5;syncLimit=2" 
+# server port server.1=localhost:2800:3800 server.2=localhost:2801:3801 server.3=localhost:2802:3802# start the consumer
+
+# start the first consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --http_port=${consumer_port_1} --relay_port=${relay_port} --jvm_args="-Xms24m -Xmx50m " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# start the second consumer, which will be waiting
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_2_log} --http_port=${consumer_port_2} --relay_port=${relay_port} --jvm_args="-Xms24m -Xmx50m " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=50 --wait_until_suspend --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer --http_port=${consumer_port_1} -o wait_event --timeout=60 --relay_port=${relay_port}
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0. Step 1"
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s ${VIEW_ROOT}/${relay_event_dump_file} ${VIEW_ROOT}/${consumer_1_log}
+source report_pass_fail.inc
+
+# cp the event log, consumer_log will be removed after killing the process
+cp ${VIEW_ROOT}/${consumer_1_log} ${VIEW_ROOT}/${consumer_log_combined}
+# kill the first client, generate more events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o shutdown --http_port=${consumer_port_1}
+$SCRIPT_DIR/dbus2_gen_event.py  --resume_gen --num_events=60 --wait_until_suspend --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer --http_port=${consumer_port_2} -o wait_event --timeout=60 --relay_port=${relay_port}
+
+cat ${VIEW_ROOT}/${consumer_2_log} >> ${VIEW_ROOT}/${consumer_log_combined}
+
+echo ==Compare JSON after fail over
+stat_txt="Test $0. Step 2"
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s ${VIEW_ROOT}/${relay_event_dump_file} ${VIEW_ROOT}/${consumer_log_combined}
+source report_pass_fail.inc
+
+# restart the first
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --relay_port=${relay_port} --http_port=${consumer_port_1} --jvm_args="-Xms24m -Xmx50m " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# kill the second client, generate more events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o shutdown_force --http_port=${consumer_port_2}
+$SCRIPT_DIR/dbus2_gen_event.py  --resume_gen --num_events=70 --wait_until_suspend --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer --http_port=${consumer_port_1} -o wait_event --timeout=60 --relay_port=${relay_port}
+
+cat ${VIEW_ROOT}/${consumer_1_log} >> ${VIEW_ROOT}/${consumer_log_combined}
+
+echo ==Compare JSON after fail over
+stat_txt="Test $0. Step 3"
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s ${VIEW_ROOT}/${relay_event_dump_file} ${VIEW_ROOT}/${consumer_log_combined}
+source report_pass_fail.inc
+
+# stop
+stat_txt="Stop Consumer"
+final_report=1
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+source report_pass_fail.inc
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o stop
+
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+
+exit $all_stat

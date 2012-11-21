@@ -1,0 +1,30 @@
+<project name="compile-container-monitoring-events" >
+	
+  <!-- Import Product Properties -->
+  <import file="${basedir}/../../../product/product-properties.xml"/>
+	
+  <property name="ivy.cache.dir" value="${user.home}/.ivy2/lin-cache/ivy-cache" />
+  <property name="sandbox-repo.dir" value="${basedir}/../../../sandbox-repo" />
+  <property name="relay-impl.src.dir" value="${basedir}/../../../databus2-relay/impl/java" />
+  <property name="core-container.src.dir" value="${basedir}/../../../databus-core/container/java" />
+
+  <taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+  		classpath="${ivy.cache.dir}/org.apache.avro/avro/${artifact.version.avro}/avro-${artifact.version.avro}.jar:${ivy.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/${artifact.version.jackson-core-asl}/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${ivy.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/${artifact.version.jackson-mapper-asl}/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" />
+  <!-- taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+	   		 classpath="${sandbox-repo.dir}/org/apache/avro/avro/${artifact.version.avro}/avro-${artifact.version.avro}.jar:${ivy.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/${artifact.version.jackson-core-asl}/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${ivy.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/${artifact.version.jackson-mapper-asl}/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" / -->
+	
+
+  <target name="build-TrafficTotalStats">
+  	<avro-schema-compile file="${basedir}/ContainerTrafficTotalStatsEvent.2.avsc" 
+  		                   destdir="${relay-impl.src.dir}" />
+  </target>
+
+  <target name="build-ContainerStats">
+    <avro-schema-compile file="${basedir}/ContainerStatsEvent.1.avsc" 
+    	                   destdir="${core-container.src.dir}" />
+  </target>
+
+  <target name="build" depends="build-TrafficTotalStats, build-ContainerStats">
+  </target>
+	
+</project>

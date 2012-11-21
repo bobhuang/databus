@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "doc" : "Statistics for connections to a databus database source",
+  "name": "DbusDbSourceConnectionStatsEvent",
+  "namespace": "com.linkedin.databus.monitoring.events",
+  "fields": 
+  [
+  	{"name": "relayId", "type": "int", "doc": "The id of the relay that generated the event"},
+  	{"name": "timestampLastResetMs", "type": "long", "doc": "unix timestamp of the last reset() call"},  	
+  	{"name": "timeSinceLastResetMs", "type": "long", "doc": "time in ms since the last reset() call"},  	
+  	{"name": "numOpenDbConns", "type": "long", "doc": "number of DB connections open"},
+  	{"name": "numClosedDbConns", "type": "long", "doc": "number of DB connections closed"},
+  	{"name": "timestampLastDbConnOpenMs", "type": "long", "doc": "the timestamp of the last DB connection open operation"},
+  	{"name": "timestampLastDbConnCloseMs", "type": "long", "doc": "the timestamp of the last DB connection close operation "},
+  	{"name": "timeClosedDbConnLifeMs", "type": "long", "doc": "total lifespan of closed DB connections "},
+  	{"name": "timeOpenDbConnLifeMs", "type": "long", "doc": "total lifespan of currently open DB connections "},
+  	{"name": "numRowsUpdated", "type": "long", "doc": "number of updated DB rows received"}
+  ]
+}

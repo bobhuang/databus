@@ -1,0 +1,23 @@
+#!/bin/bash
+# simple liar generation test
+
+export TEST_NAME=start_liar_relay.test
+
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
+relay_gc_file=${WORK_DIR_FROM_ROOT}/liar_relay_gc.log
+
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:8999,server=y " --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=102400000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.bootstrap.client.runtime.relay(1).port=${relay_port}"
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -e 5 -s 20,21 --keyMin=0 --keyMax=9999 --server_port=${relay_port}
+

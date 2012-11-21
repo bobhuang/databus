@@ -1,0 +1,15 @@
+{
+    "name" : "TestDB",
+    "id"  : 0,
+    "uri" : "esv4-app76.stg_12101",
+        "slowSourceQueryThreshold" : 2000,
+        "sources" :
+        [
+                {"id" : 30,
+                 "name" : "TestDB.Table1",
+                 "uri": "TestDB.Table1",
+                 "partitionFunction" : "constant:1",
+                 "partition" : 0
+                }
+        ]
+}

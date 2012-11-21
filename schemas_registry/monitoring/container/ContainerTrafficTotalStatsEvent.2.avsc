@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "doc" : "Total container traffic (inbound or outbound) statistics",
+  "name": "ContainerTrafficTotalStatsEvent",
+  "namespace": "com.linkedin.databus.monitoring.events.container",
+  "fields": 
+  [
+  	{"name": "containerId", "type": "int", "doc": "The id of the container that generated the event"},
+  	{"name": "timestampLastResetMs", "type": "long", "doc": "unix timestamp of the last reset() call"},  	
+  	{"name": "timeSinceLastResetMs", "type": "long", "doc": "time in ms since the last reset() call"},
+  	{"name": "dimension", "type": "string", "doc": "dimension"},
+  	{"name": "numBytes", "type": "long", "doc": "number of bytes sent"},
+  	{"name": "numOpenConns", "type": "long", "doc": "number of connections open"},
+  	{"name": "numClosedConns", "type": "long", "doc": "number of connections closed"},
+  	{"name": "numClients", "type": "int", "doc": "number of distinct clients that have connected"},
+  	{"name": "timeClosedConnLifeMs", "type": "long", "doc": "total lifespan of closed connections "},
+  	{"name": "timeOpenConnLifeMs", "type": "long", "doc": "total lifespan of currently open connections "},
+  	{"name": "errorTotalCount", "type": "long", "doc": "total number of networking errors"},
+    {"name": "errorConnectCount", "type": "long", "doc": "connection refused networking errors"},
+    {"name": "errorTimeoutCount", "type": "long", "doc": "connection timeout networking errors"}
+  ]
+}

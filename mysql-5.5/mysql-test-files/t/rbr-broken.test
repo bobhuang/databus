@@ -1,0 +1,48 @@
+--exec $MYSQL_TEST_DIR/suite/rpl_dbus/scripts/start-dbus-java.sh
+source include/master-slave.inc;
+connection master;
+flush logs;
+use test;
+create table t1(`key` bigint not null primary key, 
+  value blob not null) engine=innodb;
+create table t2(`key` bigint not null primary key, 
+  value blob not null) engine=innodb;
+create database d1;
+create table d1.t1(n int not null primary key) engine=innodb;  
+flush logs;  
+sleep 5;
+connection slave; 
+set global rpl_dbus_debug=1; 
+show create table test.t1;
+show create table test.t2;
+show create table d1.t1;
+
+use mysql;
+create table rpl_dbus_config(prop_key varchar(50) not null 
+  primary key, value varchar(50) not null) engine=myisam;
+use test;  
+connection master;
+insert into t1 values (1,'one'),(2,'two'),(3,'three');
+insert into t1 values (4,'four'),(5,'five'),(6,'six');
+update t1 set value='new five' where `key` = 5;
+delete from t1 where `key` = 2;
+update t1 set value='new one' where `key` = 1;
+update t1 set value='new two' where `key` = 2;
+update t1 set value='new three' where `key` = 3;
+
+insert into t2 values (1,'one'),(2,'two'),(3,'three');
+insert into t2 values (4,'four'),(5,'five'),(6,'six');
+update t2 set value='new five' where `key` = 5;
+delete from t2 where `key` = 2;
+update t2 set value='new one' where `key` = 1;
+update t2 set value='new two' where `key` = 2;
+update t2 set value='new three' where `key` = 3;
+
+#sync_slave_with_master;
+connection slave;
+stop slave;
+set global rpl_dbus_debug = 0;
+drop table mysql.rpl_dbus_config;
+drop database d1;
+--exec curl -s "http://localhost:8887/stream?sources=121,122&output=JSON&size=100000" |sed -r s/\"timestampInNanos\"\:[0-9]+// 
+--exec $MYSQL_TEST_DIR/suite/rpl_dbus/scripts/stop-dbus-java.sh

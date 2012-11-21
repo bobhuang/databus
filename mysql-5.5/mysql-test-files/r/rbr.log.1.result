@@ -1,0 +1,112 @@
+Handshake successful, server_id=1
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884904917
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1500000000000000
+val=one
+[end event]
+Ack with lsn=12884904917
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884904917
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1600000000000000
+val=two
+[end event]
+Ack with lsn=12884904917
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884904917
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1700000000000000
+val=three
+[end event]
+Ack with lsn=12884904917
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884905170
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1800000000000000
+val=four
+[end event]
+Ack with lsn=12884905170
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884905170
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1900000000000000
+val=five
+[end event]
+Ack with lsn=12884905170
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884905170
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1a00000000000000
+val=six
+[end event]
+Ack with lsn=12884904917, LSN reset requested
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884905423
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1900000000000000
+val=new five
+[end event]
+Ack with lsn=12884905423
+Header CRC OK
+[start event]
+opcode=2
+lsn=12884905667
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1600000000000000
+val=two
+[end event]
+Ack with lsn=12884905667
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884905890
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1500000000000000
+val=new one
+[end event]
+Ack with lsn=12884905890
+D-BUS testing disconnect after 9 events
+Handshake successful, server_id=1
+Header CRC OK
+[start event]
+opcode=1
+lsn=12884906132
+phys_part_id=3
+l_part_id=12
+schema_id=3ca6775b1f47c01e449037f0d8813d31
+key=1700000000000000
+val=new three
+[end event]

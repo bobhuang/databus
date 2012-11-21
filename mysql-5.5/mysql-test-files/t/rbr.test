@@ -1,0 +1,75 @@
+source include/master-slave.inc;
+connection master;
+flush logs;
+create table t1(`key` bigint not null primary key, 
+  value blob not null);
+create table t2(`key` bigint not null primary key, 
+  value blob not null);
+flush logs;  
+sync_slave_with_master;
+connection slave; 
+set global rpl_dbus_debug=1; 
+alter table t1 engine=rpl_dbus;
+alter table t2 engine=rpl_dbus;
+use mysql;
+create table rpl_dbus_config(prop_key varchar(50) not null 
+  primary key, value varchar(50) not null) engine=myisam;
+insert into rpl_dbus_config values 
+  ('databus2.mysql.physicalPartitionId','3'),
+  ('databus2.mysql.host','127.0.0.1'),
+  ('databus2.mysql.port','12178'),
+  ('databus2.mysql.source(t1).srcId','121'),
+  ('databus2.mysql.source(t1).logicalPartitionId','11'),
+  ('databus2.mysql.source(t1).schemaFile','/var/databus2/t1.dat'),
+  ('databus2.mysql.source(t2).srcId','122'),
+  ('databus2.mysql.source(t2).logicalPartitionId','12'),
+  ('databus2.mysql.source(t2).schemaFile','/var/databus2/t2.dat')
+  ;
+use test;  
+connection master;
+insert into t1 values (1,'one'),(2,'two'),(3,'three');
+insert into t1 values (4,'four'),(5,'five'),(6,'six');
+update t1 set value='new five' where `key` = 5;
+delete from t1 where `key` = 2;
+update t1 set value='new one' where `key` = 1;
+update t1 set value='new two' where `key` = 2;
+update t1 set value='new three' where `key` = 3;
+
+insert into t2 values (1,'one'),(2,'two'),(3,'three');
+insert into t2 values (4,'four'),(5,'five'),(6,'six');
+update t2 set value='new five' where `key` = 5;
+delete from t2 where `key` = 2;
+update t2 set value='new one' where `key` = 1;
+update t2 set value='new two' where `key` = 2;
+update t2 set value='new three' where `key` = 3;
+
+--sleep 20
+sync_slave_with_master;
+connection slave;
+stop slave;
+update mysql.rpl_dbus_config set value = '12179' where
+  prop_key='databus2.mysql.port';
+set global rpl_dbus_request_config_reload=1;
+show global variables like 'rpl_dbus_request_config_reload';
+show status like 'rpl_dbus_last_lsn';
+start slave;
+connection master;
+insert into t2 values (21,'one'),(22,'two'),(23,'three');
+insert into t2 values (24,'four'),(25,'five'),(26,'six');
+update t2 set value='new five' where `key` = 25;
+delete from t2 where `key` = 22;
+update t2 set value='new one' where `key` = 21;
+update t2 set value='new two' where `key` = 22;
+update t2 set value='new three' where `key` = 23;
+--sleep 20
+sync_slave_with_master;
+connection master;
+drop table t1,t2;
+connection slave;
+set global rpl_dbus_debug = 0;
+drop table mysql.rpl_dbus_config;
+--exec $MYSQL_TEST_DIR/suite/rpl_dbus/scripts/stop-all-dbus-servers.sh
+--exec diff -u $MYSQLTEST_VARDIR/rpl_dbus.log $MYSQL_TEST_DIR/suite/rpl_dbus/r/rbr.log.result  
+
+--exec diff -u $MYSQLTEST_VARDIR/rpl_dbus.log.1 $MYSQL_TEST_DIR/suite/rpl_dbus/r/rbr.log.1.result  
+

@@ -1,0 +1,214 @@
+stop slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+reset master;
+reset slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+start slave;
+drop database if exists foo;
+Warnings:
+Note	1008	Can't drop database 'foo'; database doesn't exist
+create database foo;
+select set_binlog_seq_id("foo",3),set_binlog_gen_id("foo",3);
+set_binlog_seq_id("foo",3)	set_binlog_gen_id("foo",3)
+1	1
+drop database foo;
+create database foo;
+select set_binlog_seq_id("foo",3),set_binlog_gen_id("foo",3);
+set_binlog_seq_id("foo",3)	set_binlog_gen_id("foo",3)
+1	1
+create table foo.t1 (n int) engine=innodb;
+drop database foo;
+select get_binlog_gen_id("test");
+get_binlog_gen_id("test")
+1
+select get_binlog_seq_id("test");
+get_binlog_seq_id("test")
+1
+select set_binlog_gen_id("test", 123);
+set_binlog_gen_id("test", 123)
+1
+use test;
+select get_binlog_gen_id("test");
+get_binlog_gen_id("test")
+123
+select get_binlog_seq_id("test");
+get_binlog_seq_id("test")
+1
+create table t1(n int) engine=innodb;
+set @binlog_group_id:=123;
+insert into t1 values(11),(12),(13);
+set @binlog_group_id:=223;
+insert into t1 values(21),(22),(23);
+set @binlog_group_id:=0;
+insert into t1 values(31),(32),(33);
+insert into t1 values(41),(42),(43);
+create database d1;
+select get_binlog_seq_id("test");
+get_binlog_seq_id("test")
+5
+select set_binlog_seq_id("test",12345);
+set_binlog_seq_id("test",12345)
+5
+select get_binlog_seq_id("test");
+get_binlog_seq_id("test")
+12345
+select set_binlog_gen_id("d1",212345);
+set_binlog_gen_id("d1",212345)
+1
+select set_binlog_seq_id("d1",1);
+set_binlog_seq_id("d1",1)
+1
+use d1;
+select get_binlog_gen_id("test");
+get_binlog_gen_id("test")
+123
+select get_binlog_gen_id("d1");
+get_binlog_gen_id("d1")
+212345
+create table t1(n int) engine=innodb;
+insert into t1 values(111),(112),(113);
+insert into t1 values(121),(122),(123);
+insert into t1 values(131),(132),(133);
+insert into t1 values(141),(142),(143);
+create database d2;
+use d2;
+create table t1(n int) engine=innodb;
+insert into t1 values(211),(212),(213);
+insert into t1 values(221),(222),(223);
+create database exp_d1;
+use exp_d1;
+ERROR 42000: gen_id not set for database exp_d1
+select set_binlog_gen_id("exp_d1",256);
+set_binlog_gen_id("exp_d1",256)
+1
+select set_binlog_seq_id("exp_d1",1);
+set_binlog_seq_id("exp_d1",1)
+1
+use exp_d1;
+create table t1(n int) engine=innodb;
+insert into t1 values(1),(2),(3);
+select get_binlog_gen_id("test",1),get_binlog_seq_id("test",1);
+get_binlog_gen_id("test",1)	get_binlog_seq_id("test",1)
+123	12345
+--> Start master server
+select get_binlog_gen_id("exp_d1",1),get_binlog_seq_id("exp_d1",1);
+get_binlog_gen_id("exp_d1",1)	get_binlog_seq_id("exp_d1",1)
+257	1
+use exp_d1;
+insert into t1 values(231),(232),(233);
+insert into t1 values(241),(242),(243);
+begin;
+insert into t1 values(241),(242),(243);
+insert into t1 values(251),(252),(253);
+insert into t1 values(261),(262),(263);
+commit;
+show binlog events in 'master-bin.000001';
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info	Database	Group_id
+master-bin.000001	4	Format_desc	1	107	Server ver: 5.5.8-Linkedin-r303947-log, Binlog ver: 4		0
+master-bin.000001	107	Query	1	204	drop database if exists foo	foo	4294967297
+master-bin.000001	204	Query	1	293	create database foo	foo	4294967297
+master-bin.000001	293	Query	1	380	drop database foo	foo	4294967297
+master-bin.000001	380	Query	1	469	create database foo	foo	4294967297
+master-bin.000001	469	Query	1	581	use `test`; create table foo.t1 (n int) engine=innodb	test	4294967297
+master-bin.000001	581	Query	1	668	drop database foo	foo	4294967297
+master-bin.000001	668	Query	1	775	use `test`; create table t1(n int) engine=innodb	test	528280977409
+master-bin.000001	775	Query	1	851	BEGIN	test	123
+master-bin.000001	851	Table_map	1	900	table_id: 41 (test.t1)		123
+master-bin.000001	900	Write_rows	1	952	table_id: 41 flags: STMT_END_F		123
+master-bin.000001	952	Xid	1	987	COMMIT /* xid=37 */		123
+master-bin.000001	987	Query	1	1063	BEGIN	test	223
+master-bin.000001	1063	Table_map	1	1112	table_id: 41 (test.t1)		223
+master-bin.000001	1112	Write_rows	1	1164	table_id: 41 flags: STMT_END_F		223
+master-bin.000001	1164	Xid	1	1199	COMMIT /* xid=39 */		223
+master-bin.000001	1199	Query	1	1275	BEGIN	test	528280977411
+master-bin.000001	1275	Table_map	1	1324	table_id: 41 (test.t1)		528280977411
+master-bin.000001	1324	Write_rows	1	1376	table_id: 41 flags: STMT_END_F		528280977411
+master-bin.000001	1376	Xid	1	1411	COMMIT /* xid=41 */		528280977411
+master-bin.000001	1411	Query	1	1487	BEGIN	test	528280977412
+master-bin.000001	1487	Table_map	1	1536	table_id: 41 (test.t1)		528280977412
+master-bin.000001	1536	Write_rows	1	1588	table_id: 41 flags: STMT_END_F		528280977412
+master-bin.000001	1588	Xid	1	1623	COMMIT /* xid=42 */		528280977412
+master-bin.000001	1623	Query	1	1710	create database d1	d1	528280977413
+master-bin.000001	1710	Query	1	1815	use `d1`; create table t1(n int) engine=innodb	d1	912014830469121
+master-bin.000001	1815	Query	1	1889	BEGIN	d1	912014830469121
+master-bin.000001	1889	Table_map	1	1936	table_id: 42 (d1.t1)		912014830469121
+master-bin.000001	1936	Write_rows	1	1988	table_id: 42 flags: STMT_END_F		912014830469121
+master-bin.000001	1988	Xid	1	2023	COMMIT /* xid=53 */		912014830469121
+master-bin.000001	2023	Query	1	2097	BEGIN	d1	912014830469122
+master-bin.000001	2097	Table_map	1	2144	table_id: 42 (d1.t1)		912014830469122
+master-bin.000001	2144	Write_rows	1	2196	table_id: 42 flags: STMT_END_F		912014830469122
+master-bin.000001	2196	Xid	1	2231	COMMIT /* xid=54 */		912014830469122
+master-bin.000001	2231	Query	1	2305	BEGIN	d1	912014830469123
+master-bin.000001	2305	Table_map	1	2352	table_id: 42 (d1.t1)		912014830469123
+master-bin.000001	2352	Write_rows	1	2404	table_id: 42 flags: STMT_END_F		912014830469123
+master-bin.000001	2404	Xid	1	2439	COMMIT /* xid=55 */		912014830469123
+master-bin.000001	2439	Query	1	2513	BEGIN	d1	912014830469124
+master-bin.000001	2513	Table_map	1	2560	table_id: 42 (d1.t1)		912014830469124
+master-bin.000001	2560	Write_rows	1	2612	table_id: 42 flags: STMT_END_F		912014830469124
+master-bin.000001	2612	Xid	1	2647	COMMIT /* xid=56 */		912014830469124
+master-bin.000001	2647	Query	1	2734	create database d2	d2	912014830469125
+master-bin.000001	2734	Query	1	2839	use `d2`; create table t1(n int) engine=innodb	d2	4294967297
+master-bin.000001	2839	Query	1	2913	BEGIN	d2	4294967297
+master-bin.000001	2913	Table_map	1	2960	table_id: 43 (d2.t1)		4294967297
+master-bin.000001	2960	Write_rows	1	3012	table_id: 43 flags: STMT_END_F		4294967297
+master-bin.000001	3012	Xid	1	3047	COMMIT /* xid=60 */		4294967297
+master-bin.000001	3047	Query	1	3121	BEGIN	d2	4294967298
+master-bin.000001	3121	Table_map	1	3168	table_id: 43 (d2.t1)		4294967298
+master-bin.000001	3168	Write_rows	1	3220	table_id: 43 flags: STMT_END_F		4294967298
+master-bin.000001	3220	Xid	1	3255	COMMIT /* xid=61 */		4294967298
+master-bin.000001	3255	Query	1	3350	create database exp_d1	exp_d1	4294967299
+master-bin.000001	3350	Query	1	3459	use `exp_d1`; create table t1(n int) engine=innodb	exp_d1	1099511627777
+master-bin.000001	3459	Query	1	3537	BEGIN	exp_d1	1099511627777
+master-bin.000001	3537	Table_map	1	3588	table_id: 44 (exp_d1.t1)		1099511627777
+master-bin.000001	3588	Write_rows	1	3640	table_id: 44 flags: STMT_END_F		1099511627777
+master-bin.000001	3640	Xid	1	3675	COMMIT /* xid=68 */		1099511627777
+master-bin.000001	3675	Stop	1	3702			0
+show binlog events in 'master-bin.000002';
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info	Database	Group_id
+master-bin.000002	4	Format_desc	1	107	Server ver: 5.5.8-Linkedin-r303947-log, Binlog ver: 4		0
+master-bin.000002	107	Query	1	185	BEGIN	exp_d1	1103806595073
+master-bin.000002	185	Table_map	1	236	table_id: 33 (exp_d1.t1)		1103806595073
+master-bin.000002	236	Write_rows	1	288	table_id: 33 flags: STMT_END_F		1103806595073
+master-bin.000002	288	Xid	1	323	COMMIT /* xid=5 */		1103806595073
+master-bin.000002	323	Query	1	401	BEGIN	exp_d1	1103806595074
+master-bin.000002	401	Table_map	1	452	table_id: 33 (exp_d1.t1)		1103806595074
+master-bin.000002	452	Write_rows	1	504	table_id: 33 flags: STMT_END_F		1103806595074
+master-bin.000002	504	Xid	1	539	COMMIT /* xid=6 */		1103806595074
+master-bin.000002	539	Query	1	617	BEGIN	exp_d1	1103806595075
+master-bin.000002	617	Table_map	1	668	table_id: 33 (exp_d1.t1)		1103806595075
+master-bin.000002	668	Write_rows	1	720	table_id: 33 flags: STMT_END_F		1103806595075
+master-bin.000002	720	Table_map	1	771	table_id: 33 (exp_d1.t1)		1103806595075
+master-bin.000002	771	Write_rows	1	823	table_id: 33 flags: STMT_END_F		1103806595075
+master-bin.000002	823	Table_map	1	874	table_id: 33 (exp_d1.t1)		1103806595075
+master-bin.000002	874	Write_rows	1	926	table_id: 33 flags: STMT_END_F		1103806595075
+master-bin.000002	926	Xid	1	961	COMMIT /* xid=8 */		1103806595075
+select set_binlog_seq_id("exp_d1",(1<<32)-1);
+set_binlog_seq_id("exp_d1",(1<<32)-1)
+4
+select get_binlog_seq_id("exp_d1");
+get_binlog_seq_id("exp_d1")
+4294967295
+insert into t1 values(1234);
+select get_binlog_seq_id("exp_d1");
+get_binlog_seq_id("exp_d1")
+NULL
+use test;
+select * from t1;
+n
+11
+12
+13
+21
+22
+23
+31
+32
+33
+41
+42
+43
+use test;
+drop table t1;
+drop database d1;
+drop database d2;
+drop database exp_d1;

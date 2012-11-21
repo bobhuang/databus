@@ -1,0 +1,30 @@
+apply plugin: 'li-java'
+
+dependencies {
+  compile project(':databus-core:databus-core-container')
+  compile project(':databus-core:databus-core-impl')
+  compile project(':databus-core:databus-core-schemas')
+  compile project(':databus2-relay:databus2-relay-impl')
+  compile project(':databus-core:databus2-espresso-core')
+  compile project(':databus3-relay:databus-rpldbus-manager')
+  testCompile project(':databus-core:databus-core-fwk-test')
+
+  compile spec.product.espresso.espressoSchema
+  compile spec.external.zkclientHelix
+  compile spec.external.zookeeper
+  testCompile spec.external.testng
+  testCompile spec.external.avro
+  testCompile spec.external.easymock
+  testCompile spec.external.easymockext
+}
+
+test.useTestNG()
+test.workingDir = "${project.rootDir}"
+
+project.afterEvaluate {
+    test {
+        workingDir = "${project.rootDir}"
+        systemProperties.put('espresso.schema.rootdir', 'databus3-relay/databus3-relay-cmdline-pkg/espresso_schemas_registry')
+    }
+}
+

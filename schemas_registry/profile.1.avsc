@@ -1,0 +1,102 @@
+{
+  "type": "record",
+  "doc" : "Profile Dbus Event DTO",
+  "name": "profile",
+  "namespace": "com.linkedin.events.member2",
+  "fields": [
+    {"name":"memberId", "type":"int", "doc": "The member id of the user of this profile"},
+    {"name":"createdDate", "type":"long", "doc": "The time at which the event was created"},
+    {"name":"modifiedDate", "type":"long", "doc": "The time at which the event was modified"},
+    {"name":"xmlSchemaVersion", "type":"int", "doc": "The schema version of the xml schema used to create the document"},
+    {"name":"updateVersion", "type":"int", "doc": "updateVersion"},
+    {"name":"profileAuthKey", "type":"string", "doc": "The profile auth key"},
+    {"name":"xmlContent", "type":"string", "doc":"The xml content of the Profile event"},
+    {"name":"educationHistory",
+     "type":{"type":"array",
+             "name":"EducationHistoryArray",
+             "items":{"type": "record",
+                      "doc" : "Details about each education position",
+                      "name": "EducationHistoryDetails",
+                      "namespace": "com.linkedin.events.member2",
+                      "fields": [
+                      {"name": "profileEducationId", "type":"int", "doc": "The profile education id"},
+                      {"name": "memberId", "type":"int", "doc": "The member id for this education record"},
+                      {"name": "createdDate", "type":"long", "doc": "The created time for this record"},
+                      {"name": "modifiedDate", "type":"long", "doc": "The last modified time for this record"},
+                      {"name": "xmlSchemaVersion", "type":"int", "doc": "The xml schema version used to create it"},
+                      {"name": "startMonthYear", "type": "string", "doc": "The month and year of the start of the assignment"},
+                      {"name": "endMonthYear", "type": "string", "doc": "The month and year of the end of the assignment"},
+                      {"name": "schoolId", "type": "int", "doc": "The id of the school for this position"},
+                      {"name": "countryCode", "type": "string", "doc": "The country code of the school"},
+                      {"name": "provinceCode", "type": "string", "doc": "The province of the school"},
+                      {"name": "xmlContent", "type": "string", "doc": "The xml content for the school"}
+                      ]
+                    }
+           }
+    },
+    {"name":"positionHistory",
+     "type":{"type": "array",
+             "name":"PositionHistoryArray",
+             "items":{"type": "record",
+                      "doc" : "Details about each position",
+                      "name": "PositionHistoryDetails",
+                      "namespace": "com.linkedin.events.member2",
+                      "fields": [
+                        {"name": "profilePositionId", "type" : "int", "doc": "The id of the profile position"},
+                        {"name": "memberId", "type" : "int", "doc" : "The id of the member"},
+                        {"name": "createdDate", "type" : "long", "doc" : "Creation time of row"},
+                        {"name": "modifiedDate", "type": "long", "doc" : "Modified time of row"},
+                        {"name": "xmlSchemaVersion", "type" : "int", "doc" : "Xml schema version for data"},
+                        {"name": "startMonthYear", "type": "string", "doc" : "The month and year of the start of the assignment"},
+                        {"name": "endMonthYear" , "type": "string",  "doc" : "The month and year of the end of the assignment"},
+                        {"name": "companyType", "type": "string",    "doc" : "The type of the company"},
+                        {"name": "memberSelectedCompanyId", "type": "int", "doc" : "The company Id selected member"},
+                        {"name": "suggestedCompanyId", "type" : "int", "doc" : "Suggested company Id"},
+                        {"name": "industryId", "type" : "int", "doc" : "Industry Id"},
+                        {"name": "companySize", "type" : "int", "doc" : "Company size"},
+                        {"name": "stockTickerSymbol", "type" : "string", "doc": "Stock Ticker Symbol"},
+                        {"name": "stockExchange", "type": "string", "doc": "Stock Exchange"},
+                        {"name": "xmlContent", "type": "string", "doc": "Xml content"}
+                        ]
+                      }
+              }
+     },
+    {"name":"profileElements",
+     "type":{"type": "array",
+             "name":"ProfileElement",
+             "items":{"type": "record",
+                      "doc" : "Details about each profile element",
+                      "name": "ProfileElementDetails",
+                      "namespace": "com.linkedin.events.member2",
+                      "fields": [
+                        {"name": "profileElementId", "type" : "int", "doc": "The id of the profile element"},
+                        {"name": "memberId", "type" : "int", "doc" : "The id of the member"},
+                        {"name": "elementNum", "type" : "int", "doc" : "The element number"},
+                        {"name": "elementType", "type" : "int", "doc" : "The type of the element"},
+                        {"name": "createdDate", "type" : "long", "doc" : "Creation time of row"},
+                        {"name": "modifiedDate", "type": "long", "doc" : "Modified time of row"},
+                        {"name": "xmlSchemaVersion", "type" : "int", "doc" : "Xml schema version for data"},
+                        {"name": "attribute01", "type": "string", "doc": "attribute "},
+                        {"name": "attribute02", "type": "string", "doc": "attribute "},
+                        {"name": "attribute03", "type": "string", "doc": "attribute "},
+                        {"name": "attribute04", "type": "string", "doc": "attribute "},
+                        {"name": "attribute05", "type": "string", "doc": "attribute "},
+                        {"name": "attribute06", "type": "string", "doc": "attribute "},
+                        {"name": "attribute07", "type": "string", "doc": "attribute "},
+                        {"name": "attribute08", "type": "string", "doc": "attribute "},
+                        {"name": "attribute09", "type": "string", "doc": "attribute "},
+                        {"name": "attribute10", "type": "string", "doc": "attribute "},
+                        {"name": "xmlContent", "type": "string", "doc": "Xml content"}
+                        ]
+                      }
+              }
+     }
+
+    ]
+}
+      
+
+   
+
+
+              

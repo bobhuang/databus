@@ -1,0 +1,38 @@
+# simple bootstrap test, generate random event, put that in bootstrap
+source setup_env.inc
+#db_config_file=config/sources-bizfollow.json 
+relay_event_dump_file_1=integration-test/var/work/bizfollow_relay_event_trace_1
+
+# 10M buffer , event dump file,  300k event, readbuffer size  1M
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.randomProducer.minEventsPerWindow=1000;databus.relay.randomProducer.maxEventsPerWindow=1200;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=100M
+#
+# the above will get exception, increase the event buffer,  the size is actually 10k,
+#$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.randomProducer.minEventsPerWindow=1000;databus.relay.randomProducer.maxEventsPerWindow=1200;databus.relay.eventBuffer.maxSize=102400000;databus.relay.eventBuffer.scnIndexSize=10240000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=1000M
+
+# start the consumer,  100k read buffer, 1M event buffer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=102400;databus.client.connectionDefaults.eventBuffer.readBufferSize=102400"
+
+# generate events
+#$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 15000 --percent_buff=80 --wait_until_suspend
+$SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 15000 --num_events=10000 --wait_until_suspend
+
+# wait
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60
+
+# look at the log, there should be some SCN not found errors
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_bizfollow_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s $VIEW_ROOT/${relay_event_dump_file_1} ${consumer_1_log}
+source report_pass_fail.inc
+
+exit $all_stat
+
