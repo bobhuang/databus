@@ -1,4 +1,0 @@
-
-dependencies {
-  compile project(':databus-profile-client:databus-profile-client-impl')
-}

@@ -1,1 +1,0 @@
-{"schemaType":"DBSchema", "name":"MyDB", "version":1,"doc": "Database schema for quick start", "partitionType":"HASH", "numBuckets":8}

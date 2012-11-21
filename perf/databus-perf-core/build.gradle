@@ -1,7 +1,0 @@
-
-dependencies {
-  compile project(':databus-core:databus-core-impl')
-  compile project(':databus-events:databus-events-member2')
-
-}
-

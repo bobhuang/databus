@@ -1,9 +1,0 @@
-{"name":       "BizRestrictedDomain",
- "version":    1,
- "doc":        "Company Restricted Domain",
- "type" :      "record",
- "schemaType": "DocumentSchema",
- "namespace":  "com.linkedin.company.bizprofile.ds.api.espresso",
- "fields":
-  [
-]}

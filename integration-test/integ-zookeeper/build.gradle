@@ -1,5 +1,0 @@
-
-dependencies {
-  runtime spec.external.zookeeper
-  runtime spec.external.log4j
-}

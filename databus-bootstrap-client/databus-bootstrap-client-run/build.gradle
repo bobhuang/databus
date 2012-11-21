@@ -1,7 +1,0 @@
-
-dependencies {
-  compile project(':databus2-relay:databus2-relay-impl')
-  compile project(':databus-bootstrap-client:databus-bootstrap-client-impl')
-  compile project(':databus-client:databus-client-impl')
-
-}

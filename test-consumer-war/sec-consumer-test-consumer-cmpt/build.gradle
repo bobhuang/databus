@@ -1,7 +1,0 @@
-
-dependencies {
-  runtime project(':sec-consumer:sec-consumer-impl')
-
-  runtime spec.product.container.containerImpl
-  runtime spec.product.container.healthcheckApi
-}

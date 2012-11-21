@@ -1,8 +1,0 @@
-{
-  "schemaType" : "DBSchema",
-  "name" : "EspressoDB256",
-  "version" : 1,
-  "doc" : "Espresso Schema for EspressoDB 256 physical partition",
-  "partitionType" : "HASH",
-  "numBuckets" : 256
-}

@@ -1,4 +1,0 @@
-Total Rows \(approx\) :470 between SCNs :5000 and 9517 for srcid :1,[1-2]
-Total Rows \(approx\) :470 between SCNs :5000 and 9517 for srcid :2,[1-2]
-Bootstrap Snapshot phase will be bypassed for startScn request,[1-2]
-StartSCN is less than or equal to sinceSCN. Bypassing snapshot phase !! startSCN:5000,sinceSCN:5000,[2-4]

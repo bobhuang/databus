@@ -1,3 +1,0 @@
-
-These are a subset of command-line tools from zookeeper package.
-Specifically, zkCli.sh is useful for automating some integration tests.

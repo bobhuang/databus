@@ -1,9 +1,0 @@
-
-project.tasks.cmdline {
-
-  from("script") {
-    into ("bin")
-    fileMode = 0755
-  }
-
-}
