@@ -9,9 +9,9 @@ dependencies {
   compile project(':databus3-relay:databus-rpldbus-manager')
   testCompile project(':databus-core:databus-core-fwk-test')
 
-  compile spec.product.espresso.espressoSchema
   compile externalDependency.zkclientHelix
   compile externalDependency.zookeeper
+  compile sandboxDependency.espressoSchema
   testCompile externalDependency.testng
   testCompile externalDependency.avro
   testCompile externalDependency.easymock

@@ -1,5 +1,3 @@
-apply plugin: 'cmdline'
-
 dependencies {
   compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
   compile project(':databus-bootstrap-server:databus-bootstrap-server-impl')
@@ -29,5 +27,12 @@ project.tasks.cmdline {
     from("${project.rootDir}/integration-test/script")
     include('*.py')
     fileMode = 0755
+  }
+
+  into ("lib") {
+      from project.configurations.runtime
+      if (project.tasks.findByName("jar")) {
+          from projects.tasks.jar
+      }
   }
 }

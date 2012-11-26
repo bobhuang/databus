@@ -1,9 +1,6 @@
-apply plugin: 'cmdline'
-
 dependencies {
   compile project(':databus2-relay:databus2-relay-impl')
   compile project(':databus3-relay:databus3-relay-espresso-impl')
-  compile project(':databus2-tools:databus2-tools-event-tool-impl')
 }
 
 project.tasks.cmdline {

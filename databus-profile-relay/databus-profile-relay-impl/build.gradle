@@ -6,7 +6,6 @@ dependencies {
   compile project(':databus3-relay:databus3-relay-espresso-impl')
 
   compile externalDependency.commonsIo
-  compile spec.product.container.containerImpl
   compile externalDependency.jacksonCoreAsl
   compile externalDependency.jacksonMapperAsl
   compile externalDependency.log4j
