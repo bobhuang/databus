@@ -12,6 +12,8 @@ dependencies {
   compile externalDependency.zkclientHelix
   compile externalDependency.zookeeper
   compile sandboxDependency.espressoSchema
+  compile externalDependency.commonsCli
+
   testCompile externalDependency.testng
   testCompile externalDependency.avro
   testCompile externalDependency.easymock
