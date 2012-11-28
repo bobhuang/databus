@@ -1,13 +1,12 @@
-[pganti@pganti-ld gitli_databus2]$ svn info
+[pganti@pganti-ld databus2_trunk]$ svn info
 Path: .
+Working Copy Root Path: /home/pganti/work/databus2_trunk
 URL: svn+ssh://svn.corp.linkedin.com/netrepo/databus2/trunk
 Repository Root: svn+ssh://svn.corp.linkedin.com/netrepo
 Repository UUID: fa5c8abf-283f-0410-8181-815065305006
-Revision: 529828
+Revision: 552521
 Node Kind: directory
 Schedule: normal
-Last Changed Author: bshkolni
-Last Changed Rev: 529828
-Last Changed Date: 2012-10-30 13:27:32 -0700 (Tue, 30 Oct 2012)
-
-
+Last Changed Author: pganti
+Last Changed Rev: 552400
+Last Changed Date: 2012-11-28 11:24:33 -0800 (Wed, 28 Nov 2012)
