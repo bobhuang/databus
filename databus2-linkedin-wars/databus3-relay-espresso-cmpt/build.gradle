@@ -1,8 +1,0 @@
-apply plugin: 'spring'
-
-dependencies {
-  runtime project(':databus2-linkedin:databus3-relay-linkedin-startables')
-
-  runtime spec.product.container.containerImpl
-  runtime spec.product.container.healthcheckApi
-}
