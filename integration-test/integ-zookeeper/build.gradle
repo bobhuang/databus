@@ -1,7 +1,0 @@
-apply plugin: 'java'
-apply plugin: 'cmdline'
-
-dependencies {
-  runtime externalDependency.zookeeper
-  runtime externalDependency.log4j
-}

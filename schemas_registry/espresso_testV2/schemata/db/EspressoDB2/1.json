@@ -1,8 +1,0 @@
-{
-  "schemaType" : "DBSchema",
-  "name" : "EspressoDB2",
-  "version" : 1,
-  "doc" : "Espresso Schema for EspressoDB 2 physical partition",
-  "partitionType" : "HASH",
-  "numBuckets" : 2
-}

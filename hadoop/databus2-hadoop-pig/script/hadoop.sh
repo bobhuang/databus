@@ -1,7 +1,0 @@
-#!/bin/bash
-
-script_dir=`dirname $0`
-source ${script_dir}/setup.inc
-source ${script_dir}/hadoop-setup.inc
-
-$HADOOP_HOME/bin/hadoop $*

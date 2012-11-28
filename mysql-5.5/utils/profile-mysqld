@@ -1,5 +1,0 @@
-#! /bin/sh
-
-gdb -ex "set pagination 0" -ex "thread apply all bt"   --batch -p $(cat var/run/mysqld.1.pid)
-
-
