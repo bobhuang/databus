@@ -1,0 +1,173 @@
+#! /usr/bin/perl
+
+use DBI;
+use Getopt::Long;
+use Time::HiRes qw(time);
+
+my $mysql_user = "root";
+my $mysql_pw = "";
+my $mysql_db = "test";
+my $mysql_host = "127.0.0.1";
+my $num_tables = 50;
+my $rows_per_table = 1000;
+my $msg_size = 200;
+my $batch_size = 200;
+my $engine = "InnoDB";
+my $use_binlog = 0;
+my $skip_write = 0;
+my $use_handler_socket = 0;
+my $mysql_port = 3306;
+my $binlog_format = "row";
+
+die("Invalid option syntax\n") unless 
+ GetOptions("engine=s" => \$engine,
+   "rows-per-table=s" => \$rows_per_table,
+   "num-tables=s" => \$num_tables,
+   "msg-size=s", => \$msg_size,
+   "batch-size=s" => \$batch_size,
+   "use-binlog" => \$use_binlog,
+   "skip-write" => \$skip_write,
+   "use-handler-socket" => \$use_handler_socket,
+   "mysql-port=s" => \$mysql_port,
+   "binlog-format=s" => \$binlog_format
+   );
+
+my $hs = 0;
+my $hs_port = 9999;
+
+if ($use_handler_socket)
+{
+  #use Net::HandlerSocket;
+  my $hs_param = {"host" => $mysql_host, "port"=> $hs_port};
+  $hs = new Net::HandlerSocket($hs_param);
+  die "Could not create handler socket \n" unless $hs;
+}
+
+
+my $dsn = "DBI:mysql:database=$mysql_db;host=$mysql_host;port=$mysql_port;";
+my $tmp_file = "/tmp/bench-producer-consumer.txt";
+my $con = DBI->connect($dsn, $mysql_user, $mysql_pw);
+die "Error connecting to MySQL\n" unless $con;
+
+safe_do("set binlog_format=$binlog_format");
+safe_do("set sql_log_bin=$use_binlog");
+run_producer();
+run_consumer();
+
+sub safe_do
+{
+  my ($query) = @_;
+  $con->do($query) or die "Error running $query: ${DBI::errstr}\n";
+}
+
+sub open_tmpfile
+{
+  open TMP_FH, ">$tmp_file" or die "Could not open $tmp_file: $!\n";
+}
+
+sub close_tmpfile
+{
+  close TMP_FH;
+}
+
+sub safe_query
+{
+  my ($query) = @_;
+  my $st = $con->prepare($query) or die "Error preparing $query\n";
+  $st->execute() or die "Error running query $query: ${DBI::errstr}\n";
+  $st->fetchrow_hashref();
+  $st->finish();
+}
+
+sub run_producer
+{
+	my $i;
+
+	for ($i = 0; $i < $num_tables; $i++)
+	{
+		safe_do("drop table if exists t_$i"); 
+		safe_do("create table t_$i (id int not null primary key, val blob not null) 
+				engine = $engine");
+	}
+
+	my $start_ts = time;
+
+	for ($i = 0; $i < $num_tables; $i++)
+	{
+		my $query = "load data local infile '$tmp_file' into table t_$i 
+		  fields terminated by ',' ";
+		my $k = 0;
+		
+		if ($hs)
+		{
+	  	$hs->open_index(1,$mysql_db, "t_$i", '', 'id,val') and die
+		    "Could not open handler socket index\n";
+		}
+		else
+		{
+		  open_tmpfile();
+		}
+		
+		for ($j = 1; $j <= $rows_per_table; $j++)
+		{
+		  if ($hs)
+		  {
+		    $hs->execute_insert(1,[$j, 'z' x $msg_size]) or
+		      die "Error executing handler socket insert\n";
+		  }
+		  else
+		  {
+		    print TMP_FH "$j,".('z' x $msg_size).".\n";
+		  }  
+			$k++;
+			if ($k == $batch_size)
+			{
+			  if (!$hs)
+			  {
+			    close_tmpfile();
+				  safe_do($query) unless ($skip_write);
+				  open_tmpfile();
+				}  
+				
+ 	  	  $k = 0;
+			}
+		}  
+		
+		close_tmpfile();
+		safe_do($query) if ($k);
+		#safe_query("select * from t_$i where id >");
+	}
+
+	my $run_time = time - $start_ts;
+
+	if ($run_time > 0)
+	{
+		printf("Producer test executed in %.3f s, %.2f MB per second\n", $run_time,
+			$msg_size*$num_tables*$rows_per_table/(1024*1024*$run_time));
+	}
+}
+
+sub run_consumer
+{
+  my $i;
+	my $start_ts = time;
+  
+  for ($i = 0; $i < $num_tables; $i++)
+  {
+    my $j;
+    my $num_batches = $rows_per_table / $batch_size;
+    
+    for ($j = 0; $j < $num_batches; $j++)
+    {
+      safe_query("select * from t_$i where id > ".($j * $batch_size).
+        " limit $batch_size"); 
+    }
+  }
+	my $run_time = time - $start_ts;
+
+	if ($run_time > 0)
+	{
+		printf("Consumer test executed in %.3f s, %.2f MB per second\n", $run_time,
+			$msg_size*$num_tables*$rows_per_table/(1024*1024*$run_time));
+	}
+}

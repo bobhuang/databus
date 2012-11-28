@@ -1,0 +1,22 @@
+{
+  "id" : "EspressoDB2",
+  "mapFields" : {
+    "EspressoDB2_0" : {
+      "localhost_12818" : "OFFLINE"
+    },
+    "EspressoDB2_1" : {
+      "localhost_12918" : "MASTER"
+    }
+  },
+  "listFields" : {
+    "EspressoDB2_0" : [ "localhost_12818" ],
+    "EspressoDB2_1" : [ "localhost_12918" ]
+  },
+  "simpleFields" : {
+    "IDEAL_STATE_MODE" : "CUSTOMIZED",
+    "NUM_PARTITIONS" : "2",
+    "REPLICAS" : "1",
+    "STATE_MODEL_DEF_REF" : "MasterSlave",
+    "STATE_MODEL_FACTORY_NAME" : "DEFAULT"
+  }
+}

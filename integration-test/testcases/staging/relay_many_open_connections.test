@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Test description: Open many connections and see how the relay behaves
+
+source setup_env.inc
+
+#initialization
+log_file=$LOG_DIR/stdout
+
+# start the relay on port 8080
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000"
+
+# Start telnet sessions and keep them open
+telnet_pids=
+
+i=0
+for((i=0;i<100;++i)) ; do
+
+telnet localhost 8080 &
+telnet_pids="${telnet_pids} $!" 
+
+done
+
+# try a test call which should complete within 5s (conservative)
+curl localhost:8080/sources &
+curl_pid=$!
+
+sleep 5
+
+if ps $curl_pid ; then
+  #curl is still running -- bad
+  failure=1
+  kill $curl_pid
+else
+  failure=0
+fi
+
+# clean up
+kill $telnet_pids
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o stop
+
+exit $failure

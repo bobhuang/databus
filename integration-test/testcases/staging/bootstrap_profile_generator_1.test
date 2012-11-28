@@ -1,0 +1,57 @@
+#!/bin/bash
+# test a relay can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-1.properties
+#  -. gen event, monitoring the buffer stats, freespace etc
+#  start client before the gen_event
+
+# start the relay on port 8080
+source setup_env.inc
+
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start -p $CONFIG_DIR/bootstrap-profile-producer-1.properties
+
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start -p $CONFIG_DIR/bootstrap-profile-service-1.properties
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/profile_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --dump_file=${consumer_1_log}
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 10000 -t 1000
+
+#sleep 2, more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o wait_event --sleep_before_wait=1
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/profile_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o stop
+
+
+#compare result
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s $WORK_DIR/profile_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+exit $all_stat
+
+# start the relay on port 8080
+./dbus2_driver.py -c test_relay -o start
+
+# generate events
+./dbus2_gen_event.py
+
+# reset the db and delete the checkpoints
+./dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer
+./dbus2_driver.py -c test_bootstrap_producer -o start
+
+# start the bootstrap server on port 6060
+./dbus2_driver.py -c bootstrap_server -o start
+
+# start the bootstrap integrated consumer. Can be called multiple times.
+./dbus2_driver.py -c bootstrap_consumer -o start
+

@@ -1,0 +1,208 @@
+{
+  "name" : "QuestWithAns_V1",
+  "doc" : "Auto-generated Avro schema for leo2.sy$quest_with_ans_1. Generated at Sep 15, 2011 09:53:59 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=leo2.sy$quest_with_ans_1;",
+  "namespace" : "com.linkedin.events.leo",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "askerId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ASKER_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "questionId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=QUESTION_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "questionWithAnswers",
+    "type" : {
+      "name" : "DATABUS_QUEST_WITH_ANS_1_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "questionId",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=QUESTION_ID;dbFieldPosition=0;"
+      }, {
+        "name" : "askerId",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=ASKER_ID;dbFieldPosition=1;"
+      }, {
+        "name" : "xmlVersion",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=XML_VERSION;dbFieldPosition=2;"
+      }, {
+        "name" : "type",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=TYPE;dbFieldPosition=3;"
+      }, {
+        "name" : "open",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=OPEN;dbFieldPosition=4;"
+      }, {
+        "name" : "hiddenByAsker",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=HIDDEN_BY_ASKER;dbFieldPosition=5;"
+      }, {
+        "name" : "hiddenByCs",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=HIDDEN_BY_CS;dbFieldPosition=6;"
+      }, {
+        "name" : "askerAccountClosed",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=ASKER_ACCOUNT_CLOSED;dbFieldPosition=7;"
+      }, {
+        "name" : "abuseLevel",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=ABUSE_LEVEL;dbFieldPosition=8;"
+      }, {
+        "name" : "cat1",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=CAT1;dbFieldPosition=9;"
+      }, {
+        "name" : "cat2",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=CAT2;dbFieldPosition=10;"
+      }, {
+        "name" : "region",
+        "type" : [ "int", "null" ],
+        "meta" : "dbFieldName=REGION;dbFieldPosition=11;"
+      }, {
+        "name" : "createDate",
+        "type" : [ "long", "null" ],
+        "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=12;"
+      }, {
+        "name" : "modifiedDate",
+        "type" : [ "long", "null" ],
+        "meta" : "dbFieldName=MODIFIED_DATE;dbFieldPosition=13;"
+      }, {
+        "name" : "expirationDate",
+        "type" : [ "long", "null" ],
+        "meta" : "dbFieldName=EXPIRATION_DATE;dbFieldPosition=14;"
+      }, {
+        "name" : "lastOpenDate",
+        "type" : [ "long", "null" ],
+        "meta" : "dbFieldName=LAST_OPEN_DATE;dbFieldPosition=15;"
+      }, {
+        "name" : "lastClosedDate",
+        "type" : [ "long", "null" ],
+        "meta" : "dbFieldName=LAST_CLOSED_DATE;dbFieldPosition=16;"
+      }, {
+        "name" : "title",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=TITLE;dbFieldPosition=17;"
+      }, {
+        "name" : "details",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=DETAILS;dbFieldPosition=18;"
+      }, {
+        "name" : "hiddenByUsers",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=HIDDEN_BY_USERS;dbFieldPosition=19;"
+      }, {
+        "name" : "celebrityOnly",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=CELEBRITY_ONLY;dbFieldPosition=20;"
+      }, {
+        "name" : "celebrityType",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=CELEBRITY_TYPE;dbFieldPosition=21;"
+      }, {
+        "name" : "locale",
+        "type" : [ "string", "null" ],
+        "meta" : "dbFieldName=LOCALE;dbFieldPosition=22;"
+      }, {
+        "name" : "answers",
+        "type" : {
+          "items" : {
+            "name" : "databusAnswerT",
+            "type" : "record",
+            "meta" : "dbFieldName=ANSWERS;dbFieldPosition=23;",
+            "fields" : [ {
+              "name" : "answerId",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=ANSWER_ID;dbFieldPosition=0;"
+            }, {
+              "name" : "questionId",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=QUESTION_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "askerId",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=ASKER_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "answererId",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=ANSWERER_ID;dbFieldPosition=3;"
+            }, {
+              "name" : "xmlVersion",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=XML_VERSION;dbFieldPosition=4;"
+            }, {
+              "name" : "good",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=GOOD;dbFieldPosition=5;"
+            }, {
+              "name" : "best",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=BEST;dbFieldPosition=6;"
+            }, {
+              "name" : "withdrawn",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=WITHDRAWN;dbFieldPosition=7;"
+            }, {
+              "name" : "hiddenByCs",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=HIDDEN_BY_CS;dbFieldPosition=8;"
+            }, {
+              "name" : "answererAccountClosed",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ANSWERER_ACCOUNT_CLOSED;dbFieldPosition=9;"
+            }, {
+              "name" : "abuseLevel",
+              "type" : [ "int", "null" ],
+              "meta" : "dbFieldName=ABUSE_LEVEL;dbFieldPosition=10;"
+            }, {
+              "name" : "createDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=11;"
+            }, {
+              "name" : "modifiedDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=MODIFIED_DATE;dbFieldPosition=12;"
+            }, {
+              "name" : "type",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=TYPE;dbFieldPosition=13;"
+            }, {
+              "name" : "answerLevel",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ANSWER_LEVEL;dbFieldPosition=14;"
+            }, {
+              "name" : "details",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=DETAILS;dbFieldPosition=15;"
+            }, {
+              "name" : "hiddenByUsers",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=HIDDEN_BY_USERS;dbFieldPosition=16;"
+            }, {
+              "name" : "celebrityType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CELEBRITY_TYPE;dbFieldPosition=17;"
+            } ]
+          },
+          "name" : "answersArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=QUESTION_WITH_ANSWERS;dbFieldPosition=4;"
+  } ]
+}

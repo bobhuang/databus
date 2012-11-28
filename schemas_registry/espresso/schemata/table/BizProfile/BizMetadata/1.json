@@ -1,0 +1,9 @@
+{"name":       "BizMetadata",
+ "doc":        "Table Schema for BizProfile Metadata in key-value format - less than 10 entries",
+ "schemaType": "TableSchema",
+ "version":    1,
+ "recordType": "/schemata/document/BizProfile/BizMetadata",
+ "resourceKeyParts":
+  [
+    {"name": "property", "type": "STRING"}
+]}

@@ -1,0 +1,36 @@
+{
+  "name" : "MemberSetting_V2",
+  "doc" : "Auto-generated Avro schema for SY$MEMBER_SETTING. Generated at Feb 10, 2012 05:37:00 PM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=SY$MEMBER_SETTING;",
+  "namespace" : "com.linkedin.events.member2.setting",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "settingId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=SETTING_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "settingValue",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SETTING_VALUE;dbFieldPosition=4;"
+  }, {
+    "name" : "dateCreated",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DATE_CREATED;dbFieldPosition=5;"
+  }, {
+    "name" : "dateModified",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DATE_MODIFIED;dbFieldPosition=6;"
+  } ]
+}

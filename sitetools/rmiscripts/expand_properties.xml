@@ -1,0 +1,24 @@
+
+<!--**********************************************************
+  ** common call that expands ant properties in the file
+  ** expand.file.in: contains the file to expand in
+  ** expand.file.out: contains the file to do the output
+  **********************************************************-->
+   <target name="expand.properties"  
+           description="Does property expansion on a file" >
+     <uptodate property="expand.properties.uptodate" srcfile="${expand.file.in}" targetfile="${expand.file.out}"/> 
+     <antcall target="expand.properties.force">
+        <param name="expand.file.in" value="${expand.file.in}" />
+        <param name="expand.file.out" value="${expand.file.out}" />
+     </antcall> 
+   </target> 
+
+   <target name="expand.properties.force" unless="expand.properties.uptodate"> 
+     <delete file="${expand.file.out}"/> 
+     <copy tofile="${expand.file.out}" 
+           file="${expand.file.in}"> 
+       <filterchain> 
+         <expandproperties /> 
+       </filterchain> 
+     </copy>
+   </target>

@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<project name="HadoopSeeding" basedir="." default="build">
+ 
+  <!-- get the base batch directory -->
+  <property environment="env"/>
+  <property name="src" location="src"/>
+  <property name="bin" location="bin"/>
+  <property name="build" location="build"/>
+  <property name="dist"  location="dist"/>
+  <property name="run.dir" value="${build}"  />
+  <property name="batch.base.dir" value="${env.BATCH_HOME}"/>
+  <property name="additional.jar.dir" value="."/> <!-- set this to a folder where all the additional jars you want to inlcude are -->
+  <property name="jar-with-deps.dir" value="dist"/> <!-- set this to the directory where you would like your new big fat jar to be-->
+  <property name="jar.name" value="databusHadoopMapReduce.jar" />
+  <property name="all.jar.name" value="databusHadoopFatMapReduce.jar" />
+
+ 
+  <target name="dist.all" depends="dist" description="Make big jar containing all jars in lib/">
+    <delete file="${dist}/${all.jar.name}"/>
+    <jar jarfile="${dist}/${all.jar.name}" filesetmanifest="merge">
+      <!-- if you don't want jars from your batch dist/jobs folder because something new in them breaks some of your stuff, comment out the line below and just use additional.jar.dir property to point to jars that work-->
+      <zipgroupfileset dir="lib" includes="*.jar" excludes="junit-4.8.1.jar,testng-5.14.12beta.jar"/>
+      <zipgroupfileset dir="${dist}/lib" includes="*.jar"/>
+    </jar>
+  </target>                   
+
+  <path id="project.class.path">
+    <fileset dir="lib">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+
+  <target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${build}"/>
+    <mkdir dir="${dist}"/>
+    <mkdir dir="${dist}/lib"/>
+  </target>
+
+  <target name="build" depends="init" description="compile the source" >
+    <!-- Compile the java code from ${src} into ${build} -->
+    <javac srcdir="${src}" destdir="${build}">
+      <classpath refid="project.class.path"/> 
+    </javac>
+  </target>
+
+
+  <target name="dist" depends="build" description="generate the classes distribution" >
+    <mkdir dir="${dist}/lib"/>
+    <jar jarfile="${dist}/lib/${jar.name}" >
+      <fileset dir="${build}" includes="com/linkedin/databus2/hadoop/seeding/**" />
+    </jar>
+  </target>
+
+  <target name="clean" description="clean up" >
+    <!-- Delete the ${dist} directory trees -->
+    <delete dir="${bin}"/>
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>

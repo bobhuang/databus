@@ -1,0 +1,9 @@
+{
+  "schemaType" : "DBSchema",
+  "name" : "CommDB_Range",
+  "version": 1,
+  "doc" : "Database schema used for tests",
+  "partitionType" : "RANGE",
+  "numBuckets" : 50,
+  "rangeSize" : 100000
+}

@@ -1,0 +1,28 @@
+{
+  "name" : "EFeedStats_V2",
+  "doc" : "Auto-generated Avro schema for efeed.sy$efeed_stats_2. Generated at Sep 15, 2011 02:45:45 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=efeed.sy$efeed_stats_2;pk=id",
+  "namespace" : "com.linkedin.events.efeed",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "type",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TYPE;dbFieldPosition=1;"
+  }, {
+    "name" : "id",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ID;dbFieldPosition=2;"
+  }, {
+    "name" : "updateDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=UPDATE_DATE;dbFieldPosition=3;"
+  }, {
+    "name" : "fullSummary",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=FULL_SUMMARY;dbFieldPosition=4;"
+  } ]
+}

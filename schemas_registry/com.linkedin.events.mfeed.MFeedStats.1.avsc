@@ -1,0 +1,28 @@
+{
+  "name" : "MFeedStats_V1",
+  "doc" : "Auto-generated Avro schema for mfeed.sy$mfeed_stats_1. Generated at Sep 15, 2011 02:43:11 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=mfeed.sy$mfeed_stats_1;",
+  "namespace" : "com.linkedin.events.mfeed",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "id",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ID;dbFieldPosition=2;"
+  }, {
+    "name" : "updateDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=UPDATE_DATE;dbFieldPosition=3;"
+  }, {
+    "name" : "fullSummary",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=FULL_SUMMARY;dbFieldPosition=4;"
+  } ]
+}

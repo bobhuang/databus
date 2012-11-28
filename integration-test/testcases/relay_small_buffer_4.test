@@ -1,0 +1,60 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=relay_small_buffer_4.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/profile_relay_event_trace
+consumer_1_log=${WORK_DIR_FROM_ROOT}/profile_consumer_1.events
+
+#
+# Test case: client will get an error if relay wrapped around
+#
+
+# start the relay on port 8080
+source setup_env.inc
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o start -p $CONFIG_DIR/relay-config-small-1.properties --cmdline_props="databus.relay.container.httpPort=${relay_port};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file}"
+
+
+# start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --http_port=${client_port} --relay_port=${relay_port} --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.checkpointPersistence.fileSystem.rootDirectory=./profileclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# generate events to make the relay wrapp around
+$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 10000 -t 1000 --server_port=${relay_port}
+
+sleep 2 
+
+#sleep 1 more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o wait_event --sleep_before_wait=1 --timeout=30 --http_port=${client_port} --relay_port=${relay_port}
+
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/profile_{relay,consumer}_start* | ${TAIL_PATH} -n 2| xargs grep ERROR
+
+#compare result
+stat_txt="Test $0"
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_dump_file} ${consumer_1_log} 
+source report_pass_fail.inc
+
+# stop
+stat_txt="Stop Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o stop
+source report_pass_fail.inc
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o stop
+
+final_report=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+

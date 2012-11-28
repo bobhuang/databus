@@ -1,0 +1,10 @@
+{
+  "name" : "Mailbox",
+  "doc" : "Table schema for a mailbox",
+  "schemaType" : "TableSchema",
+  "version"    : 1,
+  "recordType" : "/schemata/document/CommDB/Mailbox",
+  "resourceKeyParts" : [
+    {"name": "mboxId", "type":"INT"}
+  ]
+}

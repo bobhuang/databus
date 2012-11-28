@@ -1,0 +1,44 @@
+#!/bin/bash
+source setup_env.inc
+
+#bootstrap_server=esv4-bed03
+RELAY_HOST=esv4-be40
+BOOTSTRAP_HOST=esv4-bed03
+
+for client_num in 1 2 3 4 5 6; do
+#for client_num in 2 ; do
+
+  client_pids=""
+
+  for client_n in `seq 1 $client_num` ; do
+    
+    #variables  
+    port_n=$((6060+$client_n))
+    bootstrap_stats_call="http://localhost:$(port_n)/clientStats/bootstrap/events/total"
+    #consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_${client_num}_${client_n}.log
+    consumer_1_log=bizfollow_consumer_${client_num}_${client_n}.log
+    cp_dir=./bfclient_${client_num}_${client_n}-checkpoints
+
+    #start consumer
+    $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=${RELAY_HOST} --logfile=${consumer_1_log} --bootstrap_host=${BOOTSTRAP_HOST}  --bootstrap_port=6060 --http_port=${port_n} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.container.id=${client_n}" &
+
+  done
+  sleep 10800
+  
+  #wait for bootstrap
+
+  for client_n in `seq 1 $client_num` ; do
+  
+     bootstrap_stats_file="bootstrap_stats_${client_num}_${client_n}"
+  
+    #get stats
+    curl ${bootstrap_stats_call} >& ${bootstrap_stats_file} 
+    
+  done      
+  
+  
+  # kill consumers
+    ps -ef | grep java | awk '{print $NF}'  | xargs kill -9
+    #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+  
+done

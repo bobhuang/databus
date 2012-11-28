@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "doc" : "Total inbound or outbound databus http statistics",
+  "name": "DbusHttpTotalStatsEvent",
+  "namespace": "com.linkedin.databus.monitoring.events",
+  "fields": 
+  [
+  	{"name": "ownerId", "type": "int", "doc": "The id of the owner that generated the event"},
+  	{"name": "timestampLastResetMs", "type": "long", "doc": "unix timestamp of the last reset() call"},  	
+  	{"name": "timeSinceLastResetMs", "type": "long", "doc": "time in ms since the last reset() call"},
+  	{"name": "dimension", "type": "string", "doc": "dimension"},
+  	{"name": "numSourcesCalls", "type": "int", "doc": "number of /sources calls"},
+  	{"name": "numRegisterCalls", "type": "int", "doc" :"number of /register calls"},
+  	{"name": "numStreamCalls", "type": "long", "doc": "number of /stream calls"},
+  	{"name": "numPeers", "type": "int", "doc": "number of distinct peers that have ever connected"},
+  	{"name": "timeStreamCallsMs", "type": "long", "doc": "total time to run stream calls"},
+  	{"name": "minStreamWinScn", "type": "long", "doc": "the minimum requested window scn sent or received"},
+  	{"name": "maxStreamWinScn", "type": "long", "doc": "the maximum requested window scn sent or received"},
+  	{"name": "numErrStreamCalls", "type": "long", "doc": "number of erroneous /stream calls"},
+  	{"name": "numErrInvalidParamsStreamCalls", "type": "long", "doc": "number of erroneous /stream calls with invalid req params "},
+  	{"name": "numErrScnNotFoundStreamCalls", "type": "long", "doc": "number of erroneous /stream calls when req scn was not found"},
+  	{"name": "numErrRegisterCalls", "type": "int", "doc" :"number of erroneous /register calls"},
+  	{"name": "numErrInvalidParamsRegisterCalls", "type": "int", "doc" :"number of erroneous /register calls with invalid req params"},
+  	{"name": "numErrSourcesCalls", "type": "int", "doc": "number of erroneous /sources calls"},
+  	{"name": "numErrInvalidParamsSourcesCalls", "type": "int", "doc": "number of erroneous /sources calls with invalid req params"},
+  	{"name": "mastershipStatus", "type": "int", "doc": "mastership status"}
+  ]
+}

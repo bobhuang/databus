@@ -1,0 +1,16 @@
+{
+  "name" : "Table1",
+  "doc" : "Test table",
+  "version" : 1,
+  "schemaType" : "TableSchema",
+  "recordType" : "/schemata/document/TestDB/Table1",
+  "index"      :
+    {
+      "granularity": "Partition",
+      "buckets": 1
+    },
+  "resourceKeyParts" : [
+    {"name": "key1", "type":"INT"},
+    {"name": "key2", "type":"INT"}
+  ]
+}

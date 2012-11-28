@@ -1,0 +1,26 @@
+use mysql;
+create table rpl_dbus_config(prop_key varchar(50) not null 
+  primary key, value varchar(50) not null) engine=myisam;
+insert into rpl_dbus_config values 
+  ('databus2.mysql.physicalPartitionId','3'),
+  ('databus2.mysql.host','127.0.0.1'),
+  ('databus2.mysql.port','12178'),
+  ('databus2.mysql.source(t1).srcId','121'),
+  ('databus2.mysql.source(t1).logicalPartitionId','11'),
+  ('databus2.mysql.source(t1).schemaFile','/var/databus2/t1.dat'),
+  ('databus2.mysql.source(t2).srcId','122'),
+  ('databus2.mysql.source(t2).logicalPartitionId','12'),
+  ('databus2.mysql.source(t2).schemaFile','/var/databus2/t2.dat')
+  ;
+
+use test;
+create table t1 (n int, name varchar(20)) engine=rpl_dbus;
+show create table t1;
+insert into t1 values(1,"one");
+insert into t1 values(2,"two");
+select * from t1;
+show variables like 'rpl_dbus%';
+drop table t1;
+use mysql;
+drop table rpl_dbus_config;
+--exec $MYSQL_TEST_DIR/suite/rpl_dbus/scripts/stop-all-dbus-servers.sh

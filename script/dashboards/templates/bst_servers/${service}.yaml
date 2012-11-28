@@ -1,0 +1,110 @@
+0:
+  title: Requests
+  defs:
+    - service: ${service}
+      label: bootstrap
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumReqBootstrap.rrd
+    - service: ${service}
+      label: startSCN
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumReqStartSCN.rrd
+    - service: ${service}
+      label: targetSCN
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumReqTargetSCN.rrd
+    - service: ${service}
+      label: catchup
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumReqCatchup.rrd
+    - service: ${service}
+      label: snapshot
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumReqSnapshot.rrd
+  params:
+    vlabel: requests/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+    lowerLimit: -5
+1:
+  title:  Errors
+  defs:
+    - service: ${service}
+      label: bootstrap_err
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumErrReqBootstrap.rrd
+    - service: ${service}
+      label: startSCN_err
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumErrStartSCN.rrd
+    - service: ${service}
+      label: targetSCN_err
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumErrTargetSCN.rrd
+    - service: ${service}
+      label: sql_err
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumErrSqlException.rrd
+    - service: ${service}
+      label: dbOld_err
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServertHttpMetrics.NumErrReqDatabaseTooOld.rrd
+  params:
+    vlabel: errors/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+    lowerLimit: -5
+2:
+  title:  Events
+  defs:
+    - service: ${service}
+      label: data_events_in
+      rrd: ${service}/${service}.i001.eventsInbound_total.databus2_BootStrapServerInboundEventBuffer.NumDataEvents.rrd
+    - service: ${service}
+      label: data_events_out
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServerOutboundConn.NumDataEvents.rrd
+  params:
+    vlabel: events/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+3:
+  title:  Event Errors
+  defs:
+    - service: ${service}
+      label: bootstrap_server_in_events_invalid
+      rrd: ${service}/${service}.i001.eventsInbound_total.databus2_BootStrapServerInboundEventBuffer.NumInvalidEvents.rrd
+    - service: ${service}
+      label: bootstrap_server_out_events_invalid
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServerOutboundConn.NumInvalidEvents.rrd
+  params:
+    vlabel: errors/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+4:
+  title: Connections
+  defs:
+    - service: ${service}
+      label: open_connections
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServerOutboundConn.NumOpenConns.rrd
+    - service: ${service}
+      label: num_clients
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapServerOutboundConn.NumClients.rrd
+  params:
+    vlabel: connections/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true

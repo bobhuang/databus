@@ -1,0 +1,20 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+# test bizfollow db relay can run with a small buffer.
+export TEST_NAME=espresso_relay_small_buffer_1.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+
+espressoDB_partitions=1,1,2,4,8,10,16,24,32
+espressoDB_list=EspressoDB,TestDB,EspressoDB2,EspressoDB4,EspressoDB8,EspressoDB10,EspressoDB16,EspressoDB24,EspressoDB32
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o stop
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o reset
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o start
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o check_node_up --db_list=${espressoDB_list} --db_range=${espressoDB_partitions}

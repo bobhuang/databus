@@ -1,0 +1,1 @@
+--binlog-format=row --force-rpl-dbus-prefix=e --replicate-wild-fetch-nx-table=d1.% --replicate-wild-fetch-nx-table=es%.%  --replicate-wild-fetch-nx-table=emailtest%.% --binlog-mark-events=1

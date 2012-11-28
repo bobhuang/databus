@@ -1,0 +1,184 @@
+stop slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+reset master;
+reset slave;
+drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
+start slave;
+use test;
+CREATE TABLE `EmailTest` (
+`mboxid` int(11) NOT NULL,
+`docid` int(11) NOT NULL,
+`timestamp` bigint(20) NOT NULL,
+`etag` varchar(10) NOT NULL,
+`val` blob,
+`schema_version` smallint(6) NOT NULL,
+PRIMARY KEY (`mboxid`,`docid`)
+) ENGINE=INNODB;
+insert into EmailTest values (10,100, 1000, 'one', 'One one', 1);
+insert into EmailTest values (20,200, 2000, 'two', 'Two two', 2);
+insert into EmailTest values (30,300, 3000, 'three', 'Three three', 3);
+update EmailTest set val = 'New one' where mboxid = 10 and docid = 100;
+update EmailTest set val = 'New two' where mboxid = 20 and docid = 200;
+delete from EmailTest where mboxid = 30 and docid = 300;
+insert into EmailTest values (31,300, 3000, 'three', 'Three three', 3),
+(20,400, 2000, 'two', 'Two four', 2);
+begin;
+insert into EmailTest values (40,300, 3000, 'four', 'Four four', 3);
+update EmailTest set val = 'New four' where mboxid = 40 and docid = 300;
+update EmailTest set val = 'New three' where mboxid >= 30;
+commit;
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+10	100	1000	one	New one	1
+20	200	2000	two	New two	2
+20	400	2000	two	Two four	2
+31	300	3000	three	New three	3
+40	300	3000	four	New three	3
+set sql_log_bin=0;
+select binlog_undo_event('master.000001',2625);
+binlog_undo_event('master.000001',2625)
+0
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+10	100	1000	one	New one	1
+20	200	2000	two	New two	2
+20	400	2000	two	Two four	2
+31	300	3000	three	Three three	3
+40	300	3000	four	New four	3
+select binlog_undo_event('master.000001',2035);
+binlog_undo_event('master.000001',2035)
+0
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+10	100	1000	one	New one	1
+20	200	2000	two	New two	2
+40	300	3000	four	New four	3
+select binlog_undo_event('master.000001',1785);
+binlog_undo_event('master.000001',1785)
+0
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+10	100	1000	one	New one	1
+20	200	2000	two	New two	2
+30	300	3000	three	Three three	3
+40	300	3000	four	New four	3
+select binlog_undo_event('master.000001',1231);
+binlog_undo_event('master.000001',1231)
+0
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+10	100	1000	one	One one	1
+20	200	2000	two	New two	2
+30	300	3000	three	Three three	3
+40	300	3000	four	New four	3
+select binlog_undo_event('master.000001',556);
+binlog_undo_event('master.000001',556)
+-2
+select binlog_undo_event('master.000001',493);
+binlog_undo_event('master.000001',493)
+0
+select * from EmailTest;
+mboxid	docid	timestamp	etag	val	schema_version
+20	200	2000	two	New two	2
+30	300	3000	three	Three three	3
+40	300	3000	four	New four	3
+select binlog_undo_event('master.000001',557);
+binlog_undo_event('master.000001',557)
+-8
+select binlog_undo_event('master.000001',417);
+binlog_undo_event('master.000001',417)
+-8
+set sql_log_bin = 1;
+show binlog events;
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info	Database	Group_id
+master.000001	4	Format_desc	11	107	Server ver: 5.5.8-Linkedin-r294411-log, Binlog ver: 4		0
+master.000001	107	Query	11	417	use `test`; CREATE TABLE `EmailTest` (
+`mboxid` int(11) NOT NULL,
+`docid` int(11) NOT NULL,
+`timestamp` bigint(20) NOT NULL,
+`etag` varchar(10) NOT NULL,
+`val` blob,
+`schema_version` smallint(6) NOT NULL,
+PRIMARY KEY (`mboxid`,`docid`)
+) ENGINE=INNODB	test	0
+master.000001	417	Query	11	493	BEGIN	test	0
+master.000001	493	Table_map	11	557	table_id: 41 (test.EmailTest)		0
+master.000001	557	Write_rows	11	626	table_id: 41 flags: STMT_END_F		0
+master.000001	626	Xid	11	661	COMMIT /* xid=22 */		0
+master.000001	661	Query	11	737	BEGIN	test	0
+master.000001	737	Table_map	11	801	table_id: 41 (test.EmailTest)		0
+master.000001	801	Write_rows	11	870	table_id: 41 flags: STMT_END_F		0
+master.000001	870	Xid	11	905	COMMIT /* xid=23 */		0
+master.000001	905	Query	11	981	BEGIN	test	0
+master.000001	981	Table_map	11	1045	table_id: 41 (test.EmailTest)		0
+master.000001	1045	Write_rows	11	1120	table_id: 41 flags: STMT_END_F		0
+master.000001	1120	Xid	11	1155	COMMIT /* xid=24 */		0
+master.000001	1155	Query	11	1231	BEGIN	test	0
+master.000001	1231	Table_map	11	1295	table_id: 41 (test.EmailTest)		0
+master.000001	1295	Update_rows	11	1397	table_id: 41 flags: STMT_END_F		0
+master.000001	1397	Xid	11	1432	COMMIT /* xid=25 */		0
+master.000001	1432	Query	11	1508	BEGIN	test	0
+master.000001	1508	Table_map	11	1572	table_id: 41 (test.EmailTest)		0
+master.000001	1572	Update_rows	11	1674	table_id: 41 flags: STMT_END_F		0
+master.000001	1674	Xid	11	1709	COMMIT /* xid=26 */		0
+master.000001	1709	Query	11	1785	BEGIN	test	0
+master.000001	1785	Table_map	11	1849	table_id: 41 (test.EmailTest)		0
+master.000001	1849	Delete_rows	11	1924	table_id: 41 flags: STMT_END_F		0
+master.000001	1924	Xid	11	1959	COMMIT /* xid=27 */		0
+master.000001	1959	Query	11	2035	BEGIN	test	0
+master.000001	2035	Table_map	11	2099	table_id: 41 (test.EmailTest)		0
+master.000001	2099	Write_rows	11	2207	table_id: 41 flags: STMT_END_F		0
+master.000001	2207	Xid	11	2242	COMMIT /* xid=28 */		0
+master.000001	2242	Query	11	2318	BEGIN	test	0
+master.000001	2318	Table_map	11	2382	table_id: 41 (test.EmailTest)		0
+master.000001	2382	Write_rows	11	2454	table_id: 41 flags: STMT_END_F		0
+master.000001	2454	Table_map	11	2518	table_id: 41 (test.EmailTest)		0
+master.000001	2518	Update_rows	11	2625	table_id: 41 flags: STMT_END_F		0
+master.000001	2625	Table_map	11	2689	table_id: 41 (test.EmailTest)		0
+master.000001	2689	Update_rows	11	2870	table_id: 41 flags: STMT_END_F		0
+master.000001	2870	Xid	11	2905	COMMIT /* xid=30 */		0
+show open tables;
+Database	Table	In_use	Name_locked
+mysql	time_zone_transition_type	0	0
+performance_schema	events_waits_summary_global_by_event_name	0	0
+performance_schema	setup_timers	0	0
+performance_schema	events_waits_history_long	0	0
+mysql	func	0	0
+mysql	time_zone_name	0	0
+performance_schema	events_waits_summary_by_instance	0	0
+mysql	time_zone_transition	0	0
+performance_schema	setup_consumers	0	0
+mysql	help_keyword	0	0
+mysql	help_category	0	0
+mysql	help_relation	0	0
+mysql	user	0	0
+mysql	slow_log	0	0
+test	EmailTest	0	0
+performance_schema	cond_instances	0	0
+mysql	plugin	0	0
+mysql	proc	0	0
+mysql	proxies_priv	0	0
+mysql	help_topic	0	0
+performance_schema	rwlock_instances	0	0
+mysql	time_zone	0	0
+mysql	event	0	0
+mysql	columns_priv	0	0
+performance_schema	performance_timers	0	0
+performance_schema	threads	0	0
+mysql	general_log	0	0
+performance_schema	events_waits_summary_by_thread_by_event_name	0	0
+performance_schema	file_summary_by_event_name	0	0
+mysql	time_zone_leap_second	0	0
+performance_schema	file_summary_by_instance	0	0
+performance_schema	setup_instruments	0	0
+mysql	servers	0	0
+mysql	db	0	0
+mysql	host	0	0
+performance_schema	events_waits_history	0	0
+mysql	ndb_binlog_index	0	0
+performance_schema	mutex_instances	0	0
+performance_schema	events_waits_current	0	0
+mysql	tables_priv	0	0
+mysql	procs_priv	0	0
+performance_schema	file_instances	0	0
+drop table EmailTest;

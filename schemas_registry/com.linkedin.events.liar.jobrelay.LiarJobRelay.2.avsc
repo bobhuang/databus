@@ -1,0 +1,33 @@
+{
+  "name" : "LiarJobRelay",
+  "doc" : "Auto-generated Avro schema for SY$LIAR_JOB_RELAY_2. Generated at Sep 09, 2011 02:35:28 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=SY$LIAR_JOB_RELAY_2;",
+  "namespace" : "com.linkedin.events.liar.jobrelay.LiarJobRelay",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "eventId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=EVENT_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "isDelete",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=IS_DELETE;dbFieldPosition=3;"
+  }, {
+    "name" : "state",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATE;dbFieldPosition=4;"
+  }, {
+    "name" : "isRealtime",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=IS_REALTIME;dbFieldPosition=5;",
+    "default": ""
+  } ]
+}

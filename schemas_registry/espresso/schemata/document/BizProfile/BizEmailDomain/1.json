@@ -1,0 +1,15 @@
+{"name":       "BizEmailDomain",
+ "version":    1,
+ "doc":        "Company Email Domain",
+ "type":       "record",
+ "schemaType": "DocumentSchema",
+ "namespace":  "com.linkedin.company.bizprofile.ds.api.espresso",
+ "fields":
+  [
+    {"name": "emailDomain",  "type": "string", "indexType": "attribute"},
+    {"name": "createdDate",  "type": "long"},
+    {"name": "modifiedDate", "type": "long"},
+    {"name": "status",
+     "type": {"name": "BizEmailDomainStatus",
+              "type": "enum", "symbols": ["ACTIVE","DELETED"]}}
+]}

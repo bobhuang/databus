@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "doc" : "Container statistics",
+  "name": "ContainerStatsEvent",
+  "namespace": "com.linkedin.databus2.core.container.monitoring.events",
+  "fields": 
+  [
+  	{"name": "containerId", "type": "int", "doc": "The id of the container that generated the event"},
+    {"name": "timestampLastResetMs", "type": "long", "doc": "unix timestamp of the last reset() call"},   
+  	{"name": "ioThreadRate", "type": "int", "doc": "number of running io threads"},
+    {"name": "ioThreadMax", "type": "int", "doc": "max number of io threads since last reset"},
+    {"name": "ioActiveThreadRate", "type": "int", "doc": "number of active io threads"},
+    {"name": "ioTaskCount", "type": "long", "doc": "number of scheduled io tasks"},
+    {"name": "ioTaskMax", "type": "int", "doc": "max number of scheduled io tasks since last reset"},
+    {"name": "workerThreadRate", "type": "int", "doc": "number of running worker threads"},
+    {"name": "workerThreadMax", "type": "int", "doc": "max number of worker threads since last reset"},
+    {"name": "workerActiveThreadRate", "type": "int", "doc": "number of active worker threads"},
+    {"name": "workerTaskCount", "type": "int", "doc": "number scheduled worker tasks"},
+    {"name": "workerTaskMax", "type": "int", "doc": "max number scheduled worker tasks since last reset"},
+    {"name": "errorCount", "type": "long", "doc": "total number of errors"},
+  	{"name": "errorUncaughtCount", "type": "long", "doc": "number of uncaught errors"},
+    {"name": "errorRequestProcessingCount", "type": "long", "doc": "number of request processing errors"}
+  ]
+}

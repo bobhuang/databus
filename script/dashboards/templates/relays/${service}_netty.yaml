@@ -1,0 +1,127 @@
+0:
+  title: Netty IO Stats
+  defs:
+    - service: ${service}
+      label: io_threads_cur
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.IoThreadRate.rrd
+    - service: ${service}
+      label: io_threads_act
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.IoActiveThreadRate.rrd
+    - service: ${service}
+      label: io_tasks_cur
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.IoTaskCount.rrd
+    - service: ${service}
+      label: io_tasks_max
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.IoTaskMax.rrd
+    - service: ${service}
+      label: io_threads_max
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.IoThreadMax.rrd
+  params:
+    vlabel: #
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+1:
+  title: Netty Worker Stats
+  defs:
+    - service: ${service}
+      label: worker_threads_cur
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.WorkerThreadRate.rrd
+    - service: ${service}
+      label: worker_threads_act
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.WorkerActiveThreadRate.rrd
+    - service: ${service}
+      label: worker_threads_max
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.WorkerThreadMax.rrd
+    - service: ${service}
+      label: worker_tasks_cur
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.WorkerTaskCount.rrd
+    - service: ${service}
+      label: worker_tasks_max
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.WorkerTaskMax.rrd
+  params:
+    vlabel: #
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+2:
+  title: Netty Errors
+  defs:
+    - service: ${service}
+      label: uncaught
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.ErrorUncaughtCount.rrd
+    - service: ${service}
+      label: reqs
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.ErrorRequestProcessingCount.rrd
+    - service: ${service}
+      label: total
+      rrd: ${service}/${service}.i001.total.databus2_RelayContainerStats.ErrorCount.rrd
+  params:
+    vlabel: #
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+3:
+  title: Network Traffic
+  defs:
+    - service: ${service}
+      label: bytes
+      rrd: ${service}/${service}.i001.total.databus2_RelayOutboundConn.NumBytes.rrd
+  params:
+    vlabel: bytes/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+4:
+  title: Network Connections
+  defs:
+    - service: ${service}
+      label: open
+      rrd: ${service}/${service}.i001.total.databus2_RelayOutboundConn.OpenConnsRate.rrd
+    - service: ${service}
+      label: closed
+      rrd: ${service}/${service}.i001.total.databus2_RelayOutboundConn.ClosedConnsRate.rrd
+  params:
+    vlabel: conns
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+5:
+  title: Network Connections Lifespan
+  defs:
+    - service: ${service}
+      label: open
+      rrd: ${service}/${service}.i001.total.databus2_RelayOutboundConn.LatencyOpenConn.rrd
+    - service: ${service}
+      label: closed
+      rrd: ${service}/${service}.i001.total.databus2_RelayOutboundConn.LatencyClosedConn.rrd
+  params:
+    vlabel: ms
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+    

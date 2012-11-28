@@ -1,0 +1,1 @@
+--binlog-mark-events=1 --log-bin=slave --binlog-format=row  --server-id=12

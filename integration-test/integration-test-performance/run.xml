@@ -1,0 +1,87 @@
+<project name="integration-test-performance" default="run" basedir="./">
+  <property name="test.jvmargs" value=" -Xms768m -Xmx1024m -XX:MaxDirectMemorySize=1024m "/>
+  <import file="${basedir}/../../product/product-properties.xml"/>
+  <!-- Test properties -->
+  <import file="${build.fwk.dir}/test-properties.xml"/>
+  <!-- Run Classpath -->
+  <!-- Shared Test targets -->
+  <import file="${build.fwk.dir}/test-targets.xml"/>
+  <!-- JAR Manifest Specification Title -->
+  <property name="manifest-spec-title" value="Databus Client Test Classes"/>
+
+  <property name="module.classification" value ="test"/>
+  
+  <property name="main.class" value="com.linkedin.databus.tests.inprocess.HttpServer" />
+  <property name="config.dir" value="${basedir}/../../config" />
+  <property name="config.file" value="${config.dir}/relay-config-template.properties" />
+  <property name="run.dir" value="${basedir}/../.."  />
+  <property name="jvm.debug.port" value="8998" />
+  <property name="jvm.debug.arg" value="-agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:${jvm.debug.port},server=y" />
+  
+  <dependencies>
+    <dependency org="junit" name="junit" rev="${artifact.version.junit}"/>
+    <dependency org="com.linkedin.databus2.integration-test" name="integration-test-performance" rev="legacy"/>
+    <dependency org="com.linkedin.databus2.databus-bootstrap" name="databus-bootstrap-api" rev="legacy"/>
+    <dependency org="com.linkedin.databus2.databus-relay" name="databus-relay-impl" rev="legacy"/>
+    <dependency org="com.linkedin.databus2.databus-client" name="databus-client-impl" rev="legacy"/>
+  </dependencies>
+	
+  <target name="run" depends="compile" description="Runs the relay with default settings">
+  	<java classname="${main.class}" fork="yes" dir="${run.dir}">
+  		<classpath refid="run-classpath" />
+  		<arg value="-p" />
+  		<arg value="${config.file}" />
+	</java>
+  </target>
+
+  <target name="run-debug" depends="compile" description="Runs the relay with debug output">
+  	<java classname="${main.class}" fork="yes" dir="${run.dir}" >
+  		<jvmarg value="${jvm.debug.arg}" />
+  		<classpath refid="run-classpath" />
+  		<arg value="-d" />
+	</java>
+  </target>
+
+  <target name="run-log-file" depends="compile" 
+          description="Runs the relay with log output to the file ./databus2-relay.out">
+  	<java classname="${main.class}" fork="yes" dir="${run.dir}" >
+  		<classpath refid="run-classpath" />
+  		<arg value="-l" />
+  		<arg value="${config.dir}/relay-log4j2file.properties" />
+	</java>
+  </target>
+
+  <target name="run-debug-file" depends="compile" 
+          description="Runs the relay with debug output to the file ./databus2-relay.out">
+  	<java classname="${main.class}" fork="yes" dir="${run.dir}" >
+  		<jvmarg value="${jvm.debug.arg}" />
+  		<classpath refid="run-classpath" />
+  		<arg value="-l" />
+  		<arg value="${config.dir}/relay-log4j2file.properties" />
+  		<arg value="-d" />
+	</java>
+  </target>
+
+  <target name="run-trace-file" depends="compile" 
+          description="Runs the relay with trace output to the file ./databus2-relay.out">
+    <echo message="has file ${config.dir}/relay-trace2file.properties: ${has.log4jfile}" />
+  	<java classname="${main.class}" fork="yes" dir="${run.dir}" >
+  		<jvmarg value="${jvm.debug.arg}" />
+  		<classpath refid="run-classpath" />
+  		<arg value="-l" />
+  		<arg value="${config.dir}/relay-trace2file.properties" />
+	</java>
+  </target>
+
+  <target name="run-debug-customconf" depends="compile" description="Runs the relay with debug output">
+    <java classname="${main.class}" fork="yes" dir="${run.dir}" >
+      <jvmarg value="${jvm.debug.arg}" />
+      <classpath refid="run-classpath" />
+      <arg value="-d" />
+      <arg value="-p" />
+      <arg value="${config.dir}/relay-config.properties" />
+    </java>
+  </target>
+  
+</project>
+

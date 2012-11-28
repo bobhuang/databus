@@ -1,0 +1,4 @@
+mysql --defaults-file=/export/apps/mysql-rpl-dbus/my.cnf -ss -uroot -e "select concat('DROP DATABASE ', schema_name, ';')  from information_schema.schemata where schema_name like 'es_TestDB%'" | mysql --defaults-file=/export/apps/mysql-rpl-dbus/my.cnf -uroot
+mysql --defaults-file=/export/apps/mysql-rpl-dbus/my.cnf -ss -uroot -e "select concat('DROP DATABASE ', schema_name, ';')  from information_schema.schemata where schema_name like 'es_EspressoDB%'" | mysql --defaults-file=/export/apps/mysql-rpl-dbus/my.cnf -uroot
+mysql -ss -uroot -e "select concat('DROP DATABASE ', schema_name, ';')  from information_schema.schemata where schema_name like 'es_TestDB%'" | mysql -uroot
+mysql -ss -uroot -e "select concat('DROP DATABASE ', schema_name, ';')  from information_schema.schemata where schema_name like 'es_EspressoDB%'" | mysql -uroot

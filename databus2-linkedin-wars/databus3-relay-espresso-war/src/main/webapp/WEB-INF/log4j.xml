@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?> 
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd"> 
+ 
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/"> 
+  
+  @log4j.appenders.webapp@
+  
+  @log4j.appenders.public_access@
+ 
+  <appender name="EspressoRelayAppender" class="org.apache.log4j.DailyRollingFileAppender"> 
+    <param name="File" value="logs/databus3-relay-espresso_databus.log"/> 
+    <param name="Append" value="true"/> 
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%d{yyyy/MM/dd HH:mm:ss.SSS} %p [%c{1}] (%t) +%r %m%n" /> 
+    </layout> 
+  </appender> 
+ 
+  <appender name="EspressoRelayHttpOutAppender" class="org.apache.log4j.DailyRollingFileAppender"> 
+    <param name="File" value="logs/databus3-relay-espresso_httpout.log"/> 
+    <param name="Append" value="true"/> 
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%d{yyyy/MM/dd HH:mm:ss.SSS} +%r %m%n" /> 
+    </layout> 
+  </appender> 
+ 
+  <appender name="EspressoRelayHttpInAppender" class="org.apache.log4j.DailyRollingFileAppender"> 
+    <param name="File" value="logs/databus3-relay-espresso_httpin.log"/> 
+    <param name="Append" value="true"/> 
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%d{yyyy/MM/dd HH:mm:ss.SSS} +%r %m%n" /> 
+    </layout> 
+  </appender> 
+  <appender name="EspressoRelayRplDbusManagerAppender" class="org.apache.log4j.DailyRollingFileAppender"> 
+    <param name="File" value="logs/databus3-relay-espresso_rpl_dbus_manager.log"/> 
+    <param name="Append" value="true"/> 
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%d{yyyy/MM/dd HH:mm:ss.SSS} %p (%t) +%r %m%n" /> 
+    </layout> 
+  </appender> 
+ 
+  <appender name="EspressoRelayTcpAppender" class="org.apache.log4j.DailyRollingFileAppender"> 
+    <param name="File" value="logs/databus3-relay-espresso_tcp.log"/> 
+    <param name="Append" value="true"/> 
+    <param name="DatePattern" value="'.'yyyy-MM-dd"/> 
+    <layout class="org.apache.log4j.PatternLayout"> 
+      <param name="ConversionPattern" value="%d{yyyy/MM/dd HH:mm:ss.SSS} %p [%c{1}] (%t) +%r %m%n" /> 
+    </layout> 
+  </appender> 
+  
+  @log4j.loggers.spring@
+  
+  
+  <logger name="com.linkedin.databus" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayAppender"/> 
+  </logger> 
+  
+  <logger name="com.linkedin.databus2" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayAppender"/> 
+  </logger> 
+  
+  <logger name="com.linkedin.databus3" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayAppender"/> 
+  </logger> 
+  
+  <logger name="com.linkedin.databus3.rpl_dbus_manager" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayRplDbusManagerAppender"/> 
+  </logger> 
+
+  <logger name="com.linkedin.databus2.core.container.HttpRequestLoggingHandler.out" additivity="false" > 
+    <level value="debug"/> 
+    <appender-ref ref="EspressoRelayHttpOutAppender"/> 
+  </logger> 
+
+  <logger name="com.linkedin.databus2.core.container.HttpRequestLoggingHandler.in" additivity="false" > 
+    <level value="debug"/> 
+    <appender-ref ref="EspressoRelayHttpInAppender"/> 
+  </logger> 
+
+  <logger name="com.linkedin.databus3.espresso.rpldbusproto" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayTcpAppender"/> 
+  </logger> 
+  
+  <logger name="com.linkedin.databus2.core.container.request.SimpleBinaryDatabusRequestDecoder" additivity="false" > 
+    <level value="info"/> 
+    <appender-ref ref="EspressoRelayTcpAppender"/> 
+  </logger> 
+  
+  @log4j.loggers.root@
+  
+</log4j:configuration> 
+ 

@@ -1,0 +1,13 @@
+[pganti@pganti-ld gitli_databus2]$ svn info
+Path: .
+URL: svn+ssh://svn.corp.linkedin.com/netrepo/databus2/trunk
+Repository Root: svn+ssh://svn.corp.linkedin.com/netrepo
+Repository UUID: fa5c8abf-283f-0410-8181-815065305006
+Revision: 529828
+Node Kind: directory
+Schedule: normal
+Last Changed Author: bshkolni
+Last Changed Rev: 529828
+Last Changed Date: 2012-10-30 13:27:32 -0700 (Tue, 30 Oct 2012)
+
+

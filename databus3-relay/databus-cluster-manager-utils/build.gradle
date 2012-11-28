@@ -1,0 +1,16 @@
+apply plugin: 'li-java'
+
+dependencies {
+
+  compile project(':databus-core:databus-core-impl')
+
+  compile spec.external.helixCore
+  compile spec.external.log4j
+  testCompile spec.external.testng
+}
+
+test {
+  workingDir = "${project.rootDir}"
+}
+
+test.useTestNG()

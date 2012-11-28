@@ -1,0 +1,17 @@
+{"name":       "BizEmailTracking",
+ "version":    1,
+ "doc":        "Company Email Tracking",
+ "type":       "record",
+ "schemaType": "DocumentSchema",
+ "namespace":  "com.linkedin.company.bizprofile.ds.api.espresso",
+ "fields":
+  [
+    {"name": "emailTrackingEntries",
+     "type": ["null",{"name": "BizEmailTrackingArray",
+                      "type": "array",
+                      "items": {"name": "BizEmailTrackingEntry",
+                                "type": "record",
+                                "fields": [{"name": "emailType",    "type": "string"},
+                                           {"name": "toMemberId",   "type": "long"},
+                                           {"name": "emailTime",    "type": "long"}]}}]}
+]}

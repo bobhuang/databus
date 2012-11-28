@@ -1,0 +1,16 @@
+{
+  "name" : "EmailMetadata",
+  "doc" : "Document schema for email metadata",
+  "schemaType" : "TableSchema",
+  "recordType" : "/schemata/document/MailboxDB/EmailMetadata",
+  "version"    : 1,
+  "index"      :
+    {
+      "granularity": "Partition",
+      "buckets": 10
+    },
+  "resourceKeyParts" : [
+    {"name": "mboxId", "type":"INT"},
+    {"name": "emailId", "type":"INT"}
+  ]
+}

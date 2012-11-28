@@ -1,0 +1,12 @@
+{
+  "name" : "Mailbox",
+  "version" : 1,
+  "doc" : "Document schema for mailbox data",
+  "type" : "record",
+  "schemaType" : "DocumentSchema",
+  "namespace" : "com.linkedin.comm.ds.api.espresso",
+  "fields" : [
+    {"name":"unreadMsgCount", "type":"int"},
+    {"name":"pendingInvCount", "type":"int"}
+  ]
+}

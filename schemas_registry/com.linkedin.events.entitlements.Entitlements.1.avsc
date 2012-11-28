@@ -1,0 +1,44 @@
+{
+  "name" : "Entitlements_V1",
+  "doc" : "Auto-generated Avro schema for entitlements.sy$entitlements. Generated at Sep 15, 2011 11:51:52 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=entitlements.sy$entitlements;",
+  "namespace" : "com.linkedin.events.entitlements",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "entityType",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ENTITY_TYPE;dbFieldPosition=2;"
+  }, {
+    "name" : "entityId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ENTITY_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "entitlements",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ENTITLEMENTS;dbFieldPosition=4;"
+  }, {
+    "name" : "version",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=VERSION;dbFieldPosition=5;"
+  }, {
+    "name" : "createdOn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATED_ON;dbFieldPosition=6;"
+  }, {
+    "name" : "lastModified",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=LAST_MODIFIED;dbFieldPosition=7;"
+  }, {
+    "name" : "updateCount",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=UPDATE_COUNT;dbFieldPosition=8;"
+  } ]
+}

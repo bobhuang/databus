@@ -1,0 +1,17 @@
+{
+  "name" : "IdAddressPair",
+  "version":   1,
+  "doc" : "Espresso Schema for a simple Id Address Pair Table",
+  "type" : "record",
+  "meta" : "schemaType=TableSchema;dbType=MySqlOnly;primaryKey=id",
+  "namespace":"com.linkedin.espresso.test.espressodb",
+  "fields" : [ {
+    "name" : "id",
+    "type" : [ "int", "string" ],
+    "meta" : ""
+  }, {
+    "name" : "address",
+    "type" : [ "string", "null" ],
+    "meta" : ""
+  } ]
+}

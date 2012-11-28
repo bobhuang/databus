@@ -1,0 +1,5519 @@
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/avro.cc sql/avro.cc
+--- /home/sasha/mysql-5.5.8/sql/avro.cc	1969-12-31 16:00:00.000000000 -0800
++++ sql/avro.cc	2011-11-23 15:31:04.555692095 -0800
+@@ -0,0 +1,312 @@
++#include "sql_priv.h"
++#include "sql_class.h"
++#include "item_func_avro.h"
++#include "hash.h"
++#include "sql_base.h"
++#include "records.h"
++
++#include <avro.h>
++
++#define AVRO_DEF_TABLE "avro_schema_defs"
++#define AVRO_DEF_TABLE_DB "mysql"
++
++
++Avro_def_hash* avro_def_hash = 0;
++
++static uchar *get_avro_hash_key(Avro_def_hash_entry *e, 
++                              size_t *len,
++                              my_bool not_used __attribute__((unused)))
++{
++  *len= e->name_len;
++  return (uchar*) e->name;
++}
++
++
++static void free_avro_hash_entry(Avro_def_hash_entry* e)
++{
++  avro_schema_decref(e->schema);
++  my_free(e);
++}
++
++Avro_def_hash::Avro_def_hash():thd(0),running_thd(0)
++{
++  my_hash_init(&h, &my_charset_latin1,50,0,0,
++    (my_hash_get_key)get_avro_hash_key,
++               (void (*)(void*))free_avro_hash_entry,0);
++}
++
++Avro_def_hash::~Avro_def_hash()
++{
++  my_hash_free(&h);
++}
++
++int Avro_def_hash::cleanup_thd()
++{
++  close_mysql_tables(thd);
++  delete thd;
++  thd = 0;
++  
++  if (running_thd)
++  {
++    running_thd->store_globals();
++    running_thd = 0; /* just in case */
++  }
++  else
++  {
++    my_pthread_setspecific_ptr(THR_THD,0);
++    my_pthread_setspecific_ptr(THR_MALLOC,0);
++  }  
++
++  return 0;
++}
++
++
++int Avro_def_hash::open_schema_table(thr_lock_type lock_mode)
++{
++  tbl.init_one_table(C_STRING_WITH_LEN(AVRO_DEF_TABLE_DB),
++                           C_STRING_WITH_LEN(AVRO_DEF_TABLE),
++                            AVRO_DEF_TABLE, lock_mode);
++  
++  tbl.open_type = OT_BASE_ONLY;
++  tbl.open_strategy = TABLE_LIST::OPEN_IF_EXISTS;
++  
++  if (open_and_lock_tables(thd, &tbl, 
++       FALSE, MYSQL_LOCK_IGNORE_TIMEOUT))
++  {
++    sql_print_information("Error opening AVRO schema definitions table");
++    return -1;
++  }     
++  
++  if (!tbl.table || !tbl.table->s)
++  {
++    sql_print_information("Table descriptor of AVRO schema definitions " 
++    "table was not "
++    " initialized possibly because it does not exist, " 
++     " will live wihtout it");
++    return -1;
++  }
++  
++  return 0;
++}
++
++int Avro_def_hash::init_hash_from_table()
++{
++  running_thd = current_thd;
++  thd = new THD;
++  MEM_ROOT mem;
++  READ_RECORD record_info;
++  int res = 1;
++  
++  if (!thd)
++  {
++    sql_print_error("Out of memory initializing AVRO schema definitions");
++    return 1;
++  }
++  
++  if (thd->store_globals())
++  {
++     sql_print_error("Error in store_globals() initializing AVRO " 
++     " schema definitions");
++     goto err;
++  }
++   
++  thd->thread_stack = (char*)&mem;
++  
++  if (open_schema_table(TL_READ))
++    goto err;
++  
++  if (tbl.table->s->fields != 2)
++  {
++    sql_print_error("Wrong number of fields the AVRO schema " 
++    "definitions table, got %d, expected 2", tbl.table->s->fields);
++    goto err;
++  }
++  
++  init_sql_alloc(&mem,1024,0);
++  init_read_record(&record_info,thd,tbl.table,NULL,1,0,FALSE);
++  tbl.table->use_all_columns();
++  
++  while (!(record_info.read_record(&record_info)))
++  {
++    char* schema_name, *schema_def;
++    schema_name = get_field(&mem,tbl.table->field[0]);
++    schema_def = get_field(&mem,tbl.table->field[1]);
++    
++    if (schema_name && schema_def)
++    {
++      if (put_schema_in_hash(schema_name, strlen(schema_name),
++             schema_def, strlen(schema_def)))
++        sql_print_warning("Failed to add AVRO schema %s to the hash",
++                          schema_name);
++    }
++  }
++  
++  res = 0;
++  
++err:  
++  cleanup_thd();
++  return res;
++}
++
++static Avro_def_hash_entry* get_avro_def_entry(const char* schema_name, 
++                        uint schema_name_len, avro_schema_t schema)
++{
++  Avro_def_hash_entry* e = (Avro_def_hash_entry*)my_malloc(sizeof(*e) + 
++    schema_name_len, MYF(0));
++  
++  if (!e)
++    return 0;
++  
++  e->name = (char*)(e+1); //put name in the extra space
++  memcpy(e->name,schema_name,schema_name_len);
++  e->name_len = schema_name_len;
++  e->schema = schema;
++  return e;
++}
++
++
++int Avro_def_hash::put_schema_in_hash(const char* schema_name, 
++                        uint schema_name_len,
++                        const char* json_def, 
++                        uint json_def_len)
++{
++  avro_schema_error_t error;
++  avro_schema_t schema = 0;
++  Avro_def_hash_entry* e = 0;
++  
++  if (avro_schema_from_json(json_def,json_def_len,&schema,&error))
++  {
++    return -1;
++  }
++  
++  if ((e = (Avro_def_hash_entry*)
++        my_hash_search(&h,(uchar*)schema_name,schema_name_len)))
++  {
++    avro_schema_decref(e->schema);
++    e->schema = schema;
++  }
++  else
++  {  
++    e = get_avro_def_entry(schema_name,schema_name_len,
++                                              schema);
++  
++    if (!e || my_hash_insert(&h, (const uchar*)e))
++    {
++      goto err;
++    }
++  }   
++  
++  return 0;
++err:
++  avro_schema_decref(schema);
++  return -1;
++}
++    
++int Avro_def_hash::put_schema_in_table(const char* schema_name, 
++                        uint schema_name_len,
++                        const char* json_def, 
++                        uint json_def_len)
++{
++  // do the dirty work in a separate THD to avoid possible problems
++  thd = new THD;
++  running_thd = current_thd;
++  int res = 1;
++  
++  if (!thd)
++  {
++    sql_print_error("Out of memory initializing AVRO schema definitions");
++    return 1;
++  }
++  
++  if (thd->store_globals())
++  {
++     sql_print_error("Error in store_globals() initializing AVRO " 
++     " schema definitions");
++     goto err;
++  }
++   
++  thd->thread_stack = (char*)&res;
++
++  if (open_schema_table(TL_WRITE))
++    goto err;
++
++  // block to avoid initalization fuss on goto
++  {
++    handler* h = tbl.table->file;
++    Field* f = tbl.table->field[0];
++    f->store(schema_name,schema_name_len,f->charset());
++    f = tbl.table->field[1];
++    f->store(json_def,json_def_len,f->charset());
++    
++    if (h->ha_write_row(tbl.table->record[0]))
++      goto err;
++  }
++  
++  res = 0;
++err:  
++  cleanup_thd();
++  return res;
++}
++
++
++avro_schema_t Avro_def_hash::get_schema(const char* schema_name, uint schema_name_len)
++{
++  Avro_def_hash_entry* e = (Avro_def_hash_entry*)my_hash_search(&h,
++                                                   (uchar*)schema_name,
++                                                   schema_name_len);
++  
++  return e ? e->schema : 0;
++}
++    
++int Avro_def_hash::register_schema(const char* schema_name, 
++                                   uint schema_name_len,
++                                   const char* json_def, uint json_def_len)
++{
++  return put_schema_in_hash(schema_name, schema_name_len, json_def,
++                            json_def_len) ||
++         put_schema_in_table(schema_name, schema_name_len, json_def,
++                            json_def_len);                   
++}
++
++static int avro_plugin_init(void* p)
++{
++  if (!(avro_def_hash = new Avro_def_hash()))
++  {
++    sql_print_error("Out of memory initializing AVRO schema definitions hash");
++    return 1;
++  }  
++  
++  avro_def_hash->init_hash_from_table(); // ignore errors
++  return 0;
++}
++
++static int avro_plugin_deinit(void* p)
++{
++  delete avro_def_hash;
++  avro_def_hash = 0;
++  return 0;
++}
++
++static struct st_mysql_storage_engine avro_plugin = {
++  MYSQL_HANDLERTON_INTERFACE_VERSION
++};
++
++#include "sql_plugin.h"
++
++
++mysql_declare_plugin(avro)
++{
++  MYSQL_STORAGE_ENGINE_PLUGIN,
++  &avro_plugin,
++  "avro",
++  "LinkedIn",
++  "AVRO plugin to initialize AVRO schema lookup table",
++  PLUGIN_LICENSE_GPL,
++  avro_plugin_init, /* Plugin Init */
++  avro_plugin_deinit, /* Plugin Deinit */
++  0x0100 /* 1.0 */,
++  NULL,                       /* status variables                */
++  NULL,                       /* system variables                */
++  NULL                        /* config options                  */
++}
++mysql_declare_plugin_end;
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/binlog_group_id.cc sql/binlog_group_id.cc
+--- /home/sasha/mysql-5.5.8/sql/binlog_group_id.cc	1969-12-31 16:00:00.000000000 -0800
++++ sql/binlog_group_id.cc	2011-11-04 19:34:11.839729368 -0700
+@@ -0,0 +1,563 @@
++#ifndef MYSQL_SERVER
++#define MYSQL_SERVER 1
++#endif
++
++#include "m_ctype.h"
++#include "hash.h"
++#include "my_pthread.h"
++#include "sql_priv.h"
++#include "unireg.h"
++#include "log.h"
++#include "item.h"
++#include "sql_class.h"
++#include "binlog_group_id.h"
++
++#define USABLE_GEN_MASK 0x2
++#define USABLE_SEQ_MASK 0x1
++#define USABLE_ALL_MASK (USABLE_GEN_MASK|USABLE_SEQ_MASK)
++
++#define OUT_BUF_LEN 45
++
++#define MAX_SEQ_VAL  0xFFFFFFFF
++
++#include <string.h>
++
++static int binlog_group_id_inited = 0;
++uint binlog_gen_id_prefix_len = 0;
++static HASH binlog_group_id_hash;
++static Binlog_group_entry* get_entry(char* db, bool create_new);
++static mysql_mutex_t binlog_group_id_lock;
++static MEM_ROOT binlog_group_id_root;
++char* binlog_gen_id_req_prefix = 0;
++my_bool binlog_id_auto_activate = 0;
++
++#ifdef HAVE_PSI_INTERFACE
++static PSI_mutex_key key_binlog_group_id;
++static PSI_file_key key_file_binlog_group_id;
++
++static PSI_mutex_info all_binlog_group_id_mutexes[]=
++{
++  { &key_binlog_group_id, "binlog_group_id", PSI_FLAG_GLOBAL}
++};
++static PSI_file_info all_binlog_group_id_files[]=
++{
++  { &key_file_binlog_group_id, "binlog_group_id", 0}
++};
++#endif
++
++static int update_thd_group_id();
++
++static inline void get_lock()
++{
++  mysql_mutex_lock(&binlog_group_id_lock);
++}
++
++static inline void release_lock()
++{
++  mysql_mutex_unlock(&binlog_group_id_lock);
++}
++
++
++static uchar* get_binlog_group_hash_key(const uchar *buf, 
++    size_t *length,
++    my_bool not_used __attribute__((unused)))
++{
++  Binlog_group_entry* e = (Binlog_group_entry*)buf;
++  *length = strlen(e->db);
++  return (uchar*)e->db;
++}
++
++void free_binlog_group_hash_key(void* buf)
++{
++  Binlog_group_entry* e = (Binlog_group_entry*)buf;
++  delete e;
++}
++
++static int update_thd_group_id()
++{
++  THD* thd = current_thd;
++  
++  mysql_mutex_lock(&LOCK_thread_count); 
++  if (!thd->killed)
++  {
++    I_List_iterator<THD> it(threads);
++    THD *tmp;
++    while ((tmp=it++))
++    {
++      tmp->update_master_group_id();
++    }
++  }
++  
++  mysql_mutex_unlock(&LOCK_thread_count); 
++  return 0;
++}
++
++void end_binlog_group_id()
++{
++  if (binlog_group_id_inited)
++  {
++    my_hash_free(&binlog_group_id_hash);
++    free_root(&binlog_group_id_root,MYF(0));
++    binlog_group_id_inited = 0;
++  }
++}
++
++static Binlog_group_entry* get_entry(char* db, bool create_new)
++{
++  if (!db)
++    return 0;
++    
++  Binlog_group_entry* res = (Binlog_group_entry*)
++    my_hash_search(&binlog_group_id_hash,
++    (uchar*)db,strlen(db));
++ 
++   if (!res && create_new)
++   {
++     res = new (&binlog_group_id_root) Binlog_group_entry();
++     
++     if (!res)
++     {
++       sql_print_error("Out of memory allocating" 
++         " Binlog_group_entry");
++       return 0;  
++     }
++     
++     if (res->init(db) || res->read_val() ||
++       my_hash_insert(&binlog_group_id_hash,(uchar*)res))
++     {
++       sql_print_error("Error initializing Binlog_group_entry"
++         " for database %s", db);
++       delete res;
++       return 0;  
++     }
++   }
++   
++   return res; 
++}
++
++int Binlog_group_entry::init(char* db_arg)
++{
++  if (!(db = (char*)strdup_root(&binlog_group_id_root,
++     db_arg)) || init_fd())
++    return 1;
++  val = 0;
++  usable = 0;
++  inited = 1;
++  return 0;
++}
++
++int Binlog_group_entry::delete_file()
++{
++  char path[FN_REFLEN+1];
++  my_snprintf(path,sizeof(path),"%s/%s/%s", mysql_data_home,
++    db,BINLOG_GROUP_ID_FILE);    
++
++  end_fd();  
++  return mysql_file_delete(key_file_binlog_group_id,path,
++    MYF(0));    
++}
++
++int Binlog_group_entry::read_val()
++{
++  char buf[OUT_BUF_LEN];
++  int error;
++  int num_bytes;
++  char* ptr;
++   
++  if (fd < 0)
++  {
++    sql_print_error("Invalid call to "
++     "Binlog_group_entry::read_val for database %s", db);
++    return 1;
++  }
++    
++  if ((num_bytes = mysql_file_pread(fd,(uchar*)buf,
++       sizeof(buf),0,MYF(0))) <
++   0)
++  {
++    sql_print_error("Error reading info file for database %s",
++      db);
++    return 1;
++  }  
++  
++  if (num_bytes == 0)
++  {
++    if (binlog_id_auto_activate)
++    { 
++      val = 1;
++      gen_id = 1;
++      usable = USABLE_ALL_MASK;
++    }
++    else
++    {
++      val = 0;
++      gen_id = 0;
++    }
++  }  
++  else  
++  {
++    gen_id = my_strtoll10(buf,&ptr,&error);
++    if (ptr > buf && ptr < buf + sizeof(buf))
++      val = my_strtoll10(ptr,0,&error);
++    else
++      val = 0;  
++      
++    if (binlog_id_auto_activate)
++    {
++      val = 1;
++      gen_id++;
++      usable = USABLE_ALL_MASK; 
++    }
++ }  
++  return 0;
++}
++
++int Binlog_group_entry::write_val()
++{
++  uchar buf[OUT_BUF_LEN];
++  ulonglong len;
++  
++  if (fd < 0)
++    return 1;
++    
++  llstr(gen_id,(char*)buf);
++  len = (ulonglong)strlen((char*)buf);
++  buf[len] = ' ';
++  llstr(val,(char*)buf+len+1);
++  len = strlen((char*)buf);
++    
++  if (mysql_file_pwrite(fd,buf,len,0,MYF_RW))
++    return 1;
++  
++  return 0;  
++}
++
++
++void Binlog_group_entry::end()
++{
++  if (inited)
++  {
++    end_fd();
++    inited = 0;
++  }  
++}
++
++void Binlog_group_entry::end_fd()
++{
++  if (fd >= 0)
++  {
++    mysql_file_close(fd,MYF(0));
++    fd = -1;
++  }
++}
++
++int Binlog_group_entry::init_fd()
++{
++
++  char path[FN_REFLEN+1];
++  my_snprintf(path,sizeof(path),"%s/%s/%s", mysql_data_home,
++    db,BINLOG_GROUP_ID_FILE);    
++    
++  end_fd();  
++  fd = mysql_file_open(key_file_binlog_group_id,path,
++     O_CREAT|O_RDWR, MYF(0));  
++  
++  if (fd < 0)
++  {
++    sql_print_error("Error %d opening %s", errno, path);
++    return 1;
++  }
++    
++  return 0;  
++}
++
++int Binlog_group_entry::inc_val()
++{
++  if (val >= MAX_SEQ_VAL)
++    return 1;
++    
++  val++;
++  return write_val();
++}
++
++
++int init_binlog_group_id()
++{
++  if (!binlog_group_id_inited)
++  {
++#ifdef HAVE_PSI_INTERFACE
++    if (PSI_server)
++    {
++      PSI_server->register_mutex("sql", 
++        all_binlog_group_id_mutexes, 1);
++      PSI_server->register_file("sql", 
++        all_binlog_group_id_files, 1);
++    }
++#endif  
++    mysql_mutex_init(key_binlog_group_id,
++      &binlog_group_id_lock,MY_MUTEX_INIT_FAST);
++      
++    init_alloc_root(&binlog_group_id_root,4096,4096);  
++    
++    if (my_hash_init(&binlog_group_id_hash,&my_charset_latin1, 128,
++        0,0,get_binlog_group_hash_key,free_binlog_group_hash_key,
++          0))
++    {    
++      mysql_mutex_destroy(&binlog_group_id_lock);
++      free_root(&binlog_group_id_root,MYF(0));
++      return 1;  
++    }
++    
++    if (binlog_gen_id_req_prefix)
++    {
++      binlog_gen_id_prefix_len = strlen(binlog_gen_id_req_prefix);
++    }
++      
++    binlog_group_id_inited = 1;  
++  }  
++  
++  return 0;
++}
++
++
++ulonglong get_binlog_group_id(const char* db, bool use_gen, 
++  bool create_new, bool only_usable)
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 0;
++    
++  get_lock();
++  Binlog_group_entry* e = get_entry((char*)db,create_new);
++  
++  ulonglong res = 0;
++  
++  if (e)
++  {
++   uint test_mask = (use_gen) ? USABLE_ALL_MASK : 
++     USABLE_SEQ_MASK;
++     
++   if (only_usable && !((e->usable & test_mask) == test_mask))
++   {
++      res = 0;
++      goto err;
++   }  
++   
++   res = e->val;
++  
++   if (use_gen)
++    res += (e->gen_id << GEN_ID_SHIFT);  
++  }
++     
++err:  
++  release_lock();
++  return res;
++}
++
++ulonglong inc_binlog_group_id(const char* db, bool create_new)
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 1;
++  
++  get_lock();  
++  Binlog_group_entry* e = get_entry((char*)db, create_new);
++    
++  ulonglong res = 0;
++  
++  if (e && (e->usable & USABLE_ALL_MASK)  == USABLE_ALL_MASK
++         && !e->inc_val())
++  {
++    res = e->val + (e->gen_id << GEN_ID_SHIFT);
++  }
++  else if (e)
++    e->usable &= ~USABLE_SEQ_MASK;
++    
++  release_lock();
++  return res;
++}
++
++int drop_binlog_group_id(const char* db)
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 1;
++    
++  get_lock();  
++  
++  char path[FN_REFLEN+1];
++  MY_DIR* dirp;
++  
++  my_snprintf(path,sizeof(path),"%s/%s", mysql_data_home, db);
++  
++  if (!(dirp=my_dir(path,MYF(MY_DONT_SORT))))
++  {
++    release_lock();
++    return 1;
++  }
++  
++  my_dirend(dirp);
++  
++  Binlog_group_entry* e = get_entry((char*)db,1);
++    
++  int res = e ? e->delete_file() : 1;
++  
++  if (e)
++    my_hash_delete(&binlog_group_id_hash,(uchar*)e);
++    
++  release_lock();
++  return res;
++}
++
++int set_binlog_gen_id(const char* db, ulonglong gen_id, ulonglong *last_gen_id)
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 1;
++    
++  get_lock();
++  Binlog_group_entry* e = get_entry((char*)db,1);
++   
++  int res = 1;
++  
++  if (e)
++  {
++    *last_gen_id = e->gen_id;
++    e->gen_id = gen_id;  
++    e->usable |= USABLE_GEN_MASK;
++    res = 0;
++  }
++    
++  release_lock();
++  update_thd_group_id();
++  return res;
++}
++
++int get_binlog_gen_id(const char* db, ulonglong *gen_id, bool create_new,
++ bool only_usable)
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 1;
++    
++  get_lock();
++  Binlog_group_entry* e = get_entry((char*)db, create_new);
++   
++  int res = 1;
++  
++  if (e && ((e->usable & USABLE_GEN_MASK) || !only_usable))
++  {
++    *gen_id = e->gen_id;
++    res = 0;
++  }
++    
++  release_lock();
++  return res;
++}
++
++
++longlong Item_func_binlog_op::val_int()
++{
++  int error = 0;
++  char buf[NAME_LEN+1];
++  ulonglong arg = 0; 
++  String *s,tmp(buf,sizeof(buf), &my_charset_latin1);
++  const char* db;
++  ulonglong res = 0;
++  null_value = 0;
++  s = args[0]->val_str_ascii(&tmp);
++  
++  if (arg_count > 1)
++  {
++    arg = (ulonglong)args[1]->val_int();
++    
++    if (args[1]->null_value)
++    {
++      error = 1;
++      goto err;
++    }
++  }
++   
++  if (!s 
++  ||!(db = s->c_ptr()) || do_op(db,arg,&res))
++  {
++    error = 1;
++    goto err;
++  }
++  
++err:
++  if (error)
++    null_value = 1;
++  return res;
++}
++
++int Item_func_set_binlog_gen_id::do_op(const char* db, 
++  ulonglong arg, ulonglong* res) 
++{
++   return set_binlog_gen_id(db,arg,res);
++}
++
++int Item_func_get_binlog_gen_id::do_op(const char* db, 
++  ulonglong arg, ulonglong* res) 
++{
++  return get_binlog_gen_id(db,res,arg || binlog_id_auto_activate,!arg);
++}
++
++
++int Item_func_set_binlog_seq_id::do_op(const char* db, ulonglong arg, ulonglong* res) 
++{
++  if (!binlog_mark_events || !binlog_group_id_inited)
++    return 1;
++
++  int error = 0;
++  get_lock();
++  Binlog_group_entry* e = get_entry((char*)db,1);
++  
++  if (!e)
++  {
++    error = 1;
++  }
++  else
++  {
++    *res = e->val;
++    e->val = arg;
++    e->usable |= USABLE_SEQ_MASK;
++  }
++  
++  release_lock();
++  update_thd_group_id();
++  return error;
++}
++
++int Item_func_get_binlog_seq_id::do_op(const char* db, 
++   ulonglong arg, ulonglong* res)
++{
++    *res = get_binlog_group_id(db,0,arg || binlog_id_auto_activate,!arg);
++    return *res == 0;  
++}
++
++
++int check_binlog_gen_id(const char* db, uint len)
++{
++  if (!binlog_gen_id_prefix_len || len < binlog_gen_id_prefix_len)
++  {
++    return 0;
++  }
++  
++  if (memcmp(db,binlog_gen_id_req_prefix, binlog_gen_id_prefix_len))
++    return 0;
++
++  char db_buf[len+1];
++  int res = 0;
++  memcpy(db_buf,db,len);
++  db_buf[len] = 0;
++  
++  get_lock();
++  Binlog_group_entry* e = get_entry(db_buf,0);
++  
++  if (!e || !e->gen_id)
++    res = 1;
++  release_lock();    
++  
++  if (res)
++  {
++    my_printf_error(ER_BAD_DB_ERROR,"gen_id not set for database %s", MYF(0), db_buf);
++  }
++  
++  return res;
++}
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/binlog_group_id.h sql/binlog_group_id.h
+--- /home/sasha/mysql-5.5.8/sql/binlog_group_id.h	1969-12-31 16:00:00.000000000 -0800
++++ sql/binlog_group_id.h	2011-11-04 19:34:11.839729368 -0700
+@@ -0,0 +1,49 @@
++#ifndef BINLOG_GROUP_ID_H
++#define BINLOG_GROUP_ID_H
++
++#define BINLOG_GROUP_ID_FILE "binlog_group_id.info"
++#define GEN_ID_SHIFT 32
++
++#include "sql_list.h"
++
++extern my_bool binlog_mark_events;
++extern my_bool binlog_id_auto_activate;
++extern char* binlog_gen_id_req_prefix;
++extern uint binlog_gen_id_prefix_len;
++
++ulonglong get_binlog_group_id(const char* db, bool use_gen, 
++  bool create_new, bool only_usable);
++ulonglong inc_binlog_group_id(const char* db, bool create_new);
++int drop_binlog_group_id(const char* db);
++int init_binlog_group_id();
++void end_binlog_group_id();
++int check_binlog_gen_id(const char* db, uint len);
++int set_binlog_gen_id(const char* db, ulonglong gen_id, ulonglong *last_gen_id);
++int get_binlog_gen_id(const char* db, ulonglong *gen_id);
++
++
++class Binlog_group_entry: public Sql_alloc
++{
++  public:
++    char* db;
++    ulonglong val;
++    int fd;
++    ulonglong gen_id;
++    bool inited;
++    int usable;
++    
++  public:
++    Binlog_group_entry():db(0),val(0),fd(-1),gen_id(0),inited(0),
++     usable(0) {} 
++    ~Binlog_group_entry() { end();}
++    int init(char* db_arg);
++    void end(); 
++    void end_fd();
++    int init_fd();  
++    int read_val();
++    int write_val();
++    int inc_val();
++    int delete_file();
++};
++
++#endif
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/binlog_undo.cc sql/binlog_undo.cc
+--- /home/sasha/mysql-5.5.8/sql/binlog_undo.cc	1969-12-31 16:00:00.000000000 -0800
++++ sql/binlog_undo.cc	2011-11-04 19:34:11.840724366 -0700
+@@ -0,0 +1,956 @@
++#ifndef MYSQL_SERVER
++#define MYSQL_SERVER 1
++#endif
++
++#include "m_ctype.h"
++#include "my_pthread.h"
++#include "sql_priv.h"
++#include "unireg.h"
++#include "log.h"
++#include "item.h"
++#include "log_event.h"
++#include "sql_base.h"
++#include "transaction.h"
++
++#ifdef HAVE_REPLICATION
++#include "rpl_utility.h"
++#endif
++
++#include "binlog_undo.h"
++#include "binlog_group_id.h"
++
++
++int Binlog_table_worker::init(Table_map_log_event* map_ev_arg)
++{
++  uint table_name_len, db_name_len;
++  map_ev = map_ev_arg;
++  const char* table_name = map_ev_arg->get_table_name() , 
++   *db_name = map_ev_arg->get_db_name();
++  
++  table_name_len = strlen(table_name);
++  db_name_len = strlen(db_name);
++  
++  table_list.init_one_table(db_name, db_name_len, 
++    table_name, table_name_len, table_name, TL_WRITE);
++  
++  table_list.updating = 1;
++  table_list.table_id = map_ev_arg->get_table_id();
++  thd = current_thd;
++  
++  if (open_and_lock_tables(thd, &table_list, FALSE, 0))
++  {
++    return 1;
++  }
++
++#ifdef HAVE_REPLICATION
++  td = new table_def(map_ev_arg->m_coltype, map_ev_arg->m_colcnt,
++      map_ev_arg->m_field_metadata,
++      map_ev_arg->m_field_metadata_size, map_ev_arg->m_null_bits, 
++      map_ev_arg->m_flags);
++#endif      
++
++  if (init_dynamic_array(&rows,sizeof(uchar*), 16, 16))
++    return 1;
++    
++  return 0;
++}
++
++int Binlog_table_worker::check_constraints()
++{
++  if (table_list.table->s->primary_key >= MAX_KEY)
++     return BINLOG_ERR_NO_PK;
++  
++  return 0;   
++}
++
++
++int Binlog_table_worker::insert_row(uint row_ind)
++{
++#ifdef HAVE_REPLICATION
++  int err_code ;
++  get_dynamic(&rows, (uchar*)&row_ev->m_curr_row, row_ind);
++  
++  if ((err_code = unpack_row(0)))
++    return err_code;
++  
++  if ((err_code = 
++    table_list.table->file->ha_write_row(table_list.table->record[0])))
++  {
++    return err_code;
++  }   
++#endif  
++  return 0;
++}
++
++int Binlog_table_worker::delete_row(uint row_ind)
++{
++#ifdef HAVE_REPLICATION
++  int err_code ;
++  get_dynamic(&rows, (uchar*)&row_ev->m_curr_row, row_ind);
++  
++  if ((err_code = unpack_row(0)))
++    return err_code;
++  
++  if ((err_code = 
++    table_list.table->file->rnd_pos_by_record(table_list.table->record[0])))
++  {
++    return err_code;
++  }   
++  
++  if ((err_code = 
++    table_list.table->file->ha_delete_row(table_list.table->record[0])))
++  {
++    return err_code;
++  }   
++
++#endif  
++  return 0;
++}
++
++int Binlog_table_worker::update_row(uint row_old_ind,uint row_new_ind)
++{
++#ifdef HAVE_REPLICATION
++  int err_code ;
++  get_dynamic(&rows, (uchar*)&row_ev->m_curr_row, row_old_ind);
++  
++  if ((err_code=unpack_row(0)))
++    return err_code;
++  
++  if ((err_code = 
++    table_list.table->file->rnd_pos_by_record(table_list.table->record[0])))
++  {
++    return err_code;
++  }   
++  
++  store_record(table_list.table,record[1]);
++  get_dynamic(&rows, (uchar*)&row_ev->m_curr_row, row_new_ind);
++  
++  if ((err_code=unpack_row(0)))
++    return err_code;
++  
++  if ((err_code = 
++    table_list.table->file->ha_update_row(table_list.table->record[1],
++      table_list.table->record[0]
++    )))
++  {
++    if (err_code ==  HA_ERR_RECORD_IS_THE_SAME)
++      err_code = 0;
++    return err_code;
++  }   
++  
++#endif  
++  return 0;
++}
++
++
++
++int Binlog_table_worker::unpack_row(int need_push_row)
++{
++#ifdef HAVE_REPLICATION
++  const MY_BITMAP* cols = row_ev->get_cols();
++  size_t const null_byte_count= (bitmap_bits_set(cols) + 7) / 8;
++  const uchar* null_ptr =  row_ev->m_curr_row ;
++    
++  if (!null_ptr)
++    return 1;
++      
++  const uchar* pack_ptr = null_ptr + null_byte_count;
++  TABLE* table = table_list.table;
++  
++  Field ** begin_ptr = table->field;
++  Field **field_ptr;
++  Field ** end_ptr= begin_ptr + row_ev->m_width;
++  unsigned int null_mask= 1U;
++  unsigned int null_bits= *null_ptr++;
++  
++  restore_record(table, s->default_values);
++  
++  for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ;
++     ++field_ptr)
++  {
++    Field* f = *field_ptr;
++    uint i = field_ptr -  begin_ptr;
++    if (bitmap_is_set(cols, i))
++    {
++      if ((null_mask & 0xFF) == 0)
++      {
++        null_mask= 1U;
++        null_bits= *null_ptr++;
++      }
++      
++      if (null_bits & null_mask)
++      {
++        if (f->maybe_null())
++        {
++          f->reset();
++          f->set_null();
++        } 
++        else
++        {
++          f->set_default();
++        }
++      } 
++      else
++      {
++        f->set_notnull();
++        pack_ptr =f->unpack(f->ptr, pack_ptr, td->field_metadata(i), TRUE);
++      }
++
++#if 0        
++      char buf[256];
++      String tmp(buf,sizeof(buf), system_charset_info);
++      f->val_str(&tmp);
++      sql_print_information("field %s = %s", f->field_name,
++        tmp.c_ptr_safe());
++#endif        
++    }
++    
++    null_mask <<= 1;
++  }   
++
++  row_ev->m_curr_row_end = pack_ptr;
++  
++  if (need_push_row && push_row())
++    return 1;
++    
++  return 0;
++#else
++  return 1;
++#endif    
++}
++
++int Binlog_table_worker::push_row()
++{
++#ifdef HAVE_REPLICATION
++  if (push_dynamic(&rows,(uchar*)&row_ev->m_curr_row))
++  {
++    return 1;
++  }
++#endif  
++  return 0;
++}
++
++int Binlog_table_worker::undo_delete()
++{
++  uint i;
++  int err_code;
++  
++  for (i = rows.elements ; i > 0; i--)
++  {
++    if ((err_code = insert_row(i - 1)))
++      return err_code;
++  }
++  
++  return 0;
++}
++
++int Binlog_table_worker::undo_insert()
++{
++  uint i;
++  int err_code;
++  
++  for (i = rows.elements; i > 0; i--)
++  {
++    if ((err_code = delete_row(i - 1)))
++      return err_code;
++  }
++  
++  return 0;
++}
++
++int Binlog_table_worker::undo_update()
++{
++  uint i;
++  int err_code;
++  
++  if (rows.elements % 2)
++    return BINLOG_ERR_CORRUPT_UPDATE;
++    
++  for (i = rows.elements; i > 0; i-=2)
++  {
++    if ((err_code = update_row(i - 1, i - 2)))
++      return err_code;
++  }
++  
++  return 0;
++}
++
++
++int Binlog_table_worker::undo_event(Rows_log_event* row_ev, int in_trx)
++{
++  int err_code = 0;
++  
++  set_row_event(row_ev);
++  
++  do
++  {
++    unpack_row(1);
++  } while (next_row() == 0);
++  
++  if (!in_trx)
++  {
++    if (trans_begin(thd))
++     return BINLOG_ERR_TRX_BEGIN;
++  }
++  
++  switch (row_ev->get_type_code())
++  {
++    case DELETE_ROWS_EVENT:
++      err_code = undo_delete();
++      break;
++    case WRITE_ROWS_EVENT:
++      err_code = undo_insert();
++      break;
++    case UPDATE_ROWS_EVENT:
++      err_code = undo_update();
++      break;
++    default: /* impossible */
++      err_code = BINLOG_ERR_NOT_ROWS;
++      break;  
++  }
++  
++  if (!in_trx)
++  {
++    if (err_code)
++       trans_rollback(thd);
++    else
++      if (trans_commit_stmt(thd) || trans_commit(thd))
++        err_code = BINLOG_ERR_TRX_COMMIT;   
++  }
++  
++  return err_code;
++}
++
++Log_event* Binlog_reader::hash_read_first_event(HASH* db_pos_h,
++     char* first_log,
++     ulonglong first_pos)
++{
++  if ((err_code=open_log(first_log,0,1)) || 
++      (err_code = pos_rec.push_log(&linfo)))
++    return 0;
++
++#if 0    
++  sql_print_information("Opened first log %s", linfo.log_file_name);
++#endif
++    
++  if (first_pos)
++    my_b_seek(&log, first_pos);
++    
++  return hash_read_next_event(db_pos_h);  
++}
++
++Log_event* Binlog_reader::hash_read_next_event(HASH* db_pos_h)
++{
++  Log_event* ev;
++  int find_next_err;
++  
++  save_pos = my_b_tell(&log);
++  ev = Log_event::read_log_event(&log,(mysql_mutex_t*)0,desc_ev);
++
++  if (ev)
++    return ev;
++  
++  if (log.error)
++  {
++    err_code = BINLOG_ERR_IO;
++    return 0;
++  }
++  
++  //sql_print_information("index_file_offset=%llu", 
++  //  linfo.index_file_offset);
++  
++  if ((find_next_err = mysql_bin_log.find_next_log(&linfo,0)))
++  {
++    err_code = (find_next_err == LOG_INFO_EOF) ? BINLOG_ERR_EOF :
++      BINLOG_ERR_IO;
++    return 0;    
++  }  
++  
++  //sql_print_information("new index_file_offset=%llu, found log %s", 
++  //  linfo.index_file_offset,linfo.log_file_name);
++  
++  close_log();
++  
++  if ((err_code = open_log(linfo.log_file_name,0,0))
++       || (err_code = pos_rec.push_log(&linfo))
++     )
++  {
++    sql_print_error("Error opening log %s, error code %d",
++       linfo.log_file_name, err_code);
++    return 0;
++  }
++#if 0  
++  else
++    sql_print_information("Opened log %s", linfo.log_file_name);
++#endif
++    
++  ev = Log_event::read_log_event(&log, (mysql_mutex_t*)0, desc_ev);
++  
++  if (ev)
++    return ev;
++  
++  err_code = (log.error) ? BINLOG_ERR_IO : BINLOG_ERR_EOF;
++  return 0; 
++}
++
++
++Log_event* Binlog_reader::read_event(ulonglong pos, int need_lock)
++{
++  Log_event* ev;
++  
++  if (need_lock)
++    lock_log();
++    
++  my_b_seek(&log, (my_off_t)pos);
++  ev = Log_event::read_log_event(&log,(mysql_mutex_t*)0,desc_ev);
++    
++  if (need_lock)
++    unlock_log();
++    
++  return ev;  
++}
++
++int Binlog_reader::close_log()
++{
++  delete desc_ev;
++  desc_ev = 0;
++  
++  if (file >= 0)
++  {
++    end_io_cache(&log);
++    mysql_file_close(file, MYF(MY_WME));
++    file = -1;
++  }
++  
++  return 0;
++}
++
++int Binlog_reader::open_log(const char* log_name, int need_lock, 
++  int need_search)
++{
++  char search_name[FN_REFLEN];
++  char* name;
++  Log_event* ev;
++  
++  if (need_lock)
++  {
++    mysql_bin_log.lock_index();
++    lock_log();
++  }
++  
++  if (need_search)
++  {
++    if (*log_name)
++    {
++      mysql_bin_log.make_log_name(search_name,log_name);
++      name = search_name;
++    }  
++    else
++      name = 0;
++      
++    linfo.index_file_offset = 0;
++    
++    if (mysql_bin_log.find_log_pos(&linfo, name,0))
++    {
++      err_code = BINLOG_ERR_WRONG_LOG;
++      goto err;
++    }
++  }
++  
++  if ((file=open_binlog(&log, linfo.log_file_name, &errmsg)) < 0)
++  {
++    err_code = BINLOG_ERR_MISSING_LOG;
++    goto err;
++  }
++  
++  if (!(desc_ev = new Format_description_log_event(3)))
++  {
++    err_code = BINLOG_ERR_OOM;
++    goto err;
++  }
++    
++  ev= Log_event::read_log_event(&log, (mysql_mutex_t*)0, desc_ev);
++
++  if (ev)
++  {
++    if (ev->get_type_code() == FORMAT_DESCRIPTION_EVENT)
++    {
++      delete desc_ev;
++      desc_ev= (Format_description_log_event*) ev;
++    }
++    else
++      delete ev;
++  }
++
++err:
++  
++  if (need_lock)
++  {
++    unlock_log();
++    mysql_bin_log.unlock_index();
++  }  
++  
++  return err_code;
++}
++
++int Binlog_reader::prepare()
++{
++  ha_binlog_wait(thd);
++  return 0;  
++}
++
++int Binlog_reader::init()
++{
++  if ((err_code = pos_rec.init()))
++    return err_code;
++    
++  if (!mysql_bin_log.is_open())
++   return BINLOG_ERR_NOT_OPEN;
++   
++  log_lock = mysql_bin_log.get_log_lock();
++  return 0;
++}
++
++// assume that if need_lock is 0, we are in the middle of a transaction
++int Binlog_reader::undo_event(ulonglong log_pos, int need_lock)
++{
++  Table_map_log_event* map_ev = 0;
++  Rows_log_event* row_ev = 0;
++  Log_event* ev = 0;
++  int in_trx = !need_lock;
++  
++  if (!(ev = read_event(log_pos,need_lock)))
++  {
++    err_code = BINLOG_ERR_WRONG_POS;
++    goto err;
++  } 
++  
++  if (ev->get_type_code() != TABLE_MAP_EVENT)
++  {
++    err_code = BINLOG_ERR_NOT_TABLE_MAP;
++    goto err;
++  }
++  
++  map_ev = (Table_map_log_event*)ev;
++  ev = 0;
++  log_pos = get_pos();
++  
++  if (!(ev = read_event(log_pos,need_lock)))
++  {
++    err_code = BINLOG_ERR_WRONG_POS;
++    goto err;
++  } 
++  
++  switch (ev->get_type_code())
++  {
++    case WRITE_ROWS_EVENT:
++    case UPDATE_ROWS_EVENT:
++    case DELETE_ROWS_EVENT:
++      row_ev = (Rows_log_event*)ev;
++      ev = 0;
++      break;
++   default:
++     err_code = BINLOG_ERR_NOT_ROWS;
++     goto err;   
++  }
++  
++  {
++    Binlog_table_worker tw;
++  
++    if (tw.init(map_ev))
++    {
++      err_code = BINLOG_ERR_TABLE_INIT;
++      goto err;
++    }
++    
++    if ((err_code = tw.check_constraints()))
++     goto err;
++     
++    if ((err_code = tw.undo_event(row_ev,in_trx)))
++      goto err;
++  }
++    
++err:
++  
++  if (ev)
++    delete ev;
++  if (map_ev)
++    delete map_ev;
++  if (row_ev)
++    delete row_ev;
++        
++  return err_code;  
++
++}
++
++int binlog_undo_event(const char* log_name, ulonglong log_pos)
++{
++  Binlog_reader r;
++  int err_code = 0;
++  
++#if 0
++  sql_print_information("binlog_undo_event(%s,%llu)", log_name, log_pos);
++#endif
++  
++  if ((err_code = r.init()) || (err_code = r.prepare()) ||
++      (err_code = r.open_log(log_name,1,1)))
++   return err_code;
++ 
++ err_code = r.undo_event(log_pos,1);
++ r.close_log();
++ return err_code;
++}
++
++longlong Item_func_binlog_undo_event::val_int()
++{
++  const char *log_name = 0;
++  ulonglong log_pos = 0;
++  char buf[FN_REFLEN+1];
++  String *s, tmp(buf,sizeof(buf),&my_charset_latin1);
++  
++  if (arg_count < 2)
++    goto err;
++  
++  if (!(s = args[0]->val_str_ascii(&tmp)) || !s->length() || 
++    !(log_name = s->c_ptr()))
++    goto err;
++  
++  log_pos = (ulonglong)args[1]->val_int();
++  
++  if (args[1]->null_value)
++    goto err;
++  
++  return binlog_undo_event(log_name,log_pos);
++err:
++  null_value = 1;
++  return 1; 
++}
++
++static uchar* db_pos_get_key(Binlog_db_pos* db_pos, size_t * length,
++  my_bool not_used __attribute__((unused)))
++{
++  *length = db_pos->db_len;
++  return (uchar*)db_pos->db;
++}  
++
++static Binlog_db_pos* get_db_pos(THD* thd, char* db, 
++   uint db_len, ulonglong group_id)
++{
++  Binlog_db_pos *db_pos = (Binlog_db_pos*)thd->alloc(
++     sizeof(Binlog_db_pos) + db_len + 1);
++  
++  if (!db_pos)
++    return 0;
++    
++  db_pos->db = (char*)db_pos + sizeof(Binlog_db_pos);
++  memcpy(db_pos->db,db,db_len+1);
++  db_pos->db_len = db_len;
++  db_pos->group_id = group_id;
++  return db_pos;     
++}
++
++longlong Item_func_binlog_undo_batch::val_int()
++{
++  HASH db_pos_h;
++  int err_code = 0;
++  int db_pos_h_inited = 0;
++  uint i;
++  THD *thd = current_thd;
++  
++  if (my_hash_init(&db_pos_h,system_charset_info,128,0,0,
++          (my_hash_get_key)db_pos_get_key,0,0))
++  {        
++    err_code = BINLOG_ERR_OOM;
++    goto err;
++  }
++    
++  db_pos_h_inited = 1;
++  
++  for (i = 0; i < arg_count - 2; i += 3)
++  {
++    char buf[FN_REFLEN+1];
++    String *s, tmp(buf,sizeof(buf), &my_charset_latin1);
++    const char* db_name;
++    Binlog_db_pos *db_pos;
++    ulonglong gen_id, seq_id;
++        
++    if (!(s = args[i]->val_str_ascii(&tmp)) || !s->length() ||
++      !(db_name = s->c_ptr()))
++    {
++      err_code = BINLOG_ERR_ARGS;
++      goto err;
++    }
++    
++    gen_id = (ulonglong)args[i+1]->val_int();
++    seq_id = (ulonglong)args[i+2]->val_int();
++    
++    if (args[i+1]->null_value || args[i+2]->null_value)
++    {
++      err_code = BINLOG_ERR_ARGS;
++      goto err;
++    }
++    
++    if (!(db_pos = get_db_pos(thd,(char*)db_name,s->length(),
++      (gen_id << GEN_ID_SHIFT) + seq_id)))
++    {
++      err_code = BINLOG_ERR_OOM;
++      goto err;
++    }  
++    
++    if (my_hash_insert(&db_pos_h,(uchar*)db_pos))
++    {
++      err_code = BINLOG_ERR_OOM;
++      goto err;
++    }
++  }
++ 
++   err_code = binlog_undo_batch(&db_pos_h);   
++   
++err:
++  if (db_pos_h_inited)
++  {
++    my_hash_free(&db_pos_h);
++    db_pos_h_inited = 0;
++  }
++  
++  return err_code;  
++}
++
++int Binlog_pos_recorder::init()
++{
++  if (open_cached_file(&recorder,mysql_tmpdir,TEMP_PREFIX,
++                       DISK_BUFFER_SIZE, MYF(MY_WME)))
++  {
++    return 1;
++  }
++  
++  recorder_inited = 1;
++  
++  if (init_dynamic_array(&logs,sizeof(my_off_t), 64, 64))
++  {
++    close_cached_file(&recorder);
++    recorder_inited = 0;
++  }
++  
++  logs_inited = 1;
++  return 0;
++}
++
++int Binlog_pos_recorder::init_rev_read()
++{
++  read_pos = my_b_tell(&recorder);
++  
++  if (flush_io_cache(&recorder) ||
++        reinit_io_cache(&recorder,READ_CACHE,0L,0,0))
++   return BINLOG_ERR_IO;
++        
++  return 0;  
++}
++
++
++int Binlog_pos_recorder::read_rev_pos(my_off_t* index_pos, 
++  ulonglong* pos)
++{
++  uchar buf[POS_REC_SIZE];
++  
++  if (read_pos < POS_REC_SIZE)
++    return BINLOG_ERR_EOF;
++  
++  read_pos -= POS_REC_SIZE;  
++  my_b_seek(&recorder, read_pos);
++  
++  if (my_b_read(&recorder, buf, sizeof(buf)))
++    return BINLOG_ERR_IO;
++    
++  *index_pos = get_log(uint2korr(buf));  
++  *pos = uint8korr(buf+2);
++  
++  return 0;
++}  
++
++
++int Binlog_pos_recorder::cleanup()
++{
++  if (recorder_inited)
++  {
++    close_cached_file(&recorder);
++    recorder_inited = 0;
++  }  
++  
++  if (logs_inited)
++  {
++    delete_dynamic(&logs);
++    logs_inited = 0;
++  }
++  
++  return 0;
++}
++
++int Binlog_pos_recorder::store_pos(uint16 num, ulonglong pos)
++{
++  uchar buf[POS_REC_SIZE];
++  int2store(buf,num);
++  int8store(buf+2,pos);
++  
++  if (my_b_write(&recorder,buf,POS_REC_SIZE))
++    return 1;
++    
++  return 0;  
++}
++
++int Binlog_pos_recorder::push_log(LOG_INFO* li)
++{
++  if (push_dynamic(&logs,(uchar*)&li->index_file_start_offset))
++    return 1;
++    
++  return 0;
++}
++
++int binlog_undo_batch(HASH* db_pos_h)
++{
++  Binlog_reader r;
++  int err_code;
++  Log_event* ev = 0;
++  int need_unlock = 0, need_index_unlock = 0;
++  
++  mysql_bin_log.lock_index();
++  need_index_unlock = 1;
++   
++  if ((err_code = r.init()) || (err_code = r.prepare()))
++    goto err;
++    
++  r.lock_log();
++  need_unlock = 1;
++    
++  if (!(ev = r.hash_read_first_event(db_pos_h,(char*)"",0)))
++  {
++    err_code = (r.err_code == BINLOG_ERR_EOF) ? 0 : r.err_code;
++    goto err;
++  }
++  
++  r.process_event(db_pos_h,ev);
++  delete ev;
++  
++  while ((ev = r.hash_read_next_event(db_pos_h)))
++  {
++    r.process_event(db_pos_h,ev);
++    delete ev;
++  }
++  
++  if (r.err_code != BINLOG_ERR_EOF)
++  {
++    err_code = r.err_code;
++    goto err;
++  }   
++  
++  r.unlock_log();
++  need_unlock = 0;
++  err_code = r.undo_batch();
++  
++err:  
++  if (ev)
++    delete ev;
++
++  if (need_index_unlock)
++    mysql_bin_log.unlock_index();
++  
++  if (need_unlock)
++    r.unlock_log();
++    
++  return err_code;
++}
++
++int Binlog_reader::process_event(HASH* db_pos_h, Log_event* ev)
++{
++  if (ev->get_type_code() == TABLE_MAP_EVENT)
++  {
++    char* db = (char*)ev->get_db();
++    uint db_len = strlen(db);
++        
++    if (!db || !db_len || !ev->group_id)
++      return 0;
++      
++    Binlog_db_pos *db_pos = (Binlog_db_pos*)my_hash_search(db_pos_h,
++      (uchar*)db, db_len); 
++
++#if 0      
++    sql_print_information("Considering (%d,%llu) for db %s group_id %llu"
++     " db_pos=%p",
++        pos_rec.logs.elements-1,save_pos, db, ev->group_id, db_pos);
++#endif
++      
++    if (!db_pos || db_pos->group_id > ev->group_id)
++      return 0;  
++
++#if 0      
++    sql_print_information("Queuing (%d,%llu) for db %s group_id %llu",
++        pos_rec.logs.elements-1,save_pos, db, ev->group_id);
++#endif        
++    pos_rec.store_pos(pos_rec.logs.elements-1,save_pos);  
++  }
++  
++  return 0;
++}
++
++int Binlog_reader::undo_batch()
++{
++  if ((err_code = pos_rec.init_rev_read()))
++    return err_code;
++  
++  my_off_t last_index_pos = 0, index_pos;
++  ulonglong pos;
++  int last_index_pos_inited = 0;
++  
++  if (trans_begin(thd))
++     return BINLOG_ERR_TRX_BEGIN;
++  
++  
++  while (!(err_code = pos_rec.read_rev_pos(&index_pos,&pos)))
++  {
++#if 0  
++    sql_print_information("Undoing %llu %llu", index_pos, pos);
++#endif    
++    if (!last_index_pos_inited || last_index_pos != index_pos)
++    {
++      close_log();
++      
++      linfo.index_file_offset = index_pos;
++      
++      if (mysql_bin_log.find_next_log(&linfo,0))
++      {
++        err_code = BINLOG_ERR_WRONG_LOG;
++        goto err;
++      }
++#if 0      
++      sql_print_information("Undoing log %s ", linfo.log_file_name);
++#endif      
++      if ((err_code = open_log(linfo.log_file_name,0,0)))
++        goto err;
++       
++      last_index_pos = index_pos;  
++      last_index_pos_inited = 1;  
++    }
++    
++    if ((err_code = undo_event(pos,0)))
++      goto err;
++  }  
++  
++  if (err_code == BINLOG_ERR_EOF)
++    err_code = 0;
++    
++err:
++  if (err_code)
++    trans_rollback(thd);
++  else
++    if (trans_commit_stmt(thd) || trans_commit(thd)) 
++        err_code = BINLOG_ERR_TRX_COMMIT;   
++        
++  close_log();
++  return err_code;  
++}
++
++void Binlog_reader::print_info(Log_event* ev)
++{
++  sql_print_information("log %s next offset %llu current event type %d",
++     linfo.log_file_name, get_pos(), ev->get_type_code());
++}
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/binlog_undo.h sql/binlog_undo.h
+--- /home/sasha/mysql-5.5.8/sql/binlog_undo.h	1969-12-31 16:00:00.000000000 -0800
++++ sql/binlog_undo.h	2011-11-04 19:34:11.840724366 -0700
+@@ -0,0 +1,206 @@
++#ifndef BINLOG_UNDO_H
++#define BINLOG_UNDO_H
++
++#define BINLOG_ERR_WRONG_LOG  -1
++#define BINLOG_ERR_WRONG_POS  -2
++#define BINLOG_ERR_IO  -3
++#define BINLOG_ERR_NOT_OPEN  -4
++#define BINLOG_ERR_MISSING_LOG  -5
++#define BINLOG_ERR_OOM -6
++#define BINLOG_ERR_INIT -7
++#define BINLOG_ERR_NOT_TABLE_MAP -8
++#define BINLOG_ERR_NOT_ROWS -9
++#define BINLOG_ERR_TABLE_INIT -10
++#define BINLOG_ERR_TRX_BEGIN -11
++#define BINLOG_ERR_TRX_COMMIT -12
++#define BINLOG_ERR_NO_PK -13
++#define BINLOG_ERR_CORRUPT_UPDATE -14
++#define BINLOG_ERR_ARGS -15
++#define BINLOG_ERR_EOF -16
++
++int binlog_undo_event(const char* log_name, ulonglong log_pos);
++int binlog_undo_batch(HASH* db_pos_h);
++
++#define POS_REC_SIZE 10
++
++class Binlog_pos_recorder
++{
++  public:
++    IO_CACHE recorder;
++    DYNAMIC_ARRAY logs;
++    int recorder_inited;
++    int logs_inited;
++    my_off_t read_pos;
++    
++    Binlog_pos_recorder():recorder_inited(0),logs_inited(0),
++      read_pos(0)
++    {
++    }
++    
++    ~Binlog_pos_recorder()
++    {
++      cleanup();
++    }
++    
++    int init();
++    int cleanup();
++    int store_pos(uint16 num, ulonglong pos);
++    int push_log(LOG_INFO* li);
++    my_off_t get_log(uint16 num)
++    {
++      my_off_t index_pos;
++      
++      if (num >= logs.elements)
++        return 0;
++        
++      get_dynamic(&logs,(uchar*)&index_pos,num);
++      return index_pos;
++    }
++    
++    int init_rev_read();
++    int read_rev_pos(my_off_t* index_pos, ulonglong* pos);
++};
++
++class Binlog_reader
++{
++  public:
++    IO_CACHE log;
++    File file;
++    THD* thd;
++    const char* errmsg;
++    mysql_mutex_t *log_lock;  
++    Format_description_log_event *desc_ev;
++    LOG_INFO linfo;
++    int err_code;
++    ulonglong save_pos;
++    Binlog_pos_recorder pos_rec;
++    
++    Binlog_reader():file(-1),errmsg(0),desc_ev(0),err_code(0),
++      save_pos(0)
++    {
++      thd = current_thd;
++    }  
++    
++    ~Binlog_reader()
++    {
++      if (desc_ev)
++      {
++        delete desc_ev;
++        desc_ev = 0;
++      }
++      
++      pos_rec.cleanup();
++    }
++    
++    int init();
++    int prepare();    
++    int open_log(const char* log_name, int need_lock, int need_search);
++    int close_log();
++    Log_event* read_event(ulonglong pos, int need_lock);
++    
++    int process_event(HASH* db_pos_h, Log_event* ev);
++    void print_info(Log_event* ev);
++    int undo_batch();
++    
++    // both need lock
++    Log_event* hash_read_first_event(HASH* db_pos_h, char* first_log,
++     ulonglong first_pos);
++    Log_event* hash_read_next_event(HASH* db_pos_h);
++      
++    void lock_log() 
++    {
++      mysql_mutex_lock(log_lock);
++    }
++    void unlock_log() 
++    {
++      mysql_mutex_unlock(log_lock);
++    }
++    
++    ulonglong get_pos() { return my_b_tell(&log); }
++    
++    int undo_event(ulonglong log_pos, int need_lock);
++};
++
++class Binlog_table_worker
++{
++ public:
++   TABLE_LIST table_list;
++   THD* thd;
++   Table_map_log_event* map_ev;
++#ifdef HAVE_REPLICATION   
++   table_def *td;
++#endif
++   Rows_log_event* row_ev;
++   DYNAMIC_ARRAY rows;
++   int rows_inited;
++   
++   Binlog_table_worker(): thd(0),map_ev(0)
++#ifdef HAVE_REPLICATION   
++   ,td(0) 
++#endif
++    ,row_ev(0),rows_inited(0)
++   {
++     
++   }
++   int init(Table_map_log_event* map_ev_arg);
++   ~Binlog_table_worker() 
++   { 
++     if (thd)
++     {
++       close_thread_tables(thd);
++       thd = 0;
++     }
++#ifdef HAVE_REPLICATION     
++     if (td)
++     {
++       delete td;
++       td = 0;
++     }
++#endif     
++
++     if (rows_inited)
++     {
++       delete_dynamic(&rows);
++       rows_inited = 0;
++     }
++   }
++
++   void set_row_event(Rows_log_event* row_ev_arg)
++   {
++     row_ev = row_ev_arg;
++   }  
++   
++   int check_constraints();
++    
++   int undo_event(Rows_log_event* row_ev, int in_trx);
++   int unpack_row(int need_push_row);
++   int push_row();
++   int next_row() 
++   { 
++#ifdef HAVE_REPLICATION        
++     if (!row_ev || !row_ev->m_curr_row_end
++       || row_ev->m_curr_row_end >= row_ev->m_rows_end) 
++       return 1;
++     
++     row_ev->m_curr_row = row_ev->m_curr_row_end;
++#endif     
++     return 0;
++   } 
++   
++  int insert_row(uint row_ind);
++  int delete_row(uint row_ind);
++  int update_row(uint row_old_ind,uint row_new_ind);
++  
++  int undo_delete();
++  int undo_insert();
++  int undo_update(); 
++};
++
++struct Binlog_db_pos
++{
++  char* db;
++  uint db_len;
++  ulonglong group_id;
++};
++
++#endif
+\ No newline at end of file
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/field.cc sql/field.cc
+--- /home/sasha/mysql-5.5.8/sql/field.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/field.cc	2011-12-14 14:29:27.328959881 -0800
+@@ -7236,7 +7236,7 @@
+   :Field_longstr(ptr_arg, BLOB_PACK_LENGTH_TO_MAX_LENGH(blob_pack_length),
+                  null_ptr_arg, null_bit_arg, unireg_check_arg, field_name_arg,
+                  cs),
+-   packlength(blob_pack_length)
++   packlength(blob_pack_length),avro_h(0)
+ {
+   DBUG_ASSERT(blob_pack_length <= 4); // Only pack lengths 1-4 supported currently
+   flags|= BLOB_FLAG;
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/field.h sql/field.h
+--- /home/sasha/mysql-5.5.8/sql/field.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/field.h	2011-12-14 14:28:48.589907088 -0800
+@@ -782,12 +782,12 @@
+ 
+ 
+ /* base class for Field_string, Field_varstring and Field_blob */
+-
+ class Field_longstr :public Field_str
+ {
+ protected:
+   int report_if_important_data(const char *ptr, const char *end,
+                                bool count_spaces);
++
+ public:
+   Field_longstr(uchar *ptr_arg, uint32 len_arg, uchar *null_ptr_arg,
+                 uchar null_bit_arg, utype unireg_check_arg,
+@@ -795,7 +795,7 @@
+     :Field_str(ptr_arg, len_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
+                field_name_arg, charset_arg)
+     {}
+-
++ 
+   int store_decimal(const my_decimal *d);
+   uint32 max_data_length() const;
+ };
+@@ -1705,6 +1705,9 @@
+   int do_save_field_metadata(uchar *first_byte);
+ };
+ 
++class Avro_handle;
++extern void free_avro_handle(Avro_handle* h);
++
+ 
+ class Field_blob :public Field_longstr {
+ protected:
+@@ -1719,6 +1722,8 @@
+   String value;
+   
+ public:
++ Avro_handle* avro_h;
++
+   Field_blob(uchar *ptr_arg, uchar *null_ptr_arg, uchar null_bit_arg,
+ 	     enum utype unireg_check_arg, const char *field_name_arg,
+ 	     TABLE_SHARE *share, uint blob_pack_length, CHARSET_INFO *cs);
+@@ -1726,14 +1731,14 @@
+              CHARSET_INFO *cs)
+     :Field_longstr((uchar*) 0, len_arg, maybe_null_arg ? (uchar*) "": 0, 0,
+                    NONE, field_name_arg, cs),
+-    packlength(4)
++    packlength(4),avro_h(0)
+   {
+     flags|= BLOB_FLAG;
+   }
+   Field_blob(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
+ 	     CHARSET_INFO *cs, bool set_packlength)
+     :Field_longstr((uchar*) 0,len_arg, maybe_null_arg ? (uchar*) "": 0, 0,
+-                   NONE, field_name_arg, cs)
++                   NONE, field_name_arg, cs),avro_h(0)
+   {
+     flags|= BLOB_FLAG;
+     packlength= 4;
+@@ -1747,7 +1752,14 @@
+   }
+   Field_blob(uint32 packlength_arg)
+     :Field_longstr((uchar*) 0, 0, (uchar*) "", 0, NONE, "temp", system_charset_info),
+-    packlength(packlength_arg) {}
++    packlength(packlength_arg),avro_h(0) {}
++    
++  virtual ~Field_blob()
++  {
++     if (avro_h)
++       free_avro_handle(avro_h);
++  }
++ 
+   enum_field_types type() const { return MYSQL_TYPE_BLOB;}
+   bool match_collation_to_optimize_range() const { return TRUE; }
+   enum ha_base_keytype key_type() const
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/handler.cc sql/handler.cc
+--- /home/sasha/mysql-5.5.8/sql/handler.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/handler.cc	2011-11-04 19:34:11.840724366 -0700
+@@ -41,6 +41,8 @@
+ #include "probes_mysql.h"
+ #include "debug_sync.h"         // DEBUG_SYNC
+ 
++#include "binlog_group_id.h"
++
+ #ifdef WITH_PARTITION_STORAGE_ENGINE
+ #include "ha_partition.h"
+ #endif
+@@ -1255,6 +1257,7 @@
+   /* Free resources and perform other cleanup even for 'empty' transactions. */
+   else if (is_real_trans)
+     thd->transaction.cleanup();
++    
+   DBUG_RETURN(error);
+ }
+ 
+@@ -1318,7 +1321,7 @@
+   /* Free resources and perform other cleanup even for 'empty' transactions. */
+   if (is_real_trans)
+     thd->transaction.cleanup();
+-
++ 
+   DBUG_RETURN(error);
+ }
+ 
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/handler.h sql/handler.h
+--- /home/sasha/mysql-5.5.8/sql/handler.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/handler.h	2011-11-04 19:34:11.841733247 -0700
+@@ -314,6 +314,7 @@
+   DB_TYPE_MARIA,
+   /** Performance schema engine. */
+   DB_TYPE_PERFORMANCE_SCHEMA,
++  DB_TYPE_RPL_DBUS,
+   DB_TYPE_FIRST_DYNAMIC=42,
+   DB_TYPE_DEFAULT=127 // Must be last
+ };
+@@ -1871,6 +1872,7 @@
+     return 0;
+   }
+ 
++  virtual bool rbr_skip_row_check() { return 0; }
+ protected:
+   /* Service methods for use by storage engines. */
+   void ha_statistic_increment(ulong SSV::*offset) const;
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/item_create.cc sql/item_create.cc
+--- /home/sasha/mysql-5.5.8/sql/item_create.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/item_create.cc	2011-12-02 11:48:59.684919236 -0800
+@@ -1111,6 +1111,130 @@
+   virtual ~Create_func_ifnull() {}
+ };
+ 
++class Create_func_binlog_undo_batch : public Create_native_func
++{
++public:
++  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
++
++  static Create_func_binlog_undo_batch s_singleton;
++
++protected:
++  Create_func_binlog_undo_batch() {}
++  virtual ~Create_func_binlog_undo_batch() {}
++};
++
++class Create_func_binlog_undo_event : public Create_func_arg2
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2);
++
++  static Create_func_binlog_undo_event s_singleton;
++
++protected:
++  Create_func_binlog_undo_event() {}
++  virtual ~Create_func_binlog_undo_event() {}
++};
++
++class Create_func_avro_fetch : public Create_func_arg3
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2, Item* arg3);
++
++  static Create_func_avro_fetch s_singleton;
++
++protected:
++  Create_func_avro_fetch() {}
++  virtual ~Create_func_avro_fetch() {}
++};
++
++class Create_func_avro_update : public Create_func_arg3
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2, Item* arg3);
++
++  static Create_func_avro_update s_singleton;
++
++protected:
++  Create_func_avro_update() {}
++  virtual ~Create_func_avro_update() {}
++};
++
++class Create_func_avro_match : public Create_func_arg3
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2, Item* arg3);
++
++  static Create_func_avro_match s_singleton;
++
++protected:
++  Create_func_avro_match() {}
++  virtual ~Create_func_avro_match() {}
++};
++
++
++class Create_func_avro_register_schema : public Create_func_arg2
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2);
++
++  static Create_func_avro_register_schema s_singleton;
++
++protected:
++  Create_func_avro_register_schema() {}
++  virtual ~Create_func_avro_register_schema() {}
++};
++
++
++class Create_func_get_binlog_gen_id : public Create_native_func
++{
++public:
++  virtual Item *create_native(THD *thd, LEX_STRING name,
++                                  List<Item> *item_list);
++
++  static Create_func_get_binlog_gen_id s_singleton;
++
++protected:
++  Create_func_get_binlog_gen_id() {}
++  virtual ~Create_func_get_binlog_gen_id() {}
++};
++
++class Create_func_set_binlog_gen_id : public Create_func_arg2
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2);
++
++  static Create_func_set_binlog_gen_id s_singleton;
++
++protected:
++  Create_func_set_binlog_gen_id() {}
++  virtual ~Create_func_set_binlog_gen_id() {}
++};
++
++class Create_func_get_binlog_seq_id : public Create_native_func
++{
++public:
++  virtual Item *create_native(THD *thd, LEX_STRING name,
++                                  List<Item> *item_list);
++
++  static Create_func_get_binlog_seq_id s_singleton;
++
++protected:
++  Create_func_get_binlog_seq_id() {}
++  virtual ~Create_func_get_binlog_seq_id() {}
++};
++
++class Create_func_set_binlog_seq_id : public Create_func_arg2
++{
++public:
++  virtual Item *create(THD *thd, Item *arg1, Item *arg2);
++
++  static Create_func_set_binlog_seq_id s_singleton;
++
++protected:
++  Create_func_set_binlog_seq_id() {}
++  virtual ~Create_func_set_binlog_seq_id() {}
++};
++
+ 
+ class Create_func_inet_ntoa : public Create_func_arg1
+ {
+@@ -3635,6 +3759,133 @@
+   return new (thd->mem_root) Item_func_ifnull(arg1, arg2);
+ }
+ 
++Create_func_binlog_undo_batch Create_func_binlog_undo_batch::s_singleton;
++
++Item*
++Create_func_binlog_undo_batch::create_native(THD *thd, LEX_STRING name,
++                                  List<Item> *item_list)
++{
++  int arg_count= 0;
++
++  if (item_list != NULL)
++    arg_count= item_list->elements;
++
++  if (arg_count < 1 || arg_count % 3)
++  {
++    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
++    return NULL;
++  }
++
++  return new (thd->mem_root) Item_func_binlog_undo_batch(*item_list);
++}
++
++
++Create_func_binlog_undo_event Create_func_binlog_undo_event::s_singleton;
++
++Item*
++Create_func_binlog_undo_event::create(THD *thd, Item *arg1,Item *arg2)
++{
++  return new (thd->mem_root) Item_func_binlog_undo_event(arg1,arg2);
++}
++
++Create_func_avro_fetch Create_func_avro_fetch::s_singleton;
++
++Item*
++Create_func_avro_fetch::create(THD *thd, Item *arg1,Item *arg2,Item *arg3)
++{
++  return new (thd->mem_root) Item_func_avro_fetch(arg1,arg2,arg3);
++}
++
++Create_func_avro_update Create_func_avro_update::s_singleton;
++
++Item*
++Create_func_avro_update::create(THD *thd, Item *arg1,Item *arg2,Item *arg3)
++{
++  return new (thd->mem_root) Item_func_avro_update(arg1,arg2,arg3);
++}
++
++Create_func_avro_match Create_func_avro_match::s_singleton;
++
++Item*
++Create_func_avro_match::create(THD *thd, Item *arg1,Item *arg2,Item *arg3)
++{
++  return new (thd->mem_root) Item_func_avro_match(arg1,arg2,arg3);
++}
++
++Create_func_avro_register_schema Create_func_avro_register_schema::s_singleton;
++
++Item*
++Create_func_avro_register_schema::create(THD *thd, Item *arg1,Item *arg2)
++{
++  return new (thd->mem_root) Item_func_avro_register_schema(arg1,arg2);
++}
++
++
++Create_func_get_binlog_gen_id Create_func_get_binlog_gen_id::s_singleton;
++
++Item*
++Create_func_get_binlog_gen_id::create_native(THD *thd, LEX_STRING name,
++                                  List<Item> *item_list)
++{
++  int arg_count= 0;
++
++  if (item_list != NULL)
++    arg_count= item_list->elements;
++
++  switch (arg_count)
++  {
++    case 2:
++    case 1:
++      break;
++    default:  
++      my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
++      return NULL;
++  }
++    
++  return new (thd->mem_root) Item_func_get_binlog_gen_id(*item_list);
++}
++
++Create_func_set_binlog_gen_id Create_func_set_binlog_gen_id::s_singleton;
++
++Item*
++Create_func_set_binlog_gen_id::create(THD *thd, Item *arg1,Item *arg2)
++{
++  return new (thd->mem_root) Item_func_set_binlog_gen_id(arg1,arg2);
++}
++
++Create_func_get_binlog_seq_id Create_func_get_binlog_seq_id::s_singleton;
++
++Item*
++Create_func_get_binlog_seq_id::create_native(THD *thd, LEX_STRING name,
++                                  List<Item> *item_list)
++{
++  int arg_count= 0;
++
++  if (item_list != NULL)
++    arg_count= item_list->elements;
++
++  switch (arg_count)
++  {
++    case 2:
++    case 1:
++      break;
++    default:  
++      my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
++      return NULL;
++  }
++    
++  return new (thd->mem_root) Item_func_get_binlog_seq_id(*item_list);
++}
++
++Create_func_set_binlog_seq_id Create_func_set_binlog_seq_id::s_singleton;
++
++Item*
++Create_func_set_binlog_seq_id::create(THD *thd, Item *arg1,Item *arg2)
++{
++  return new (thd->mem_root) Item_func_set_binlog_seq_id(arg1,arg2);
++}
++
++
+ 
+ Create_func_inet_ntoa Create_func_inet_ntoa::s_singleton;
+ 
+@@ -4844,8 +5095,17 @@
+   { { C_STRING_WITH_LEN("ASWKT") }, GEOM_BUILDER(Create_func_as_wkt)},
+   { { C_STRING_WITH_LEN("ATAN") }, BUILDER(Create_func_atan)},
+   { { C_STRING_WITH_LEN("ATAN2") }, BUILDER(Create_func_atan)},
++  { { C_STRING_WITH_LEN("AVRO_FETCH") }, BUILDER(Create_func_avro_fetch)},
++  { { C_STRING_WITH_LEN("AVRO_MATCH") }, BUILDER(Create_func_avro_match)},
++  { { C_STRING_WITH_LEN("AVRO_REGISTER_SCHEMA") },
++         BUILDER(Create_func_avro_register_schema)},
++  { { C_STRING_WITH_LEN("AVRO_UPDATE") }, BUILDER(Create_func_avro_update)},
+   { { C_STRING_WITH_LEN("BENCHMARK") }, BUILDER(Create_func_benchmark)},
+   { { C_STRING_WITH_LEN("BIN") }, BUILDER(Create_func_bin)},
++  { { C_STRING_WITH_LEN("BINLOG_UNDO_BATCH") }, 
++      BUILDER(Create_func_binlog_undo_batch)},
++  { { C_STRING_WITH_LEN("BINLOG_UNDO_EVENT") }, 
++      BUILDER(Create_func_binlog_undo_event)},
+   { { C_STRING_WITH_LEN("BIT_COUNT") }, BUILDER(Create_func_bit_count)},
+   { { C_STRING_WITH_LEN("BIT_LENGTH") }, BUILDER(Create_func_bit_length)},
+   { { C_STRING_WITH_LEN("CEIL") }, BUILDER(Create_func_ceiling)},
+@@ -4903,6 +5163,8 @@
+   { { C_STRING_WITH_LEN("GEOMETRYTYPE") }, GEOM_BUILDER(Create_func_geometry_type)},
+   { { C_STRING_WITH_LEN("GEOMFROMTEXT") }, GEOM_BUILDER(Create_func_geometry_from_text)},
+   { { C_STRING_WITH_LEN("GEOMFROMWKB") }, GEOM_BUILDER(Create_func_geometry_from_wkb)},
++  { { C_STRING_WITH_LEN("GET_BINLOG_GEN_ID") }, BUILDER(Create_func_get_binlog_gen_id)},
++  { { C_STRING_WITH_LEN("GET_BINLOG_SEQ_ID") }, BUILDER(Create_func_get_binlog_seq_id)},
+   { { C_STRING_WITH_LEN("GET_LOCK") }, BUILDER(Create_func_get_lock)},
+   { { C_STRING_WITH_LEN("GLENGTH") }, GEOM_BUILDER(Create_func_glength)},
+   { { C_STRING_WITH_LEN("GREATEST") }, BUILDER(Create_func_greatest)},
+@@ -4993,6 +5255,8 @@
+   { { C_STRING_WITH_LEN("RPAD") }, BUILDER(Create_func_rpad)},
+   { { C_STRING_WITH_LEN("RTRIM") }, BUILDER(Create_func_rtrim)},
+   { { C_STRING_WITH_LEN("SEC_TO_TIME") }, BUILDER(Create_func_sec_to_time)},
++  { { C_STRING_WITH_LEN("SET_BINLOG_GEN_ID") }, BUILDER(Create_func_set_binlog_gen_id)},
++  { { C_STRING_WITH_LEN("SET_BINLOG_SEQ_ID") }, BUILDER(Create_func_set_binlog_seq_id)},
+   { { C_STRING_WITH_LEN("SHA") }, BUILDER(Create_func_sha)},
+   { { C_STRING_WITH_LEN("SHA1") }, BUILDER(Create_func_sha)},
+   { { C_STRING_WITH_LEN("SHA2") }, BUILDER(Create_func_sha2)},
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/item_func_avro.cc sql/item_func_avro.cc
+--- /home/sasha/mysql-5.5.8/sql/item_func_avro.cc	1969-12-31 16:00:00.000000000 -0800
++++ sql/item_func_avro.cc	2011-12-14 16:05:09.742959763 -0800
+@@ -0,0 +1,1264 @@
++#ifndef MYSQL_SERVER
++#define MYSQL_SERVER 1
++#endif
++
++#include "m_ctype.h"
++#include "sql_priv.h"
++#include "item.h"
++#include "sql_class.h"
++#include "item_func_avro.h"
++#include "field.h"
++#include <avro.h>
++#include <ctype.h>
++
++#include "sql_plugin.h"
++
++enum Avro_type {TYPE_INT,TYPE_STR};
++
++void free_avro_handle(Avro_handle* h)
++{
++#ifdef DEBUG_AVRO  
++  sql_print_information("freeing avro_h at %p", h);
++#endif  
++  delete h;
++}
++
++static Avro_handle* get_avro_handle(Item* val, 
++                                    char* schema_name,
++                                    uint schema_name_len,
++                                    bool* should_free)
++{
++  Avro_handle* h = 0;
++  avro_schema_t schema;
++  Field_blob* val_f = 0;
++  String tmp, *res;
++  
++  if (!(res = val->val_str(&tmp)) || val->null_value || 
++    res->length() == 0)
++   return 0;
++  
++  if (val->type() == Item::FIELD_ITEM)
++  {
++    Field* f = ((Item_field*)val)->field;
++    
++    if (f->type() == MYSQL_TYPE_BLOB)
++    {
++      val_f = (Field_blob*)f;
++#ifdef DEBUG_AVRO      
++      sql_print_information("val_f=%p", val_f);
++#endif      
++      if (val_f->avro_h && 
++          val_f->avro_h->last_val_len == res->length() &&
++          !memcmp(val_f->avro_h->last_val,res->ptr(), res->length()))
++      {
++#ifdef DEBUG_AVRO        
++        sql_print_information("reusing avro field");
++#endif        
++        *should_free = 0;
++        return val_f->avro_h;
++      }
++    }
++  }
++  
++  if (!(schema = avro_def_hash->get_schema(schema_name,
++    schema_name_len)))
++  {
++    return 0;
++  }
++  
++  h = new Avro_handle();
++  
++  if (!h)
++    return 0;
++  
++  if (!(h->last_val = (char*)my_malloc(res->length() + 1, MYF(0))))
++  {
++    delete h;
++    return 0;
++  }
++  
++  h->last_val_len = res->length();
++  memcpy(h->last_val,res->ptr(), h->last_val_len);
++  h->last_val[h->last_val_len] = 0;
++  
++  if (!(h->reader = avro_reader_memory(h->last_val,
++          h->last_val_len)))
++  {
++    delete h;
++    return 0;
++  }
++  
++  if (!(h->iface = avro_generic_class_from_schema(schema))
++    || avro_generic_value_new(h->iface, &h->rec) ||
++    avro_value_read(h->reader,&h->rec))
++  {
++#ifdef DEBUG_AVRO    
++    sql_print_information("avro read failed");
++#endif    
++    delete h;
++    return 0;
++  }
++  
++  if (!val_f)
++  {
++    *should_free = 1;
++    return h;
++  }
++  
++  val_f->avro_h = h;
++  *should_free = 0;
++  return h;
++}
++
++struct Avro_val
++{
++  ulonglong int_val;
++  char* str_val;
++  uint str_val_len;
++  int is_null;
++  Avro_type type;
++};
++
++#define CHECK_COND(c) if (c) return 1;
++
++static int fetch_avro_field_val(avro_value_t* f, Avro_val* v)
++{
++  v->is_null = 0; /* not null unless we set it later */
++  
++  switch (avro_value_get_type(f))
++  {
++    case AVRO_INT32:
++    {
++      int32_t val;
++      CHECK_COND(avro_value_get_int(f,&val))
++      v->str_val = 0;
++      v->str_val_len = 0;
++      v->int_val = (ulonglong)val;
++      v->type = TYPE_INT;
++      return 0;
++    }  
++    case AVRO_INT64:
++    {
++      int64_t val;
++      CHECK_COND(avro_value_get_long(f,&val))
++      v->str_val = 0;
++      v->str_val_len = 0;
++      v->int_val = (ulonglong)val;
++      v->type = TYPE_INT;
++      return 0;
++    }  
++    case AVRO_STRING:
++    {
++      size_t len;
++      CHECK_COND(avro_value_get_string(f,
++                   (const char**)&v->str_val, &len))
++      /* len includes null-terminator*/
++      if (len && !v->str_val[len-1])
++        len--;
++     
++      v->str_val_len = len; 
++      v->type = TYPE_STR;
++      return 0;
++    }  
++    case AVRO_NULL:
++      v->is_null = 1;
++      return 0;
++    case AVRO_BOOLEAN:
++    {
++      int val;
++      CHECK_COND(avro_value_get_boolean(f,&val));
++      v->int_val = (ulonglong)val;
++      v->str_val = 0;
++      v->str_val_len = 0;
++      v->type = TYPE_INT;
++      return 0;
++    }
++    case AVRO_UNION:
++    {
++      int disc;
++      avro_value_t branch;
++      
++      CHECK_COND(avro_value_get_discriminant(f,&disc) || 
++        (disc == -1) ||
++        avro_value_get_current_branch(f,&branch) 
++      ) 
++      
++      return fetch_avro_field_val(&branch,v);
++    }  
++    default:
++      sql_print_information("Unknown avro type %d", 
++        avro_value_get_type(f));
++      return 1; 
++  }
++  
++  return 1;  /* should never get here*/
++}
++
++#undef CHECK_COND
++#define CHECK_COND(c) if (c) { str = 0; null_value = 1; goto err; }
++
++#define COPY_ARG_STR(var,arg_num) \
++  CHECK_COND(!(tmp=args[arg_num]->val_str(&tmp_value))) \
++  var##_len = tmp->length();\
++  CHECK_COND(!(var=(char*)my_memdup(tmp->c_ptr(),\
++     var##_len+1,MYF(0)))) \
++  var[var##_len] = 0; 
++
++
++String* Item_func_avro_fetch::val_str(String* str)
++{
++  char *schema_name = 0;
++  uint schema_name_len = 0;
++  String *tmp;
++  avro_value_t  f ;
++  Avro_handle * h = 0;
++  bool should_free_avro_h = 0;
++  
++  f.self = 0;
++#ifdef DEBUG_AVRO  
++  sql_print_information("avro_fetch");
++#endif  
++  COPY_ARG_STR(schema_name,0)
++  
++  CHECK_COND(!(h = get_avro_handle(args[1],schema_name,
++     schema_name_len,&should_free_avro_h)))
++  
++  if (!(tmp = args[2]->val_str(&tmp_value)))
++  {
++    null_value = 1;
++    return 0;
++  }
++  
++  CHECK_COND(avro_value_get_by_name(&h->rec,tmp->c_ptr(), &f,0))
++  str->length(0);
++  
++  //block to limit the scope of v
++  {
++    Avro_val v;
++    CHECK_COND(fetch_avro_field_val(&f,&v))
++    
++    if (v.is_null)
++    {
++      null_value = 1;
++      str = 0;
++      goto err;
++    }
++    else if (v.str_val)
++    {
++      str->append(v.str_val,v.str_val_len);
++    }
++    else
++    {
++      str->append_ulonglong(v.int_val);
++    }
++  }
++  
++  null_value = 0;
++  
++err:  
++  
++  if (h && should_free_avro_h)
++  {
++    delete h;
++    h = 0;
++  }
++  
++  if (schema_name)
++    my_free((void*)schema_name);
++  
++  return str;
++}
++
++#define MAX_AVRO_FIELDS 8192 
++/* sanity check to keep rogue blobs from causing stack overrun */
++
++#define CASE_SPECIAL_CHAR(k,c) case k: if (in_esc) \
++  { *copy_p++ = c; in_esc = 0; } else  { \
++    *copy_p++ = k; } break;
++
++#define DONE_PARSING_VAL                   {\
++                size_t field_ind;\
++                *copy_p++ = 0; \
++                if (!name || avro_value_get_by_name(rec,name,\
++                  &f, &field_ind) || field_ind >= num_fields)\
++                  goto err;\
++                field_op_map[field_ind] = val;\
++                val = name = 0;\
++                parse_state = WAITING_FOR_NAME;\
++              }
++
++    
++static int init_field_op_map(avro_value_t* rec, 
++                             char** field_op_map,
++                             size_t num_fields,
++                             char* new_val, uint new_val_len )
++{
++  char* p = new_val, *p_end = new_val + new_val_len;
++  enum {WAITING_FOR_NAME=0,PARSING_NAME,WAITING_FOR_VAL, 
++     PARSING_VAL
++  } parse_state = WAITING_FOR_NAME;
++  
++  bool in_esc = 0, in_quote = 0;
++  char* name = 0, *val = 0;
++  char* copy_p = new_val;
++  /* Operation Baba Yaga - a Russian fairy tail witch that 
++   * flies on a broom. Since the caller throws away new_val 
++   * buffer we can reuse the parts of it we have already seen */
++  
++  int res = 1;
++  avro_value_t f;
++  
++  
++  for (;p < p_end;p++)
++  {
++    switch (parse_state)
++    {
++      case WAITING_FOR_NAME:
++      case WAITING_FOR_VAL:  
++        if (*p == '"')
++        {
++          in_quote = 1;
++          *copy_p++ = '"'; // keep the quote so we will know
++           // if we had it in the argument
++          p++;
++          if (p >= p_end)
++            goto err;
++        }
++        if (in_quote || isalnum(*p) || *p == '-')      
++        {
++          if (parse_state == WAITING_FOR_NAME)
++          {  
++            name = copy_p;
++            parse_state = PARSING_NAME;
++          }  
++          else
++          {  
++            val = copy_p - (in_quote);
++            parse_state = PARSING_VAL;
++          }
++          
++          *copy_p++ = *p;
++        }
++        break;
++        
++      case PARSING_NAME:
++      case PARSING_VAL:  
++        switch (*p)
++        {
++          case ',':
++          case '}':
++            if (parse_state == PARSING_VAL && !in_quote)
++              DONE_PARSING_VAL
++            else
++            {
++              *copy_p++ = *p;
++            }
++            break;
++          case '"': 
++            if (in_esc)
++            {
++              in_esc = 0;
++              *copy_p++ = '"';
++            }
++            else if (in_quote)
++            {
++              *copy_p++ = 0;
++              
++              if (parse_state == PARSING_VAL)
++                DONE_PARSING_VAL
++              else
++              {
++                parse_state = WAITING_FOR_VAL;
++              }
++              
++              in_quote = 0;
++            }
++            else
++              in_quote = 1;
++            
++            break;
++          
++          CASE_SPECIAL_CHAR('n','\n')   
++          CASE_SPECIAL_CHAR('r','\r')   
++          CASE_SPECIAL_CHAR('t','\t')   
++          CASE_SPECIAL_CHAR('v','\t')   
++          CASE_SPECIAL_CHAR('f','\f')   
++         
++          case '\\':
++            if (in_esc)
++            {  
++              *copy_p++ = '\\';
++              in_esc = 0;
++            }  
++            else
++              in_esc = 1;
++            break;
++            
++          default:
++            *copy_p++ = *p;
++            break;
++        }
++    }
++  }
++  
++  res = 0;
++  
++err:  
++  
++  return res;
++}
++
++#define FIX_VAL(bits,t) {\
++   int##bits##_t val; \
++   if (op_code) \
++     if (avro_value_get_##t(f,&val)) return 1; \
++   switch (op_code) { \
++     case '+': val += (int##bits##_t)arg; break;\
++     case '-': val -= (int##bits##_t)arg; break; \
++     default: val = (int##bits##_t)arg; break; \
++   }\
++  if (avro_value_set_##t(f,val))\
++    return 1;\
++}
++
++static int parse_boolean(char* s, int* res)
++{
++  if (!strcasecmp(s,"false"))
++  {
++    *res = 0;
++    return 0;
++  }
++  
++  if (!strcasecmp(s,"true"))
++  {
++    *res = 1;
++    return 0;
++  }
++  
++  return 1;
++}
++
++static int apply_field_op(avro_value_t* f, char* op)
++{
++  longlong arg;
++  char op_code = 0;
++  avro_type_t f_type;
++  
++  switch ((f_type = avro_value_get_type(f)))
++  {
++    case AVRO_STRING:
++      if (avro_value_set_string(f,op+1))
++        return 1;
++      break;
++    case AVRO_BOOLEAN:
++    {
++      int res;
++      if (parse_boolean(op,&res) || 
++        avro_value_set_boolean(f,res))
++          return 1;
++      break;
++    }  
++    case AVRO_INT32:
++    case AVRO_INT64:  
++      
++      if (*op == '"')
++      {
++        if (!(op_code = *++op) || !*++op)
++          return 1;
++      }
++      
++      arg = atoll(op);
++    
++      if (f_type == AVRO_INT32)
++        FIX_VAL(32,int)       
++      else 
++        FIX_VAL(64,long)
++        
++      break;  
++    
++    case AVRO_NULL:
++      if (!strcasecmp(op,"null"))
++      {
++        return avro_value_set_null(f);
++      }
++      else
++        return 1;
++      
++      break;
++    case AVRO_UNION:
++    {
++      int branch_i = 0;
++      avro_value_t b;
++      
++      for (;;branch_i++)
++      {
++        if (avro_value_set_branch(f,branch_i,&b))
++          return 1; /* no suitable branch found */
++          
++        if (!apply_field_op(&b,op)) // success
++        {
++          return 0;
++        }
++      }
++      break;
++    }  
++    default:
++      sql_print_information("Unsupported avro type %d in update",
++         f_type
++      );
++      return 1;
++  }
++  
++  return 0;
++}
++
++String* Item_func_avro_update::val_str(String* str)
++{
++  char *schema_name = 0, *new_val = 0;
++  uint write_buf_len = 0;  
++  uint schema_name_len = 0, new_val_len = 0;
++  String *tmp;
++  avro_schema_t schema = 0;
++  avro_writer_t writer = 0;
++  avro_value_t f ;
++  Avro_handle* h = 0;
++  bool should_free_avro_h = 0;
++#ifdef DEBUG_AVRO  
++  sql_print_information("avro_update");
++#endif  
++  f.self = 0;
++
++  size_t num_fields = 0;
++  
++  COPY_ARG_STR(schema_name,0)
++  
++  if (!(schema = avro_def_hash->get_schema(schema_name, schema_name_len)))
++  {
++    null_value = 1;
++    return 0;
++  }
++  
++  CHECK_COND(!(h = get_avro_handle(args[1],schema_name,
++     schema_name_len,&should_free_avro_h)))
++
++  
++  COPY_ARG_STR(new_val,2)
++  
++  write_buf_len = h->last_val_len + new_val_len;
++  str->realloc(write_buf_len);
++  
++  CHECK_COND(write_buf_len > str->alloced_length())
++  CHECK_COND(!(writer = avro_writer_memory(str->ptr(), 
++                                           write_buf_len)))
++  
++  CHECK_COND(avro_value_get_size(&h->rec,&num_fields) ||
++     num_fields > MAX_AVRO_FIELDS
++  )
++  
++  // block to limit scope of field_op_map
++  {
++    char* field_op_map[num_fields];
++    bzero(field_op_map,sizeof(field_op_map));
++    CHECK_COND(init_field_op_map(&h->rec,field_op_map, num_fields,
++                      new_val,new_val_len))
++    
++    for (size_t i = 0; i < num_fields; i++)
++    {
++      char *op = field_op_map[i];
++      CHECK_COND(avro_value_get_by_index(&h->rec,i,&f,0))
++      
++      if (op)
++      {
++        //sql_print_information("op[%d]=%s", i, op);
++        CHECK_COND(apply_field_op(&f,op))
++      }  
++      CHECK_COND(avro_value_write(writer,&f))
++    }
++  }
++  
++  str->length(avro_writer_tell(writer));
++  null_value = 0;
++  
++err:  
++  if (h && should_free_avro_h)
++  {
++    delete h;
++    h = 0;
++  }
++
++  /* no need to decref f */
++ 
++  
++  if (writer)
++    avro_writer_free(writer);
++  
++  if (new_val)
++    my_free((void*)new_val);
++  
++  if (schema_name)
++    my_free((void*)schema_name);
++  
++  return str;
++}
++
++enum Avro_match_token_type
++{
++  OP_AND=0,
++  OP_OR,
++  OP_EQ,
++  OP_G,
++  OP_GE,
++  OP_L,
++  OP_LE,
++  OP_NE,
++  OP_NOT,
++  OP_OPEN_PAREN,
++  OP_CLOSE_PAREN,
++  TOK_IDENT,
++  TOK_NUM,
++  TOK_STR,
++  TOK_INVALID
++};
++
++static int avro_op_priority[] =
++{
++  20/*OP_AND*/,
++  10/*OP_OR*/,
++  80/*OP_EQ*/,
++  80/*OP_G*/,
++  80/*OP_GE*/,
++  80/*OP_L*/,
++  80/*OP_LE*/,
++  80/*OP_NE*/,
++  200/*OP_NOT*/,
++  2/*OP_OPEN_PAREN*/,
++  2/*OP_CLOSE_PAREN*/,
++  0 /*TOK_IDENT*/,
++  0 /*TOK_NUM*/,
++  0 /*TOK_STR*/,
++  0 /* TOK_INVALID */
++};
++
++struct Avro_match_token
++{
++  Avro_match_token_type type;
++  char* str;
++  uint str_len;
++  int value_fetched;
++  Avro_val v;
++  int op_error;
++  
++  int fetch_value(avro_value_t *rec);
++  
++  Avro_match_token():value_fetched(0),op_error(0) {}
++  int cmp(Avro_match_token* other);
++  int priority() { return avro_op_priority[type]; }
++  
++  void print(const char* msg)
++  {
++    sql_print_information("%s: token: type=%d",msg, type);
++  }
++};
++
++#define INT_CMP(a,b) ((a > b) ? 1 : ((a==b) ? 0 : -1))
++
++int Avro_match_token::cmp(Avro_match_token* other)
++{
++  op_error = 0;
++  
++  if (v.type == TYPE_INT || other->v.type == TYPE_INT)
++  {
++    return INT_CMP(v.int_val,other->v.int_val);
++  }
++  else
++  {
++    if (!v.str_val || !other->v.str_val)
++    {
++      op_error = 1;
++      return 0;
++    }
++    
++    uint shared_len = min(v.str_val_len,other->v.str_val_len);
++    int res = memcmp(v.str_val,other->v.str_val,shared_len);
++    if (res) return res;
++    
++    return INT_CMP(v.str_val_len,other->v.str_val_len);
++  }
++}
++
++int Avro_match_token::fetch_value(avro_value_t *rec)
++{
++  if (value_fetched)
++    return 0;
++  
++  v.is_null = 0;
++  
++  switch (type)
++  {
++    case TOK_STR:
++    case TOK_NUM:  
++      v.str_val = str;
++      v.str_val_len = str_len;
++      v.int_val = atoll(str);
++      v.type = TYPE_STR;
++      return 0;
++    case TOK_IDENT:
++    {
++      avro_value_t f;
++      char* str_end = str + str_len;
++      char save_c = *str_end;
++      *str_end = 0;
++      
++      if (avro_value_get_by_name(rec,str,&f,0) || 
++          fetch_avro_field_val(&f,&v))  
++      { 
++        *str_end = save_c;
++        return 1;
++      }
++      
++      value_fetched = 1;
++      *str_end = save_c;
++      return 0;
++    }  
++    default:
++      return 1;
++  }
++}
++
++
++// tok_len will not naturally agree with tok_next when
++// we unescape a quoted string
++static Avro_match_token_type get_token(char* tok, char* buf_end,
++                                       char** tok_next, 
++                                       uint* tok_len)
++{
++  if (*tok == '&')
++  {
++    if (tok + 1 > buf_end || tok[1] != '&')
++      return TOK_INVALID;
++    *tok_next = tok + 2;
++    return OP_AND;
++  }  
++  else if (*tok == '|')
++  {
++    if (tok + 1 > buf_end || tok[1] != '|')
++      return TOK_INVALID;
++    *tok_next = tok + 2;
++    return OP_OR;
++  }  
++  else if (*tok == '!')
++  {
++    if (tok + 1 > buf_end)
++      return TOK_INVALID;
++    
++    if (tok[1] == '=')
++    {
++      *tok_next = tok + 2;
++      return OP_NE;
++    }
++    
++    *tok_next = tok + 1;
++    return OP_NOT;
++  }
++  else if (*tok == '>')
++  {
++    if (tok + 1 > buf_end)
++      return TOK_INVALID;
++    
++    if (tok[1] == '=')
++    {
++      *tok_next = tok + 2;
++      return OP_GE;
++    }
++    
++    *tok_next = tok + 1;
++    return OP_G;
++  }
++  else if (*tok == '<')
++  {
++    if (tok + 1 > buf_end)
++      return TOK_INVALID;
++    
++    if (tok[1] == '=')
++    {
++      *tok_next = tok + 2;
++      return OP_LE;
++    }
++    
++    *tok_next = tok + 1;
++    return OP_L;
++  }
++  else if (*tok == '=')
++  {
++    *tok_next = tok + 1;
++    return OP_EQ;
++  }
++  else if (*tok == '(')
++  {
++    *tok_next = tok + 1;
++    return OP_OPEN_PAREN;
++  }
++  else if (*tok == ')')
++  {
++    *tok_next = tok + 1;
++    return OP_CLOSE_PAREN;
++  }
++  else if (*tok == '\'')
++  {
++    char* val = tok;
++    char* copy_p = tok;
++    int in_esc = 0;
++    tok++;
++    
++    for (;tok < buf_end; tok++)
++    {
++      switch (*tok)
++      {
++        case '\'':
++          if (in_esc)
++          {
++            *copy_p++ = '\'';
++            in_esc = 0;
++          }
++          else
++          {
++            *tok_len = copy_p - val;
++            *tok_next = ++tok;
++            return TOK_STR;
++          }
++          break;
++          
++        case '\\':
++          if (in_esc)
++          {
++            *copy_p++ = '\\';
++            in_esc = 0;
++          }
++          else
++            in_esc = 1;
++          break;
++        
++        default:
++          *copy_p++ = *tok;
++          break;
++      }
++    }
++    
++    return TOK_INVALID;
++  }
++  else if (isdigit(*tok))
++  {
++    char* val = tok;
++    
++    for (;tok < buf_end && isdigit(*tok); tok++)
++      /* empty */;
++    
++    *tok_len = tok - val;
++    *tok_next = tok;
++    return TOK_NUM;
++  }
++  else if(isalpha(*tok) || *tok == '_')
++  {
++    char* val = tok;
++    
++    for (;tok < buf_end && (isalnum(*tok) || *tok == '_'); tok++)
++      /* empty */;
++    
++    *tok_len = tok - val;
++    *tok_next = tok;
++    return TOK_IDENT;
++  }
++
++  return TOK_INVALID;
++}
++
++#define MAX_EXPR_DEPTH 256
++
++struct Avro_match_expr
++{
++  Avro_match_token op_stack[MAX_EXPR_DEPTH], *op_stack_p,
++   *op_stack_end;
++  Avro_match_token val_stack[MAX_EXPR_DEPTH], *val_stack_p,
++    *val_stack_end;
++  avro_value_t* rec;  
++    
++  Avro_match_expr(avro_value_t* rec):rec(rec)
++  {
++    op_stack_p = op_stack; 
++    op_stack_end = op_stack + 
++      sizeof(op_stack)/sizeof(Avro_match_token);
++      
++    val_stack_p = val_stack; 
++    val_stack_end = val_stack + 
++      sizeof(val_stack)/sizeof(Avro_match_token);
++    
++  }
++  
++  int apply_expr_op(Avro_match_token* op);   
++  int apply_expr_op1(Avro_match_token* op);   
++  int apply_expr_op2(Avro_match_token* op);   
++  
++};
++
++
++#define STACK_PUSH(stack,t,s,len) \
++   if(stack##_p>=stack##_end) goto err;\
++   stack##_p->type=t;\
++   stack##_p->str=s; stack##_p->str_len=len;\
++   stack##_p++;
++   
++#define STACK_POP(stack) (stack##_p == stack ? 0 : --stack##_p )   
++#define STACK_PEEK(stack) (stack##_p == stack ? 0 : stack##_p-1 )   
++#define STACK_IS_EMPTY(stack)  (stack##_p == stack)
++
++int Avro_match_expr::apply_expr_op1(Avro_match_token* op)   
++{
++  Avro_match_token* arg;
++  ulonglong res = 0;
++  
++  if (!(arg = STACK_POP(val_stack)) || 
++       arg->fetch_value(rec) 
++      )
++    return 1;
++  
++  if (arg->v.is_null)
++  {
++    val_stack_p++; // put it back on the stack, keep it NULL
++    return 0;  
++  }
++  
++  switch (op->type)
++  {
++    case OP_NOT:
++      if (arg->v.type == TYPE_INT)
++      {
++        res = (arg->v.int_val == 0);
++      }
++      else
++      {
++        res = (arg->v.str_val_len == 0);
++      }
++      break;
++    default:
++      sql_print_information("BUG: Incorrect call to "
++        "apply_expr_op1() for op->type = %d", op->type);
++      return 1;
++  }
++  
++  if (arg->op_error)
++    return 1;
++  
++  arg->v.int_val = res;
++  arg->v.type = TYPE_INT;
++  arg->type = TOK_NUM;
++  val_stack_p++; // now arg is at the top of the stack
++  return 0;  
++}   
++   
++int Avro_match_expr::apply_expr_op2(Avro_match_token* op)   
++{
++  Avro_match_token* arg1,*arg2;
++  ulonglong res = 0;
++  
++  if (!(arg1 = STACK_POP(val_stack)) || 
++      !(arg2 = STACK_POP(val_stack)) || arg1->fetch_value(rec) || 
++       arg2->fetch_value(rec))
++    return 1;
++  
++  if (arg1->v.is_null || arg2->v.is_null)
++  {
++    arg2->v.is_null = 1;
++    val_stack_p++; // since arg2 was popped last, this puts it at
++      // the top of the stack
++    return 0;  
++  }
++  
++  switch (op->type)
++  {
++    case OP_AND:
++    {
++      res = (arg1->v.int_val && arg2->v.int_val);
++      break;
++    }  
++    case OP_OR:
++    {
++      res = (arg1->v.int_val || arg2->v.int_val);
++      break;
++    }  
++    case OP_G:
++    {
++      res = (arg2->cmp(arg1) > 0);
++      break;
++    }
++    case OP_GE:
++    {
++      res = (arg2->cmp(arg1) >= 0);
++      break;
++    }
++    case OP_L:
++    {
++      res = (arg2->cmp(arg1) < 0);
++      break;
++    }
++    case OP_LE:
++    {
++      res = (arg2->cmp(arg1) <= 0);
++      break;
++    }
++    case OP_EQ:
++    {
++      res = (arg2->cmp(arg1) == 0);
++      break;
++    }
++    case OP_NE:
++    {
++      res = (arg2->cmp(arg1) != 0);
++      break;
++    }
++    default:
++      sql_print_information("BUG: Incorrect call to "
++        "apply_expr_op2() for op->type = %d", op->type);
++      return 1;
++  }
++  
++  if (arg2->op_error)
++    return 1;
++  
++  arg2->v.int_val = res;
++  arg2->v.type = TYPE_INT;
++  arg2->type = TOK_NUM;
++  val_stack_p++; // now arg2 is at the top of the stack
++    // because it was the last one we "popped"
++  return 0;  
++}
++
++//#define AVRO_MATCH_DEBUG
++
++int Avro_match_expr::apply_expr_op(Avro_match_token* op)   
++{
++  if (STACK_IS_EMPTY(val_stack))
++    return 1;
++
++#ifdef AVRO_MATCH_DEBUG  
++  sql_print_information("applying %d", op->type);
++#endif
++  
++  switch (op->type)
++  {
++    case OP_AND:
++    case OP_OR:
++    case OP_G:
++    case OP_GE:
++    case OP_L:
++    case OP_LE:  
++    case OP_EQ:
++    case OP_NE:  
++      return apply_expr_op2(op);
++      break;
++    case OP_NOT:
++      return apply_expr_op1(op);
++    default:
++      return 1; /* should not happen */
++     
++  }
++}
++
++static int eval_avro_match(avro_value_t* rec, char* expr, 
++                           uint expr_len, Avro_val* expr_res)
++{
++  Avro_match_expr e(rec);
++  char *expr_p, *expr_end;  
++  int res = 1;
++    
++  expr_p = expr; expr_end = expr + expr_len;
++  
++  for (;expr_p < expr_end;)
++  {
++    if (isspace(*expr_p))
++    {  
++      expr_p++;
++      continue;
++    }
++    
++    uint tok_len = 0;
++    char* tok_next = 0;
++    char* tok;
++    
++    Avro_match_token_type tok_type = get_token(expr_p, expr_end,
++      &tok_next, &tok_len);
++
++#ifdef AVRO_MATCH_DEBUG    
++    sql_print_information("tok_type = %d, tok_jump=%ld", 
++                          tok_type, tok_next - expr_p);
++#endif
++    
++    if (tok_type == TOK_INVALID)
++      return 1;
++    
++    tok = expr_p;
++    expr_p = tok_next;
++    
++    switch (tok_type)
++    {
++      case TOK_IDENT:
++      case TOK_NUM:
++      case TOK_STR:  
++        STACK_PUSH(e.val_stack,tok_type, tok, tok_len);
++        break;
++      case OP_OPEN_PAREN:
++        STACK_PUSH(e.op_stack,tok_type,tok,1);
++        break;
++      case OP_CLOSE_PAREN:
++      {
++        Avro_match_token* op;
++        
++        for (;;)
++        {
++          if (!(op = STACK_POP(e.op_stack)))
++            return 1;
++            
++          if (op->type == OP_OPEN_PAREN)
++            break;
++          
++          if (e.apply_expr_op(op))
++            return 1;
++        }
++        
++        break;
++      }  
++      default: /* operator */
++      {
++        Avro_match_token* op = 0;
++        
++        for (;;)
++        {
++          if (!(op = STACK_PEEK(e.op_stack)) || 
++            avro_op_priority[tok_type] > op->priority())
++            break;
++          
++          op = STACK_POP(e.op_stack);
++          
++          if (e.apply_expr_op(op))
++            return 1;
++        }
++        
++        STACK_PUSH(e.op_stack,tok_type,tok,tok_len)
++        break;
++      }  
++    }
++  }
++  
++  for (;;)
++  {
++    Avro_match_token* op = STACK_POP(e.op_stack);
++    
++    if (!op)
++      break;
++    
++    if (e.apply_expr_op(op))
++      return 1;
++  }
++  // block to limit scope
++  {
++    Avro_match_token* op = STACK_POP(e.val_stack);
++    
++    if (!op || op->fetch_value(rec)) 
++      return 1;
++    
++    memcpy(expr_res,&op->v,sizeof(Avro_val));
++  }
++  
++  res = 0;
++err:
++  return res;
++}
++
++#undef CHECK_COND
++#define CHECK_COND(c) if (c) { null_value = 1; goto err; }
++
++
++longlong Item_func_avro_match::val_int()
++{
++  char *schema_name = 0, *match_expr = 0;
++  uint schema_name_len = 0, match_expr_len = 0;
++  String *tmp;
++  avro_value_t  f ;
++  f.self = 0;
++  ulonglong res = 0;
++  Avro_handle * h = 0;
++  bool should_free_avro_h = 0;
++#ifdef DEBUG_AVRO  
++  sql_print_information("avro_match");
++#endif
++  
++  COPY_ARG_STR(schema_name,0)
++  CHECK_COND(!(h = get_avro_handle(args[1],schema_name,
++     schema_name_len,&should_free_avro_h)))
++  
++  COPY_ARG_STR(match_expr,2)
++  
++  
++  // block to limit scope
++  { 
++    Avro_val v;
++    CHECK_COND(eval_avro_match(&h->rec,match_expr,match_expr_len,&v) 
++      || v.is_null
++    )
++    
++    if (v.type == TYPE_INT)
++      res = (v.int_val != 0);
++    else
++      res = (v.str_val_len != 0);
++      
++  }
++  
++  null_value = 0;
++  
++err:  
++  
++  if (h && should_free_avro_h)
++  {
++    delete h;
++    h = 0;
++  }
++
++  /* no need to decref f */
++  
++  if (match_expr)
++    my_free((void*)match_expr);
++  
++  if (schema_name)
++    my_free((void*)schema_name);
++  
++  return res;
++}
++
++
++#undef CHECK_COND
++#define CHECK_COND(c) if (c) { res = 0; null_value = 1; goto err; }
++
++
++longlong Item_func_avro_register_schema::val_int()
++{
++  uint res = 1;
++  char* schema_name = 0, *schema_def = 0;
++  uint schema_name_len = 0, schema_def_len = 0;
++  String* tmp;
++  
++  COPY_ARG_STR(schema_name,0)
++  COPY_ARG_STR(schema_def,1)
++  
++  CHECK_COND(avro_def_hash->register_schema(schema_name, schema_name_len,
++       schema_def, schema_def_len))
++  
++err:  
++  if (schema_name)
++    my_free((void*)schema_name);
++  
++  if (schema_def)
++    my_free((void*)schema_def);
++  
++  return res;
++}
++
++
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/item_func_avro.h sql/item_func_avro.h
+--- /home/sasha/mysql-5.5.8/sql/item_func_avro.h	1969-12-31 16:00:00.000000000 -0800
++++ sql/item_func_avro.h	2011-12-14 11:51:42.128276384 -0800
+@@ -0,0 +1,89 @@
++#ifndef ITEM_FUNC_AVRO_H
++#define ITEM_FUNC_AVRO_H
++
++#include "hash.h"
++#include "table.h"
++#include <avro.h>
++
++struct Avro_def_hash_entry
++{
++  char* name;
++  uint name_len;
++  avro_schema_t schema;
++};
++
++class Avro_def_hash
++{
++  protected:
++    HASH h;
++    TABLE_LIST tbl;
++    THD* thd;
++    THD* running_thd;
++    
++    int open_schema_table(thr_lock_type lock_mode);
++    
++  public:
++    Avro_def_hash();
++    ~Avro_def_hash();
++    int init_hash_from_table();
++    int cleanup_thd();
++    avro_schema_t get_schema(const char* schema_name, uint schema_name_len);
++    
++    int register_schema(const char* schema_name, uint schema_name_len,
++                        const char* json_def, uint json_def_len);
++    
++    int put_schema_in_hash(const char* schema_name, uint schema_name_len,
++                        const char* json_def, uint json_def_len);
++    
++    int put_schema_in_table(const char* schema_name, uint schema_name_len,
++                        const char* json_def, uint json_def_len);
++    
++    
++};
++
++class Avro_handle
++{
++  public:
++   bool rec_inited; 
++   avro_reader_t reader;
++   avro_value_t rec;
++   avro_value_iface* iface;
++   char* last_val;
++   uint last_val_len;
++   
++   Avro_handle():rec_inited(0),reader(0),iface(0),
++      last_val(0),last_val_len(0) 
++   {
++     bzero(&rec,sizeof(rec));     
++   }
++   ~Avro_handle()
++   {
++     if (rec.self)
++     {  
++       avro_value_decref(&rec);
++       bzero(&rec,sizeof(rec));
++     }  
++     
++     if (iface)
++     {
++       avro_value_iface_decref(iface);
++       iface = 0;
++     }
++     
++     if (reader)
++     {
++       avro_reader_free(reader);
++       reader = 0;
++     }
++     
++     if (last_val)
++     {  
++       my_free(last_val);
++       last_val = 0;
++     }  
++   }
++};
++
++extern Avro_def_hash* avro_def_hash;
++
++#endif
+\ No newline at end of file
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/item_func.h sql/item_func.h
+--- /home/sasha/mysql-5.5.8/sql/item_func.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/item_func.h	2011-12-07 15:54:20.039959931 -0800
+@@ -1809,4 +1809,101 @@
+ 
+ extern bool volatile  mqh_used;
+ 
++class Item_func_avro_match: public Item_int_func
++{
++protected:
++  String tmp_value;
++
++public:
++  Item_func_avro_match(Item* schema, 
++    Item* avro_rec, Item* new_val) :
++    Item_int_func(schema,avro_rec,new_val) {} 
++  void fix_length_and_dec() { decimals= 0; max_length= 21; maybe_null= 1; unsigned_flag= 0;}
++
++  const char *func_name() const { return "avro_match"; }
++  longlong val_int();
++};
++
++
++class Item_func_binlog_undo_batch: public Item_int_func
++{
++public:
++  Item_func_binlog_undo_batch(List<Item> &list) :Item_int_func(list) {}
++  void fix_length_and_dec() { decimals= 0; max_length= 21; maybe_null= 1; unsigned_flag= 0;}
++  const char *func_name() const { return "binlog_undo_batch"; }
++  longlong val_int();
++};
++
++
++class Item_func_binlog_undo_event: public Item_int_func
++{
++public:
++  Item_func_binlog_undo_event(Item *a,Item* b) :Item_int_func(a,b) {}
++  Item_func_binlog_undo_event(Item *a) :Item_int_func(a) {}
++  void fix_length_and_dec() { decimals= 0; max_length= 21; maybe_null= 1; unsigned_flag= 0;}
++  const char *func_name() const { return "binlog_undo_event"; }
++  longlong val_int();
++};
++
++
++class Item_func_binlog_op: public Item_int_func
++{
++public:
++  Item_func_binlog_op(Item *a,Item* b) :Item_int_func(a,b) {}
++  Item_func_binlog_op(Item *a) :Item_int_func(a) {}
++  Item_func_binlog_op(List<Item> &it_l) :Item_int_func(it_l) {}
++  virtual int do_op(const char* db, ulonglong arg, ulonglong* res) = 0;
++  void fix_length_and_dec() { decimals= 0; max_length= 21; maybe_null= 1; unsigned_flag= 1;}
++  longlong val_int();
++};
++
++class Item_func_set_binlog_gen_id: public Item_func_binlog_op
++{
++public:
++  Item_func_set_binlog_gen_id(Item *a,Item* b) :Item_func_binlog_op(a,b) {}
++  const char *func_name() const { return "set_binlog_gen_id"; }
++  int do_op(const char* db, ulonglong arg, ulonglong* res); 
++};
++
++class Item_func_get_binlog_gen_id: public Item_func_binlog_op
++{
++public:
++  Item_func_get_binlog_gen_id(List<Item> &l_it) :
++    Item_func_binlog_op(l_it) {}
++  const char *func_name() const { return "get_binlog_gen_id"; }
++  int do_op(const char* db, ulonglong arg __attribute__((unused)), ulonglong* res) ;
++};
++
++class Item_func_set_binlog_seq_id: public Item_func_binlog_op
++{
++public:
++  Item_func_set_binlog_seq_id(Item *a,Item* b) :Item_func_binlog_op(a,b) {}
++  const char *func_name() const { return "set_binlog_seq_id"; }
++  int do_op(const char* db, ulonglong arg, ulonglong* res); 
++};
++
++class Item_func_get_binlog_seq_id: public Item_func_binlog_op
++{
++public:
++  Item_func_get_binlog_seq_id(List<Item> &l_it):
++    Item_func_binlog_op(l_it) {}
++  const char *func_name() const { return "get_binlog_seq_id"; }
++  int do_op(const char* db, ulonglong arg __attribute__((unused)), ulonglong* res); 
++};
++
++class Item_func_avro_register_schema: public Item_int_func
++{
++protected:
++  String tmp_value;
++
++public:
++  Item_func_avro_register_schema(Item* schema_name, Item* schema_def
++    ) :Item_int_func(schema_name,schema_def) {}
++  const char *func_name() const { return "avro_register_schema"; }
++  void fix_length_and_dec() { decimals= 0; max_length= 21; 
++     maybe_null= 1; unsigned_flag= 1;}
++  longlong val_int();
++};
++
++
+ #endif /* ITEM_FUNC_INCLUDED */
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/item_strfunc.h sql/item_strfunc.h
+--- /home/sasha/mysql-5.5.8/sql/item_strfunc.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/item_strfunc.h	2011-12-07 15:40:50.377959754 -0800
+@@ -889,6 +889,36 @@
+   String *val_str(String *);
+ };
+ 
++
++class Item_func_avro_fetch: public Item_str_func
++{
++protected:
++  String tmp_value;
++
++public:
++  Item_func_avro_fetch(Item* schema, Item* field_name, 
++    Item* avro_rec) :Item_str_func(schema,field_name,avro_rec) {} 
++  void fix_length_and_dec(){ maybe_null= 1; max_length= MAX_BLOB_WIDTH; }
++  const char *func_name() const { return "avro_fetch"; }
++  String* val_str(String* str);
++};
++
++class Item_func_avro_update: public Item_str_func
++{
++protected:
++  String tmp_value;
++
++public:
++  Item_func_avro_update(Item* schema, 
++    Item* avro_rec, Item* new_val) :
++    Item_str_func(schema,avro_rec,new_val) {} 
++  void fix_length_and_dec(){ maybe_null= 1; max_length= MAX_BLOB_WIDTH; }
++  const char *func_name() const { return "avro_update"; }
++  String* val_str(String* str);
++};
++
++
++
+ extern String my_empty_string;
+ 
+ #endif /* ITEM_STRFUNC_INCLUDED */
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/log.cc sql/log.cc
+--- /home/sasha/mysql-5.5.8/sql/log.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/log.cc	2011-11-04 19:34:11.843733884 -0700
+@@ -50,6 +50,8 @@
+ #include "sql_plugin.h"
+ #include "rpl_handler.h"
+ 
++#include "binlog_group_id.h"
++
+ /* max size of the log message */
+ #define MAX_LOG_BUFFER_SIZE 1024
+ #define MAX_TIME_SIZE 32
+@@ -4425,6 +4427,7 @@
+       cache_mngr->trx_cache.get_prev_position() == MY_OFF_T_UNDEF)
+   {
+     this->binlog_set_stmt_begin();
++   
+     if (in_multi_stmt_transaction_mode())
+       trans_register_ha(this, TRUE, binlog_hton);
+     trans_register_ha(this, FALSE, binlog_hton);
+@@ -6329,8 +6332,16 @@
+     We always commit the entire transaction when writing an XID. Also
+     note that the return value is inverted.
+    */
+-  DBUG_RETURN(!binlog_flush_stmt_cache(thd, cache_mngr) &&
+-              !binlog_flush_trx_cache(thd, cache_mngr, &xle));
++   
++  int res = !binlog_flush_stmt_cache(thd, cache_mngr) &&
++              !binlog_flush_trx_cache(thd, cache_mngr, &xle);
++              
++  if (binlog_mark_events && thd->db)
++  {
++     thd->master_group_id = inc_binlog_group_id(thd->db,binlog_id_auto_activate);
++  }
++  
++  DBUG_RETURN(res);
+ }
+ 
+ void TC_LOG_BINLOG::unlog(ulong cookie, my_xid xid)
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/log_event.cc sql/log_event.cc
+--- /home/sasha/mysql-5.5.8/sql/log_event.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/log_event.cc	2011-11-08 16:22:07.025670156 -0800
+@@ -51,10 +51,16 @@
+ #include <my_bitmap.h>
+ #include "rpl_utility.h"
+ 
++#ifdef MYSQL_SERVER
++#include "../storage/rpl_dbus/tcp_socket.h"
++#include "../plugin/li_socket/li_socket.h"
++#endif
++
+ #define log_cs	&my_charset_latin1
+ 
+ #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
+ 
++my_bool binlog_mark_events = 0;
+ 
+ /*
+   Size of buffer for printing a double in format %.<PREC>g
+@@ -64,7 +70,6 @@
+ */
+ #define FMT_G_BUFSIZE(PREC) (3 + (PREC) + 5 + 1)
+ 
+-
+ #if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
+ static int rows_event_stmt_cleanup(Relay_log_info const *rli, THD* thd);
+ 
+@@ -663,6 +668,7 @@
+   case BEGIN_LOAD_QUERY_EVENT: return "Begin_load_query";
+   case EXECUTE_LOAD_QUERY_EVENT: return "Execute_load_query";
+   case INCIDENT_EVENT: return "Incident";
++  case LI_SOCKET_LOAD_EVENT: return "Li_socket_load_event";
+   default: return "Unknown";				/* impossible */
+   }
+ }
+@@ -683,6 +689,7 @@
+   cache_type(Log_event::EVENT_INVALID_CACHE), thd(thd_arg)
+ {
+   server_id=	thd->server_id;
++  group_id = 0;
+   when=		thd->start_time;
+ 
+   if (using_trans)
+@@ -703,6 +710,7 @@
+   cache_type(Log_event::EVENT_INVALID_CACHE), thd(0)
+ {
+   server_id=	::server_id;
++  group_id = 0;
+   /*
+     We can't call my_time() here as this would cause a call before
+     my_init() is called
+@@ -717,6 +725,10 @@
+   Log_event::Log_event()
+ */
+ 
++#ifndef MYSQL_CLIENT
++extern uint  rpl_dbus_when;
++#endif
++
+ Log_event::Log_event(const char* buf,
+                      const Format_description_log_event* description_event)
+   :temp_buf(0), cache_type(Log_event::EVENT_INVALID_CACHE)
+@@ -725,8 +737,14 @@
+   thd = 0;
+ #endif
+   when = uint4korr(buf);
++#ifndef MYSQL_CLIENT
++  rpl_dbus_when = when;
++#endif
++
+   server_id = uint4korr(buf + SERVER_ID_OFFSET);
+   data_written= uint4korr(buf + EVENT_LEN_OFFSET);
++  group_id = 0;
++
+   if (description_event->binlog_version==1)
+   {
+     log_pos= 0;
+@@ -782,7 +800,10 @@
+     */
+     return;
+   }
+-  /* otherwise, go on with reading the header from buf (nothing now) */
++  
++  if (description_event->common_header_len >=
++        LOG_EVENT_HEADER_WITH_ID_LEN)
++       group_id= uint8korr(buf + GROUP_ID_OFFSET);
+ }
+ 
+ #ifndef MYSQL_CLIENT
+@@ -880,6 +901,12 @@
+   protocol->store((uint32) server_id);
+   protocol->store((ulonglong) log_pos);
+   pack_info(protocol);
++  
++  if (binlog_mark_events)
++  {
++     protocol->store(get_db(),get_db_len(), &my_charset_bin);
++     protocol->store(group_id);
++  }
+   return protocol->write();
+ }
+ #endif /* HAVE_REPLICATION */
+@@ -903,6 +930,14 @@
+                                             MY_INT32_NUM_DECIMAL_DIGITS,
+ 					    MYSQL_TYPE_LONGLONG));
+   field_list->push_back(new Item_empty_string("Info", 20));
++  
++  if (binlog_mark_events)
++  {
++    field_list->push_back(new Item_empty_string("Database", 20));
++    field_list->push_back(new Item_return_int("Group_id",
++                                       MY_INT64_NUM_DECIMAL_DIGITS,
++              MYSQL_TYPE_LONGLONG));
++  }
+ }
+ 
+ 
+@@ -917,7 +952,7 @@
+   DBUG_ENTER("Log_event::write_header");
+ 
+   /* Store number of bytes that will be written by this event */
+-  data_written= event_data_length + sizeof(header);
++  data_written= event_data_length + get_header_size();
+ 
+   /*
+     log_pos != 0 if this is relay-log event. In this case we should not
+@@ -978,8 +1013,16 @@
+   int4store(header+ EVENT_LEN_OFFSET, data_written);
+   int4store(header+ LOG_POS_OFFSET, log_pos);
+   int2store(header+ FLAGS_OFFSET, flags);
+-
+-  DBUG_RETURN(my_b_safe_write(file, header, sizeof(header)) != 0);
++  
++  if (binlog_mark_events && 
++   get_header_size() > LOG_EVENT_MINIMAL_HEADER_LEN)
++  { 
++    group_id = thd ? thd->get_group_id() : 0;
++    int8store(header+ GROUP_ID_OFFSET, group_id);
++  }
++    
++  DBUG_RETURN(my_b_safe_write(file, header, get_header_size()) 
++    != 0);
+ }
+ 
+ 
+@@ -1312,6 +1355,9 @@
+     case INCIDENT_EVENT:
+       ev = new Incident_log_event(buf, event_len, description_event);
+       break;
++    case LI_SOCKET_LOAD_EVENT:
++      ev = new Li_socket_load_log_event(buf, event_len, description_event);
++      break;
+     default:
+       DBUG_PRINT("error",("Unknown event code: %d",
+                           (int) buf[EVENT_TYPE_OFFSET]));
+@@ -1374,6 +1420,12 @@
+   my_b_printf(file, " server id %lu  end_log_pos %s ", (ulong) server_id,
+               llstr(log_pos,llbuff));
+ 
++  if ((print_event_info->common_header_len >= LOG_EVENT_HEADER_WITH_ID_LEN) &&
++      (get_type_code() != FORMAT_DESCRIPTION_EVENT) &&
++      (get_type_code() != ROTATE_EVENT))
++     my_b_printf(file, " group_id %s ", llstr(group_id,llbuff));
++
++
+   /* mysqlbinlog --hexdump */
+   if (print_event_info->hexdump_from)
+   {
+@@ -3679,7 +3731,7 @@
+                                        *description_event)
+   :Log_event(buf, description_event)
+ {
+-  buf+= description_event->common_header_len;
++  buf+= LOG_EVENT_MINIMAL_HEADER_LEN;
+   binlog_version= uint2korr(buf+ST_BINLOG_VER_OFFSET);
+   memcpy(server_version, buf+ST_SERVER_VER_OFFSET,
+ 	 ST_SERVER_VER_LEN);
+@@ -3783,6 +3835,8 @@
+     break;
+   default:
+     /* this case is impossible */
++    sql_print_error("Corrupted relay log, impossible binlog"
++    " version %d", binlog_version);
+     DBUG_RETURN(1);
+   }
+   DBUG_RETURN(error);
+@@ -3888,6 +3942,7 @@
+                       post_header_len[DELETE_ROWS_EVENT-1]= 6;);
+       post_header_len[INCIDENT_EVENT-1]= INCIDENT_HEADER_LEN;
+       post_header_len[HEARTBEAT_LOG_EVENT-1]= 0;
++      post_header_len[LI_SOCKET_LOAD_EVENT-1]= 0;
+ 
+       // Sanity-check that all post header lengths are initialized.
+       int i;
+@@ -4103,7 +4158,7 @@
+   if (!dont_set_created)
+     created= when= get_time();
+   int4store(buff + ST_CREATED_OFFSET,created);
+-  buff[ST_COMMON_HEADER_LEN_OFFSET]= LOG_EVENT_HEADER_LEN;
++  buff[ST_COMMON_HEADER_LEN_OFFSET]= common_header_len;
+   memcpy((char*) buff+ST_COMMON_HEADER_LEN_OFFSET+1, (uchar*) post_header_len,
+          LOG_EVENT_TYPES);
+   return (write_header(file, sizeof(buff)) ||
+@@ -5103,7 +5158,7 @@
+ {
+   DBUG_ENTER("Rotate_log_event::Rotate_log_event(char*,...)");
+   // The caller will ensure that event_len is what we have at EVENT_LEN_OFFSET
+-  uint8 header_size= description_event->common_header_len;
++  uint8 header_size= LOG_EVENT_MINIMAL_HEADER_LEN;
+   uint8 post_header_len= description_event->post_header_len[ROTATE_EVENT-1];
+   uint ident_offset;
+   if (event_len < header_size)
+@@ -7614,7 +7669,9 @@
+                      "unexpected success or fatal error"));
+         thd->is_slave_error= 1;
+       }
+-      const_cast<Relay_log_info*>(rli)->slave_close_thread_tables(thd);
++      
++      if (!thd->fetch_nx_tables.elements)
++        const_cast<Relay_log_info*>(rli)->slave_close_thread_tables(thd);
+       DBUG_RETURN(actual_error);
+     }
+ 
+@@ -9814,3 +9871,78 @@
+   log_ident= buf + header_size;
+ }
+ #endif
++
++#ifdef MYSQL_SERVER
++Li_socket_load_log_event::Li_socket_load_log_event(THD* thd,  
++   uchar* packet_arg, uint packet_len_arg):Log_event(thd,0,0),
++   packet(packet_arg),
++   packet_len(packet_len_arg)
++{
++}
++#ifdef HAVE_REPLICATION
++void Li_socket_load_log_event::pack_info(Protocol* protocol)
++{
++  char buf[256];
++  size_t length;
++  length= my_snprintf(buf, sizeof(buf), ";packet_len=%u",
++                      packet_len);
++  protocol->store(buf, length, &my_charset_bin);
++}
++
++#endif /* HAVE_REPLICATION */
++#else
++void Li_socket_load_log_event::print(FILE* file, 
++   PRINT_EVENT_INFO* print_event_info)
++{
++  Write_on_release_cache cache(&print_event_info->head_cache, file);
++
++  if (print_event_info->short_form)
++    return;
++  
++  print_header(&cache, print_event_info, FALSE);
++  my_b_printf(&cache, "\n#%s: packet_len: %d\n",
++              get_type_str(), packet_len);
++
++}
++#endif
++
++Li_socket_load_log_event::Li_socket_load_log_event(const char* buf, 
++                        uint event_len,
++                         const Format_description_log_event
++                         *description_event):Log_event(buf, description_event)
++{
++  uint8 common_header_len= description_event->common_header_len; 
++  uint8 my_header_len=
++    description_event->post_header_len[LI_SOCKET_LOAD_EVENT-1];
++
++  uint total_header_len= common_header_len+my_header_len;
++  
++  if (event_len < total_header_len)
++     return;
++  
++  packet= (uchar*)buf + total_header_len;
++  packet_len= event_len - total_header_len;
++}
++
++#ifdef MYSQL_SERVER
++bool Li_socket_load_log_event::write(IO_CACHE* file)
++{
++  return (write_header(file, packet_len) ||
++    my_b_safe_write(file, (uchar*) packet, packet_len));
++}
++#endif
++
++#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
++int Li_socket_load_log_event::do_apply_event(Relay_log_info const *rli)
++{
++  Li_socket_conn li_conn(thd);
++  int res = li_conn.handle_load(packet, packet_len);
++  
++  if (res)
++    rli->report(ERROR_LEVEL, my_errno, "Error in LI_SOCKET_LOAD_EVENT: %s",
++      li_conn.err_msg);
++  
++  return res;
++}
++#endif
++
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/log_event.h sql/log_event.h
+--- /home/sasha/mysql-5.5.8/sql/log_event.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/log_event.h	2011-11-08 11:06:22.965680579 -0800
+@@ -35,6 +35,8 @@
+ #include <my_bitmap.h>
+ #include "rpl_constants.h"
+ 
++extern my_bool binlog_mark_events;
++
+ #ifdef MYSQL_CLIENT
+ #include "sql_const.h"
+ #include "rpl_utility.h"
+@@ -52,6 +54,7 @@
+ /* Forward declarations */
+ class String;
+ 
++
+ #define PREFIX_SQL_LOAD "SQL_LOAD-"
+ 
+ /**
+@@ -218,7 +221,10 @@
+ 
+  ****************************************************************************/
+ 
+-#define LOG_EVENT_HEADER_LEN 19     /* the fixed header length */
++/* the fixed header length */
++#define LOG_EVENT_GROUP_ID_LEN  8
++
++
+ #define OLD_HEADER_LEN       13     /* the fixed header length in 3.23 */
+ /*
+    Fixed header length, where 4.x and 5.0 agree. That is, 5.0 may have a longer
+@@ -228,6 +234,11 @@
+    LOG_EVENT_MINIMAL_HEADER_LEN will remain 19.
+ */
+ #define LOG_EVENT_MINIMAL_HEADER_LEN 19
++#define LOG_EVENT_HEADER_WITH_ID_LEN (LOG_EVENT_MINIMAL_HEADER_LEN \
++                  + LOG_EVENT_GROUP_ID_LEN)
++
++#define LOG_EVENT_HEADER_LEN  (LOG_EVENT_MINIMAL_HEADER_LEN + \
++  (binlog_mark_events ? LOG_EVENT_GROUP_ID_LEN : 0))
+ 
+ /* event-specific post-header sizes */
+ // where 3.23, 4.x and 5.0 agree
+@@ -289,6 +300,7 @@
+ #define EVENT_LEN_OFFSET     9
+ #define LOG_POS_OFFSET       13
+ #define FLAGS_OFFSET         17
++#define GROUP_ID_OFFSET         19
+ 
+ /* start event post-header (for v3 and v4) */
+ 
+@@ -598,7 +610,7 @@
+     Add new events here - right above this comment!
+     Existing events (except ENUM_END_EVENT) should never change their numbers
+   */
+-
++  LI_SOCKET_LOAD_EVENT=126,
+   ENUM_END_EVENT /* end marker */
+ };
+ 
+@@ -968,6 +980,7 @@
+     Handling of a separate event will be governed its member.
+   */
+   ulong slave_exec_mode;
++  ulonglong group_id;
+ 
+ #ifdef MYSQL_SERVER
+   THD* thd;
+@@ -1066,6 +1079,8 @@
+   }
+ #endif
+   virtual Log_event_type get_type_code() = 0;
++  virtual uint get_header_size() { return LOG_EVENT_HEADER_LEN; }
++  virtual uint get_db_len() { return 0; }
+   virtual bool is_valid() const = 0;
+   void set_artificial_event() { flags |= LOG_EVENT_ARTIFICIAL_F; }
+   void set_relay_log_event() { flags |= LOG_EVENT_RELAY_LOG_F; }
+@@ -1718,6 +1733,8 @@
+   void print(FILE* file, PRINT_EVENT_INFO* print_event_info);
+ #endif
+ 
++  uint get_db_len() { return db_len; }
++  
+   Query_log_event();
+   Query_log_event(const char* buf, uint event_len,
+                   const Format_description_log_event *description_event,
+@@ -2144,6 +2161,7 @@
+   void print(FILE* file, PRINT_EVENT_INFO* print_event_info, bool commented);
+ #endif
+ 
++  
+   /*
+     Note that for all the events related to LOAD DATA (Load_log_event,
+     Create_file/Append/Exec/Delete, we pass description_event; however as
+@@ -2318,6 +2336,9 @@
+                                    LOG_EVENT_MINIMAL_HEADER_LEN)) &&
+             (post_header_len != NULL));
+   }
++  
++  uint get_header_size() { return LOG_EVENT_MINIMAL_HEADER_LEN; }
++  
+   int get_data_size()
+   {
+     /*
+@@ -2709,6 +2730,7 @@
+   }
+   Log_event_type get_type_code() { return ROTATE_EVENT;}
+   int get_data_size() { return  ident_len + ROTATE_HEADER_LEN;}
++  uint get_header_size() { return LOG_EVENT_MINIMAL_HEADER_LEN; }
+   bool is_valid() const { return new_log_ident != 0; }
+ #ifdef MYSQL_SERVER
+   bool write(IO_CACHE* file);
+@@ -2797,6 +2819,41 @@
+ #endif
+ };
+ 
++class Li_socket_load_log_event: public Log_event
++{
++public:
++  uchar* packet;
++  uint packet_len;
++
++#ifdef MYSQL_SERVER
++  Li_socket_load_log_event(THD* thd,  uchar* packet_arg,
++       uint packet_len_arg);
++#ifdef HAVE_REPLICATION
++  void pack_info(Protocol* protocol);
++#endif /* HAVE_REPLICATION */
++#else
++  void print(FILE* file, PRINT_EVENT_INFO* print_event_info);
++#endif
++
++  Li_socket_load_log_event(const char* buf, uint event_len,
++                         const Format_description_log_event
++                         *description_event);
++  ~Li_socket_load_log_event() {}
++  Log_event_type get_type_code() { return LI_SOCKET_LOAD_EVENT;}
++  int get_data_size() { return  packet_len + sizeof(uint32) ;}
++  bool is_valid() const { return packet != 0; }
++#ifdef MYSQL_SERVER
++  bool write(IO_CACHE* file);
++  const char* get_db() { return ""; }
++#endif
++
++private:
++#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
++  virtual int do_apply_event(Relay_log_info const *rli);
++#endif
++};
++
++
+ 
+ /**
+   @class Append_block_log_event
+@@ -3376,6 +3433,7 @@
+ class Table_map_log_event : public Log_event
+ {
+ public:
++  friend class Binlog_table_worker;
+   /* Constants */
+   enum
+   {
+@@ -3509,6 +3567,7 @@
+ class Rows_log_event : public Log_event
+ {
+ public:
++  friend class Binlog_table_worker;
+   /**
+      Enumeration of the errors that can be returned.
+    */
+@@ -3593,7 +3652,9 @@
+ #ifdef MYSQL_SERVER
+   virtual bool write_data_header(IO_CACHE *file);
+   virtual bool write_data_body(IO_CACHE *file);
+-  virtual const char *get_db() { return m_table->s->db.str; }
++  virtual const char *get_db() { return  (m_table && m_table->s) ? 
++    m_table->s->db.str : ""; }
++  uint get_db_len() { return  (m_table && m_table->s) ? m_table->s->db.length : 0; }
+ #endif
+   /*
+     Check that malloc() succeeded in allocating memory for the rows
+@@ -4070,6 +4131,7 @@
+   Heartbeat_log_event(const char* buf, uint event_len,
+                       const Format_description_log_event* description_event);
+   Log_event_type get_type_code() { return HEARTBEAT_LOG_EVENT; }
++
+   bool is_valid() const
+     {
+       return (log_ident != NULL &&
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/mysqld.cc sql/mysqld.cc
+--- /home/sasha/mysql-5.5.8/sql/mysqld.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/mysqld.cc	2011-11-10 13:12:07.517712109 -0800
+@@ -92,6 +92,8 @@
+ #include "sp_cache.h"
+ #include "sql_reload.h"  // reload_acl_and_cache
+ 
++#include "binlog_group_id.h"
++
+ #ifdef HAVE_POLL_H
+ #include <poll.h>
+ #endif
+@@ -364,6 +366,10 @@
+ bool opt_using_transactions;
+ bool volatile abort_loop;
+ bool volatile shutdown_in_progress;
++extern my_bool binlog_mark_events;
++extern char* binlog_gen_id_req_prefix;
++extern char* force_rpl_dbus_prefix;
++
+ /*
+   True if the bootstrap thread is running. Protected by LOCK_thread_count,
+   just like thread_count.
+@@ -646,7 +652,8 @@
+ /* Static variables */
+ 
+ static bool kill_in_progress, segfaulted;
+-static my_bool opt_bootstrap, opt_myisam_log;
++my_bool opt_bootstrap;
++static my_bool opt_myisam_log;
+ static int cleanup_done;
+ static ulong opt_specialflag;
+ static char *opt_update_logname, *opt_binlog_index_name;
+@@ -1278,6 +1285,7 @@
+ #endif  
+   
+   close_connections();
++  end_binlog_group_id();
+   if (sig != MYSQL_KILL_SIGNAL &&
+       sig != 0)
+     unireg_abort(1);				/* purecov: inspected */
+@@ -4060,6 +4068,12 @@
+ 
+   init_max_user_conn();
+   init_update_queries();
++  
++  if (binlog_mark_events)
++  {
++    if (init_binlog_group_id())
++      sql_print_error("Error initializing binlog group id system");
++  }  
+   DBUG_RETURN(0);
+ }
+ 
+@@ -5669,9 +5683,25 @@
+    "Tells the master it should log updates for the specified database, "
+    "and exclude all others not explicitly mentioned.",
+    0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
++  {"binlog-id-auto-activate", OPT_BINLOG_MARK_EVENTS, 
++    "Automaticatlly activate binlog event ID generation on server startup",
++    &binlog_id_auto_activate,
++    &binlog_id_auto_activate,
++    0, GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, NULL},
+   {"binlog-ignore-db", OPT_BINLOG_IGNORE_DB,
+    "Tells the master that updates to the given database should not be logged to the binary log.",
+    0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
++  {"binlog-mark-events", OPT_BINLOG_MARK_EVENTS, 
++    "Mark binlog events with a generated transaction ID",
++    &binlog_mark_events,
++    &binlog_mark_events,
++    0, GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, NULL},
++  {"binlog-gen-id-required-prefix", OPT_BINLOG_GEN_ID_REQ_PREFIX, 
++    "If the database name starts with that prefix, SET_BINLOG_GEN_ID() must be used "
++    " first to globally set binlog generation ID for that database before it can used",
++    &binlog_gen_id_req_prefix,
++    &binlog_gen_id_req_prefix,
++    0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, NULL},
+   {"binlog-row-event-max-size", 0,
+    "The maximum size of a row-based binary log event in bytes. Rows will be "
+    "grouped into events smaller than this size if possible. "
+@@ -5739,6 +5769,12 @@
+    "(not repair) tables while the MySQL server is running. Disable with "
+    "--skip-external-locking.", &opt_external_locking, &opt_external_locking,
+    0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
++  {"force-rpl-dbus-prefix", OPT_FORCE_RPL_DBUS_PREFIX, 
++    "If the database name starts with that prefix, all tables in that"
++    " database are created with RPL_DBUS engine regardless of ENGINE=",
++    &force_rpl_dbus_prefix,
++    &force_rpl_dbus_prefix,
++    0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, NULL},
+   /* We must always support the next option to make scripts like mysqltest
+      easier to do */
+   {"gdb", 0,
+@@ -5896,6 +5932,11 @@
+    "will not do updates to tables in databases that start with foo and whose "
+    "table names start with bar.",
+    0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
++  {"replicate-wild-fetch-nx-table", OPT_REPLICATE_WILD_FETCH_NX_TABLE,
++   "If a table matching the wildcard pattern does not exist, fetch its "
++   " current definition from the master and continue replication "
++   ,
++   0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+   {"safe-mode", OPT_SAFE, "Skip some optimize stages (for testing).",
+    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+   {"safe-user-create", 0,
+@@ -6980,6 +7021,15 @@
+     }
+     break;
+   }
++  case (int)OPT_REPLICATE_WILD_FETCH_NX_TABLE:
++  {
++    if (rpl_filter->add_wild_fetch_nx_table(argument))
++    {
++      sql_print_error("Could not add do table rule '%s'!\n", argument);
++      return 1;
++    }
++    break;
++  }
+   case (int)OPT_REPLICATE_WILD_IGNORE_TABLE:
+   {
+     if (rpl_filter->add_wild_ignore_table(argument))
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/mysqld.h sql/mysqld.h
+--- /home/sasha/mysql-5.5.8/sql/mysqld.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/mysqld.h	2011-11-04 19:34:11.848664767 -0700
+@@ -354,11 +354,14 @@
+   OPT_BINLOG_DO_DB,
+   OPT_BINLOG_FORMAT,
+   OPT_BINLOG_IGNORE_DB,
++  OPT_BINLOG_MARK_EVENTS,
++  OPT_BINLOG_GEN_ID_REQ_PREFIX,
+   OPT_BIN_LOG,
+   OPT_BOOTSTRAP,
+   OPT_CONSOLE,
+   OPT_DEBUG_SYNC_TIMEOUT,
+   OPT_DELAY_KEY_WRITE_ALL,
++  OPT_FORCE_RPL_DBUS_PREFIX,
+   OPT_ISAM_LOG,
+   OPT_KEY_BUFFER_SIZE,
+   OPT_KEY_CACHE_AGE_THRESHOLD,
+@@ -374,6 +377,8 @@
+   OPT_REPLICATE_REWRITE_DB,
+   OPT_REPLICATE_WILD_DO_TABLE,
+   OPT_REPLICATE_WILD_IGNORE_TABLE,
++  OPT_REPLICATE_WILD_FETCH_NX_TABLE,
++  OPT_BINLOG_ID_AUTO_ACTIVATE,
+   OPT_SAFE,
+   OPT_SERVER_ID,
+   OPT_SKIP_HOST_CACHE,
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/rpl_fetch_nx_table.cc sql/rpl_fetch_nx_table.cc
+--- /home/sasha/mysql-5.5.8/sql/rpl_fetch_nx_table.cc	1969-12-31 16:00:00.000000000 -0800
++++ sql/rpl_fetch_nx_table.cc	2011-11-04 19:34:11.848664767 -0700
+@@ -0,0 +1,223 @@
++#ifndef MYSQL_SERVER
++#define MYSQL_SERVER 1
++#endif
++
++#include "sql_priv.h"
++#include "sql_class.h"
++#include "sql_db.h"
++#include "slave.h"
++#include "rpl_mi.h"
++#include "sql_parse.h"
++#include <mysql.h>
++#include "rpl_fetch_nx_table.h"
++
++static int ensure_db_exists(THD* thd, char* db);
++static MYSQL* fetch_connect_to_master();
++static int exec_query(THD* thd, char* query);
++
++static int ensure_db_exists(THD* thd, char* db)
++{
++  HA_CREATE_INFO create_info;
++  create_info.options = HA_LEX_CREATE_IF_NOT_EXISTS;
++  create_info.default_table_charset = 0;
++  create_info.used_fields = 0;
++  return mysql_create_db(thd,db,&create_info,1);
++}
++
++static int exec_query(THD* thd, char* query)
++{
++  uint query_len = strlen(query);
++  int ret = 1;
++  thd->set_query(query, query_len);
++  
++  Parser_state parser_state;
++  if (!parser_state.init(thd, query, query_len))
++  {
++     mysql_parse(thd, query, query_len, &parser_state);
++     ret = thd->is_error();
++     thd->update_server_status();
++     log_slow_statement(thd);
++  }
++ 
++  return ret;
++}
++
++
++static MYSQL* fetch_connect_to_master()
++{
++#ifdef HAVE_REPLICATION
++  if (!active_mi || !active_mi->inited)
++    return 0;
++    
++  MYSQL* mysql = mysql_init(0);
++  int error = 0;
++  
++  ulong client_flag= CLIENT_REMEMBER_OPTIONS;
++  if (opt_slave_compressed_protocol)
++    client_flag=CLIENT_COMPRESS; 
++    
++  if (!mysql)
++    return 0;
++  
++  // for now we will hold the lock through the connect
++  // if this causes problems, we will fix this later to copy the data out
++  // so we can connect without holding the lock
++  mysql_mutex_lock(&active_mi->data_lock); 
++  mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char *) &slave_net_timeout);
++  mysql_options(mysql, MYSQL_OPT_READ_TIMEOUT, (char *) &slave_net_timeout);
++
++#ifdef HAVE_OPENSSL
++  if (active_mi->ssl)
++  {
++    mysql_ssl_set(mysql,
++                  active_mi->ssl_key[0]?active_mi->ssl_key:0,
++                  active_mi->ssl_cert[0]?active_mi->ssl_cert:0,
++                  active_mi->ssl_ca[0]?active_mi->ssl_ca:0,
++                  active_mi->ssl_capath[0]?active_mi->ssl_capath:0,
++                  active_mi->ssl_cipher[0]?active_mi->ssl_cipher:0);
++    mysql_options(mysql, MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
++                  &active_mi->ssl_verify_server_cert);
++  }
++#endif
++
++   mysql_options(mysql, MYSQL_SET_CHARSET_NAME, 
++      default_charset_info->csname);
++   mysql_options(mysql, MYSQL_SET_CHARSET_DIR, (char *) charsets_dir);
++   if (!mysql_real_connect(mysql, active_mi->host, active_mi->user, 
++     active_mi->password, 0,
++     active_mi->port, 0, client_flag)
++   )
++   {
++     error = 1;
++     sql_print_error("Error connecting to master '%s@%s:%d': %s",
++       active_mi->user,active_mi->host, active_mi->port, mysql_error(mysql));
++     goto err;   
++   }
++err:
++  mysql_mutex_unlock(&active_mi->data_lock);
++  if (error)
++  {
++    mysql_close(mysql);
++    mysql = 0;
++  }      
++  
++  return mysql;
++#else
++  return 0;  
++#endif  
++}
++
++int request_nx_table_fetch(THD* thd, char* db, char* table_name)
++{
++  uint db_len = strlen(db);
++  uint table_name_len = strlen(table_name);
++  
++  char* table_key = (char*)my_malloc(db_len + table_name_len + 2, 
++    MYF(MY_WME));
++  
++  if (!table_key)
++    return 1;
++    
++  memcpy(table_key,db,db_len);
++  table_key[db_len] = '.';
++  memcpy(table_key + db_len +1, table_name, table_name_len);
++  table_key[db_len + table_name_len + 1] = 0;
++  
++  return push_dynamic(&thd->fetch_nx_tables,(uchar*)&table_key);   
++}
++
++int fetch_nx_table_defs(THD* thd)
++{
++  int ret = 0;
++  MYSQL_RES* res = 0;
++  MYSQL_ROW row;
++  MYSQL* mysql;
++  char buf[512];
++  String s(buf,sizeof(buf),&my_charset_latin1);
++  char* table_key = 0;
++  uint i;
++  char* save_db = thd->db;
++  uint save_db_len = thd->db_length;
++  char* save_query = thd->query();
++  uint save_query_len = thd->query_length();
++  
++  if (!(mysql = fetch_connect_to_master()))
++    return 1;
++  
++  for ( i = 0; i < thd->fetch_nx_tables.elements; i++ )
++  {
++    get_dynamic(&thd->fetch_nx_tables, (uchar*)&table_key, i);
++    char* db_end = strchr(table_key,'.');
++    
++    if (!db_end)
++    {
++      ret = 1;
++      goto err;
++    }
++    
++    *db_end = 0;
++             
++    if ((ret = ensure_db_exists(thd,table_key)))
++      return ret;
++    
++    thd->set_db(table_key, db_end - table_key);
++    *db_end = '.';
++    s.length(0);
++    s.append(C_STRING_WITH_LEN("show create table "));
++    s.append(table_key);
++    
++    if (mysql_real_query(mysql,s.c_ptr(), s.length()) || 
++      !(res = mysql_store_result(mysql)))
++    {
++      sql_print_error("Error running %s during fetch of %s: %s",
++        s.c_ptr(), table_key, mysql_error(mysql));
++      ret = 1;  
++      goto err;  
++    }
++    
++    if ((mysql_num_fields(res) < 2) || !(row = mysql_fetch_row(res)))
++    {
++      ret = 1;
++      goto err;
++    }
++    
++    if (!row[1] || exec_query(thd, row[1]))
++    {
++      ret = 1;
++      goto err;
++    }
++    
++    sql_print_information("Successfully fetched %s table definition from"
++     " the master", table_key);
++  }
++  
++err:
++  if (save_db)
++    thd->set_db(save_db,save_db_len);
++  
++  thd->set_query(save_query, save_query_len);
++  clear_fetch_nx_tables(thd);   
++   
++  if (res)
++    mysql_free_result(res);
++    
++  mysql_close(mysql);    
++  return ret;  
++}
++
++void clear_fetch_nx_tables(THD* thd)
++{
++  uint i;
++  char* table_key;
++  
++  if (thd->fetch_nx_tables.elements)
++  {
++    for (i = 0; i < thd->fetch_nx_tables.elements; i++)
++    {
++      get_dynamic(&thd->fetch_nx_tables, (uchar*)&table_key, i);
++      my_free(table_key);
++    }
++    
++    reset_dynamic(&thd->fetch_nx_tables);
++  }
++}
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/rpl_fetch_nx_table.h sql/rpl_fetch_nx_table.h
+--- /home/sasha/mysql-5.5.8/sql/rpl_fetch_nx_table.h	1969-12-31 16:00:00.000000000 -0800
++++ sql/rpl_fetch_nx_table.h	2011-11-04 19:34:11.848664767 -0700
+@@ -0,0 +1,8 @@
++#ifndef RPL_FETCH_NX_TABLE_H
++#define RPL_FETCH_NX_TABLE_H
++
++int fetch_nx_table_defs(THD* thd);
++int request_nx_table_fetch(THD* thd, char* db, char* table_name);
++void clear_fetch_nx_tables(THD* thd);
++
++#endif
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/rpl_filter.cc sql/rpl_filter.cc
+--- /home/sasha/mysql-5.5.8/sql/rpl_filter.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/rpl_filter.cc	2011-11-04 19:34:11.848664767 -0700
+@@ -24,7 +24,8 @@
+ 
+ Rpl_filter::Rpl_filter() : 
+   table_rules_on(0), do_table_inited(0), ignore_table_inited(0),
+-  wild_do_table_inited(0), wild_ignore_table_inited(0)
++  wild_do_table_inited(0), wild_ignore_table_inited(0),
++  wild_fetch_nx_table_inited(0)
+ {
+   do_db.empty();
+   ignore_db.empty();
+@@ -247,6 +248,23 @@
+   DBUG_RETURN(!wild_do_table_inited);
+ }
+ 
++bool Rpl_filter::table_ok_to_fetch(char* db, char* table_name)
++{
++  char hash_key[NAME_LEN+2];
++  char *end;
++  int len;
++  end= strmov(hash_key, db);
++  *end++= '.';
++  len= end - hash_key ;
++  if (wild_fetch_nx_table_inited && 
++    find_wild(&wild_fetch_nx_table, hash_key, len))
++  {
++    return 1;
++  }
++  
++  return 0;
++}
++
+ 
+ bool
+ Rpl_filter::is_on()
+@@ -276,6 +294,15 @@
+   DBUG_RETURN(add_table_rule(&ignore_table, table_spec));
+ }
+ 
++int 
++Rpl_filter::add_wild_fetch_nx_table(const char* table_spec)
++{
++  if (!wild_fetch_nx_table_inited)
++    init_table_rule_array(&wild_fetch_nx_table, &wild_fetch_nx_table_inited);
++    
++  return add_wild_table_rule(&wild_fetch_nx_table, table_spec);
++}
++
+ 
+ int 
+ Rpl_filter::add_wild_do_table(const char* table_spec)
+@@ -516,6 +543,12 @@
+   table_rule_ent_dynamic_array_to_str(str, &wild_ignore_table, wild_ignore_table_inited);
+ }
+ 
++void
++Rpl_filter::get_wild_fetch_nx_table(String* str)
++{
++  table_rule_ent_dynamic_array_to_str(str, 
++    &wild_fetch_nx_table, wild_fetch_nx_table_inited);
++}
+ 
+ const char*
+ Rpl_filter::get_rewrite_db(const char* db, size_t *new_len)
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/rpl_filter.h sql/rpl_filter.h
+--- /home/sasha/mysql-5.5.8/sql/rpl_filter.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/rpl_filter.h	2011-11-04 19:34:11.848664767 -0700
+@@ -51,7 +51,7 @@
+   bool tables_ok(const char* db, TABLE_LIST* tables);
+   bool db_ok(const char* db);
+   bool db_ok_with_wild_table(const char *db);
+-
++  bool table_ok_to_fetch(char* db, char* table_name);
+   bool is_on();
+ 
+   /* Setters - add filtering rules */
+@@ -61,6 +61,7 @@
+ 
+   int add_wild_do_table(const char* table_spec);
+   int add_wild_ignore_table(const char* table_spec);
++  int add_wild_fetch_nx_table(const char* table_spec);
+ 
+   void add_do_db(const char* db_spec);
+   void add_ignore_db(const char* db_spec);
+@@ -74,6 +75,7 @@
+ 
+   void get_wild_do_table(String* str);
+   void get_wild_ignore_table(String* str);
++  void get_wild_fetch_nx_table(String* str);
+ 
+   const char* get_rewrite_db(const char* db, size_t *new_len);
+ 
+@@ -104,11 +106,13 @@
+   HASH ignore_table;
+   DYNAMIC_ARRAY wild_do_table;
+   DYNAMIC_ARRAY wild_ignore_table;
++  DYNAMIC_ARRAY wild_fetch_nx_table;
+ 
+   bool do_table_inited;
+   bool ignore_table_inited;
+   bool wild_do_table_inited;
+   bool wild_ignore_table_inited;
++  bool wild_fetch_nx_table_inited;
+ 
+   I_List<i_string> do_db;
+   I_List<i_string> ignore_db;
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/slave.cc sql/slave.cc
+--- /home/sasha/mysql-5.5.8/sql/slave.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/slave.cc	2011-11-04 19:34:11.849664673 -0700
+@@ -34,6 +34,7 @@
+ #include "sql_repl.h"
+ #include "rpl_filter.h"
+ #include "repl_failsafe.h"
++#include "rpl_fetch_nx_table.h"
+ #include "transaction.h"
+ #include <thr_alarm.h>
+ #include <my_dir.h>
+@@ -2327,6 +2328,7 @@
+     has a Rotate etc).
+   */
+ 
++  thd->master_group_id = ev->group_id;
+   thd->server_id = ev->server_id; // use the original server id for logging
+   thd->set_time();                            // time the query
+   thd->lex->current_select= 0;
+@@ -2339,8 +2341,20 @@
+     sql_slave_skip_counter= --rli->slave_skip_counter;
+   mysql_mutex_unlock(&rli->data_lock);
+   if (reason == Log_event::EVENT_SKIP_NOT)
++  {
+     exec_res= ev->apply_event(rli);
+-
++    
++    if (exec_res && thd->fetch_nx_tables.elements)
++    {
++      if (!fetch_nx_table_defs(thd))
++      {
++        thd->master_group_id = ev->group_id;
++        exec_res = ev->apply_event(rli);
++      }
++      else
++        const_cast<Relay_log_info*>(rli)->slave_close_thread_tables(thd);  
++    }
++  }
+ #ifndef DBUG_OFF
+   /*
+     This only prints information to the debug trace.
+@@ -2500,7 +2514,6 @@
+     }
+ 
+     exec_res= apply_event_and_update_pos(ev, thd, rli);
+-
+     /*
+       Format_description_log_event should not be deleted because it will be
+       used to read info about the relay log's format; it will be deleted when
+@@ -3887,6 +3900,7 @@
+   case ROTATE_EVENT:
+   {
+     Rotate_log_event rev(buf,event_len,mi->rli.relay_log.description_event_for_queue);
++    
+     if (unlikely(process_io_rotate(mi,&rev)))
+     {
+       error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
+@@ -3989,6 +4003,7 @@
+     inc_pos= event_len;
+     break;
+   }
++  
+ 
+   /*
+      If this event is originating from this server, don't queue it.
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_base.cc sql/sql_base.cc
+--- /home/sasha/mysql-5.5.8/sql/sql_base.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_base.cc	2011-11-04 19:34:11.851664712 -0700
+@@ -5191,6 +5191,7 @@
+     table_list->table->file->print_error(error, MYF(0));
+     DBUG_RETURN(1);
+   }
++    
+   DBUG_RETURN(0);
+ }
+ 
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_class.cc sql/sql_class.cc
+--- /home/sasha/mysql-5.5.8/sql/sql_class.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_class.cc	2011-11-04 19:34:11.852664815 -0700
+@@ -38,6 +38,7 @@
+ #include "sql_handler.h"                      // mysql_ha_cleanup
+ #include "rpl_rli.h"
+ #include "rpl_filter.h"
++#include "rpl_fetch_nx_table.h"
+ #include "rpl_record.h"
+ #include "slave.h"
+ #include <my_bitmap.h>
+@@ -52,6 +53,8 @@
+ #include <mysys_err.h>
+ #include <limits.h>
+ 
++#include "binlog_group_id.h"
++
+ #include "sp_rcontext.h"
+ #include "sp_cache.h"
+ #include "transaction.h"
+@@ -593,6 +596,7 @@
+   proc_info="login";
+   where= THD::DEFAULT_WHERE;
+   server_id = ::server_id;
++  master_group_id = 0;
+   slave_net = 0;
+   command=COM_CONNECT;
+   *scramble= '\0';
+@@ -634,6 +638,8 @@
+   m_binlog_invoker= FALSE;
+   memset(&invoker_user, 0, sizeof(invoker_user));
+   memset(&invoker_host, 0, sizeof(invoker_host));
++  
++  my_init_dynamic_array(&fetch_nx_tables,sizeof(uchar*), 16,16);
+ }
+ 
+ 
+@@ -1118,6 +1124,8 @@
+ #endif
+ 
+   free_root(&main_mem_root, MYF(0));
++  clear_fetch_nx_tables(this);
++  delete_dynamic(&fetch_nx_tables);
+   DBUG_VOID_RETURN;
+ }
+ 
+@@ -4317,6 +4325,24 @@
+   return ev->add_row_data(row_data, len);
+ }
+ 
++ulonglong THD::get_group_id()
++{
++  my_bool null_value;
++  LEX_STRING name=  { C_STRING_WITH_LEN("binlog_group_id")};
++  user_var_entry *entry=
++    (user_var_entry*) my_hash_search(&user_vars, 
++    (uchar*) name.str, name.length);
++  
++  if (entry)
++  {
++    ulonglong res = entry->val_int(&null_value);
++    if (res)
++      return res;
++  }
++  
++  return master_group_id;
++}
++
+ int THD::binlog_update_row(TABLE* table, bool is_trans,
+                            MY_BITMAP const* cols, size_t colcnt,
+                            const uchar *before_record,
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_class.h sql/sql_class.h
+--- /home/sasha/mysql-5.5.8/sql/sql_class.h	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_class.h	2011-11-04 19:34:11.852664815 -0700
+@@ -40,6 +40,7 @@
+ #include "thr_lock.h"             /* thr_lock_type, THR_LOCK_DATA,
+                                      THR_LOCK_INFO */
+ 
++#include "binlog_group_id.h"
+ 
+ class Reprepare_observer;
+ class Relay_log_info;
+@@ -1562,6 +1563,7 @@
+   */
+   enum enum_server_command command;
+   uint32     server_id;
++  ulonglong  master_group_id;
+   uint32     file_id;			// for LOAD DATA INFILE
+   /* remote (peer) port */
+   uint16 peer_port;
+@@ -1634,6 +1636,9 @@
+     return current_stmt_binlog_format == BINLOG_FORMAT_ROW;
+   }
+ 
++  ulonglong get_group_id();
++  
++
+ private:
+   /**
+     Indicates the format in which the current statement will be
+@@ -2151,6 +2156,7 @@
+   Parser_state *m_parser_state;
+ 
+   Locked_tables_list locked_tables_list;
++  DYNAMIC_ARRAY fetch_nx_tables;
+ 
+ #ifdef WITH_PARTITION_STORAGE_ENGINE
+   partition_info *work_part_info;
+@@ -2621,9 +2627,19 @@
+         db= NULL;
+     }
+     db_length= db ? new_db_len : 0;
++    update_master_group_id();     
++    
+     return new_db && !db;
+   }
+ 
++  void update_master_group_id()
++  {
++    if (db && binlog_mark_events && !slave_thread)
++    {
++      master_group_id = get_binlog_group_id(db,1,binlog_id_auto_activate,1);
++    }
++  }
++
+   /**
+     Set the current database; use shallow copy of C-string.
+ 
+@@ -2639,6 +2655,7 @@
+   {
+     db= new_db;
+     db_length= new_db_len;
++    update_master_group_id();
+   }
+   /*
+     Copy the current database to the argument. Use the current arena to
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_db.cc sql/sql_db.cc
+--- /home/sasha/mysql-5.5.8/sql/sql_db.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_db.cc	2011-11-04 19:34:11.853664701 -0700
+@@ -36,6 +36,8 @@
+ #include <my_dir.h>
+ #include <m_ctype.h>
+ #include "log.h"
++#include "binlog_group_id.h"
++
+ #ifdef __WIN__
+ #include <direct.h>
+ #endif
+@@ -771,7 +773,14 @@
+ 
+   if (lock_schema_name(thd, db))
+     DBUG_RETURN(true);
+-
++    
++  if (binlog_mark_events && drop_binlog_group_id(db))
++  {
++    if (!if_exists)
++      sql_print_warning("Could not remove binlog_group_id  " 
++      " info file for database %s", db);
++  }
++  
+   length= build_table_filename(path, sizeof(path) - 1, db, "", "", 0);
+   strmov(path+length, MY_DB_OPT_FILE);		// Append db option file name
+   del_dbopt(path);				// Remove dboption hash entry
+@@ -1458,6 +1467,12 @@
+     }
+   }
+ 
++  if (binlog_mark_events && 
++     check_binlog_gen_id(new_db_name->str,new_db_name->length))
++  {
++    DBUG_RETURN(TRUE);
++  }
++
+   if (is_infoschema_db(new_db_name->str, new_db_name->length))
+   {
+     /* Switch the current database to INFORMATION_SCHEMA. */
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_parse.cc sql/sql_parse.cc
+--- /home/sasha/mysql-5.5.8/sql/sql_parse.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_parse.cc	2011-11-04 19:34:11.854664759 -0700
+@@ -116,6 +116,9 @@
+ static void sql_kill(THD *thd, ulong id, bool only_kill_query);
+ 
+ const char *any_db="*any*";	// Special symbol for check_access
++char *force_rpl_dbus_prefix = 0;
++uint force_rpl_dbus_prefix_len = 0;
++const LEX_STRING RPL_DBUS_STR = {C_STRING_WITH_LEN("RPL_DBUS")};
+ 
+ const LEX_STRING command_name[]={
+   { C_STRING_WITH_LEN("Sleep") },
+@@ -2260,6 +2263,41 @@
+       referenced from this structure.
+     */
+     HA_CREATE_INFO create_info(lex->create_info);
++    
++    if (force_rpl_dbus_prefix)
++    {
++      char* db;
++      uint db_len;
++      
++      if (create_table->db)
++      {
++        db = create_table->db;
++        db_len = create_table->db_length;
++      }
++      else
++      {
++        db = thd->db;
++        db_len = thd->db_length;
++      }
++      
++      if (db)
++      {
++        if (!force_rpl_dbus_prefix_len)
++          force_rpl_dbus_prefix_len = strlen(force_rpl_dbus_prefix);
++        uint cmp_len = min(db_len,force_rpl_dbus_prefix_len);
++        
++        if (!memcmp(db,force_rpl_dbus_prefix,cmp_len))
++        {
++          plugin_ref plug = ha_resolve_by_name(thd,&RPL_DBUS_STR);
++          if (plug)
++          {
++            lex->create_info.db_type = create_info.db_type = 
++              plugin_data(plug, handlerton*);
++          }  
++        }
++      }
++    }
++    
+     /*
+       We need to copy alter_info for the same reasons of re-execution
+       safety, only in case of Alter_info we have to do (almost) a deep
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/sql_repl.cc sql/sql_repl.cc
+--- /home/sasha/mysql-5.5.8/sql/sql_repl.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/sql_repl.cc	2011-11-04 19:34:11.855664967 -0700
+@@ -62,7 +62,7 @@
+                              ulonglong position, const char** errmsg)
+ {
+   DBUG_ENTER("fake_rotate_event");
+-  char header[LOG_EVENT_HEADER_LEN], buf[ROTATE_HEADER_LEN+100];
++  char header[LOG_EVENT_MINIMAL_HEADER_LEN], buf[ROTATE_HEADER_LEN+100];
+   /*
+     'when' (the timestamp) is set to 0 so that slave could distinguish between
+     real and fake Rotate events (if necessary)
+@@ -72,7 +72,7 @@
+ 
+   char* p = log_file_name+dirname_length(log_file_name);
+   uint ident_len = (uint) strlen(p);
+-  ulong event_len = ident_len + LOG_EVENT_HEADER_LEN + ROTATE_HEADER_LEN;
++  ulong event_len = ident_len + LOG_EVENT_MINIMAL_HEADER_LEN + ROTATE_HEADER_LEN;
+   int4store(header + SERVER_ID_OFFSET, server_id);
+   int4store(header + EVENT_LEN_OFFSET, event_len);
+   int2store(header + FLAGS_OFFSET, LOG_EVENT_ARTIFICIAL_F);
+diff -ruN -x '*.o' -x Makefile -x '*CMake*' -x '*cmake*' -x '*.so' -x '*.sys' -x mysqld -x gen_lex_hash -x Makefile -x '*.a' -x mysql_tzinfo_to_sql -x lex_hash.h -x sql_builtin.cc -x sql_yacc.cc -x sql_yacc.h /home/sasha/mysql-5.5.8/sql/table.cc sql/table.cc
+--- /home/sasha/mysql-5.5.8/sql/table.cc	2010-12-03 09:58:26.000000000 -0800
++++ sql/table.cc	2011-11-04 19:34:11.855664967 -0700
+@@ -36,6 +36,9 @@
+ #include "sql_select.h"
+ #include "mdl.h"                 // MDL_wait_for_graph_visitor
+ 
++#include "rpl_filter.h"
++#include "rpl_fetch_nx_table.h"
++
+ /* INFORMATION_SCHEMA name */
+ LEX_STRING INFORMATION_SCHEMA_NAME= {C_STRING_WITH_LEN("information_schema")};
+ 
+@@ -606,9 +609,17 @@
+   error_given= 0;
+ 
+   strxmov(path, share->normalized_path.str, reg_ext, NullS);
++  
++  
+   if ((file= mysql_file_open(key_file_frm,
+                              path, O_RDONLY | O_SHARE, MYF(0))) < 0)
+   {
++     if (rpl_filter->table_ok_to_fetch(share->db.str,
++         share->table_name.str))
++     { 
++       request_nx_table_fetch(thd,share->db.str,
++         share->table_name.str);
++     }    
+     /*
+       We don't try to open 5.0 unencoded name, if
+       - non-encoded name contains '@' signs, 
+--- /home/sasha/mysql-5.5.8/sql/CMakeLists.txt	2010-12-03 09:58:26.000000000 -0800
++++ sql/CMakeLists.txt	2011-11-11 12:46:48.353742295 -0800
+@@ -75,12 +75,16 @@
+                sql_profile.cc event_parse_data.cc sql_alter.cc
+                sql_signal.cc rpl_handler.cc mdl.cc sql_admin.cc
+                transaction.cc sys_vars.cc sql_truncate.cc datadict.cc
+-               sql_reload.cc
++               sql_reload.cc binlog_group_id.cc binlog_group_id.h
++               binlog_undo.cc binlog_undo.h rpl_fetch_nx_table.h rpl_fetch_nx_table.cc
++               item_func_avro.h item_func_avro.cc
+                ${GEN_SOURCES}
+                ${MYSYS_LIBWRAP_SOURCE})
+ 
+ MYSQL_ADD_PLUGIN(partition ha_partition.cc STORAGE_ENGINE DEFAULT STATIC_ONLY
+ RECOMPILE_FOR_EMBEDDED)
++MYSQL_ADD_PLUGIN(avro avro.cc STORAGE_ENGINE MANDATORY STATIC_ONLY
++RECOMPILE_FOR_EMBEDDED)
+ 
+ ADD_LIBRARY(sql STATIC ${SQL_SOURCE})
+ ADD_DEPENDENCIES(sql GenServerSource)
+@@ -88,7 +92,7 @@
+ TARGET_LINK_LIBRARIES(sql ${MYSQLD_STATIC_PLUGIN_LIBS} 
+   mysys dbug strings vio regex   
+   ${LIBWRAP} ${LIBCRYPT} ${LIBDL}
+-  ${SSL_LIBRARIES})
++  ${SSL_LIBRARIES} /usr/lib/libavro.a)
+ 
+  
+ 
+--- /home/sasha/mysql-5.5.8/libmysqld/CMakeLists.txt	2010-12-03 09:58:26.000000000 -0800
++++ libmysqld/CMakeLists.txt	2011-11-09 16:43:03.794705704 -0800
+@@ -86,6 +86,10 @@
+            ../sql/sql_signal.cc ../sql/rpl_handler.cc
+ 	       ../sql/rpl_utility.cc
+            ../sql/sys_vars.cc
++           ../sql/binlog_group_id.cc ../sql/binlog_group_id.h
++           ../sql/binlog_undo.cc ../sql/binlog_undo.h
++           ../sql/item_func_avro.cc ../sql/item_func_avro.h
++           ../sql/rpl_fetch_nx_table.h ../sql/rpl_fetch_nx_table.cc
+            ${CMAKE_BINARY_DIR}/sql/sql_builtin.cc
+            ../sql/mdl.cc ../sql/transaction.cc
+            ${GEN_SOURCES}
+@@ -112,6 +116,7 @@
+   ${LIBWRAP} ${LIBCRYPT} ${LIBDL}
+   ${MYSQLD_STATIC_PLUGIN_LIBS} ${NDB_CLIENT_LIBS}
+   sql_embedded
++  /usr/lib/libavro.a
+ )
+ 
+ # Some storage engine were compiled for embedded specifically
+--- /home/sasha/mysql-5.5.8/support-files/CMakeLists.txt	2010-12-03 09:58:26.000000000 -0800
++++ support-files/CMakeLists.txt	2011-11-04 19:34:11.856664800 -0700
+@@ -40,7 +40,8 @@
+   SET(inst_location ${INSTALL_SUPPORTFILESDIR})
+ ENDIF()
+ 
+-FOREACH(inifile my-huge my-innodb-heavy-4G my-large my-medium my-small)
++FOREACH(inifile my-huge my-innodb-heavy-4G my-large my-medium my-small
++my-linkedin-master my-linkedin-slave)
+   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/${inifile}.cnf.sh 
+                  ${CMAKE_CURRENT_BINARY_DIR}/${inifile}.${ini_file_extension} @ONLY)
+   INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/${inifile}.${ini_file_extension}
+--- /home/sasha/mysql-5.5.8/libmysql/CMakeLists.txt	2010-12-03 09:58:26.000000000 -0800
++++ libmysql/CMakeLists.txt	2011-11-04 19:34:11.856664800 -0700
+@@ -196,8 +196,10 @@
+       IF(NOT libmysql_link_flag)
+         SET(libmysql_link_flags)
+       ENDIF()
++      CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/libmysql.ver.in 
++         ${CMAKE_CURRENT_SOURCE_DIR}/libmysql.ver @ONLY)
+       SET_TARGET_PROPERTIES(libmysql PROPERTIES LINK_FLAGS 
+-        "${libmysql_link_flags} ${LINK_FLAG_NO_UNDEFINED}")
++        "${libmysql_link_flags} ${LINK_FLAG_NO_UNDEFINED} -Wl,-version-script,${CMAKE_CURRENT_SOURCE_DIR}/libmysql.ver")
+     ENDIF() 
+     # clean direct output needs to be set several targets have the same name
+     #(mysqlclient in this case)

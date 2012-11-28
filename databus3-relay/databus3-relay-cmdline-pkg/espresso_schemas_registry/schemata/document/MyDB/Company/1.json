@@ -1,0 +1,1 @@
+{"name":"Company", "version":1, "doc":"Espresso Schema for Company (quickstart version)", "type":"record", "namespace":"com.linkedin.espresso.test.mydb", "fields":[{"name":"name", "type":"string"}, {"name":"ticker", "type":"string"}]}
