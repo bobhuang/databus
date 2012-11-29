@@ -7,7 +7,7 @@ dependencies {
   compile spec.product.'container-server-jetty'.emweb
   compile spec.product.cfg2.cfg
 
-  compile spec.external.googleCollections
+  compile externalDependency.googleCollections
 }
 
 //DDSDBUS-171 Remove explicitly the transitive dependency on the old oracle driver

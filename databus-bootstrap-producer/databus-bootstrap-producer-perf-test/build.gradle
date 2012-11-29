@@ -1,10 +1,9 @@
-apply plugin: 'li-cmdline'
 
 dependencies {
   compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
 
-  compile spec.external.commonsCli
-  compile spec.external.log4j
+  compile externalDependency.commonsCli
+  compile externalDependency.log4j
 }
 
 project.tasks.cmdline {

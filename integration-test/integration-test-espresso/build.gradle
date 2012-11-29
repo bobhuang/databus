@@ -1,4 +1,4 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 test {
   if (!project.hasProperty('integ.test')) {
@@ -49,5 +49,5 @@ dependencies {
   compile project(':databus-profile-client:databus-profile-client-impl')
   testCompile project(':integration-test:integration-test-integ')
 
-  testCompile spec.external.testng
+  testCompile externalDependency.testng
 }

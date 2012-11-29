@@ -6,7 +6,7 @@ dependencies {
 
   compile spec.product.'container-server-jetty'.emweb
 
-  compile spec.external.googleCollections
+  compile externalDependency.googleCollections
 }
 
 liWar {
