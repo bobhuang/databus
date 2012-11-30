@@ -3,7 +3,10 @@ dependencies {
   compile project(':databus2-relay:databus2-relay-impl')
 }
 
-project.tasks.cmdline {
+task myTar(type: Tar, dependsOn: ':databus2-relay:databus2-relay-impl:assemble') {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   into("conf") { from "conf/" }
 
@@ -22,4 +25,10 @@ project.tasks.cmdline {
     include('*.py')
     fileMode = 0755
   }
+
+  into("lib") {
+     from configurations.runtime
+  }
 }
+
+assemble.dependsOn myTar

@@ -1,10 +1,12 @@
-
 dependencies {
-  compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
-  compile project(':databus-bootstrap-server:databus-bootstrap-server-impl')
+    compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
+    compile project(':databus-bootstrap-server:databus-bootstrap-server-impl')
 }
 
-project.tasks.cmdline {
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   into("conf") { from "conf/" }
 
@@ -29,4 +31,12 @@ project.tasks.cmdline {
     include('*.py')
     fileMode = 0755
   }
+
+  into("lib") {
+     from configurations.runtime
+  }
 }
+
+myTar.dependsOn ':databus-bootstrap-producer:databus-bootstrap-producer-impl:assemble'
+myTar.dependsOn ':databus-bootstrap-server:databus-bootstrap-server-impl:assemble'
+assemble.dependsOn myTar
