@@ -1,0 +1,74 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+# test bizfollow db relay can run with a small buffer.
+export TEST_NAME=espresso_client_restarts.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_trace=${WORK_DIR_FROM_ROOT}/espresso_relay_event_trace
+consumer_1_log=${WORK_DIR_FROM_ROOT}/espresso_consumer_1.events
+consumer_1_value_log=${WORK_DIR_FROM_ROOT}/espresso_consumer_1.values
+consumer_1_cp_dir=${WORK_DIR_FROM_ROOT}/ckpt/1
+consumer_1_cp_dir_from_root=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/ckpt/1
+espresso_conf_dir=${CONFIG_DIR}/espresso
+espressoDB_config_file_base=${espresso_conf_dir}/json/ppart__es_EspressoDB16
+espressoDB_list=EspressoDB16
+espressoDB_partitions=16
+espresso_sources=EspressoDB16.*:0,EspressoDB16.*:1,EspressoDB16.*:2,EspressoDB16.*:3,EspressoDB16.*:4,EspressoDB16.*:5,EspressoDB16.*:6,EspressoDB16.*:7,EspressoDB16.*:8,EspressoDB16.*:9,EspressoDB16.*:10,EspressoDB16.*:11,EspressoDB16.*:12,EspressoDB16.*:13,EspressoDB16.*:14,EspressoDB16.*:15
+data_root=${VIEW_ROOT}/integration-test/data/testcases/espresso
+data_file=${data_root}/EspressoDB_Random2.dat
+jvm_direct_memory="-XX:MaxDirectMemorySize=200m"
+jvm_min_heap="-Xms100m"
+jvm_max_heap="-Xmx100m"
+jvm_gc_args="-XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution"
+jvm_args="${jvm_direct_memory} ${jvm_min_heap} ${jvm_max_heap} ${jvm_new_size} ${gvm_gc_args}"
+
+if [ ! -d ${consumer_1_cp_dir_from_root} ]; then
+    mkdir -p ${consumer_1_cp_dir_from_root}
+fi
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o stop
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o reset
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o start
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o check_node_up --db_list=${espressoDB_list} --db_range=${espressoDB_partitions}
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_partitions}  --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false" -p ${espresso_conf_dir}/espresso_relay.properties -l ${espresso_conf_dir}/espresso_relay_log4j.properties --jvm_args="${jvm_args}"
+
+$SCRIPT_DIR/dbus2_gen_event.py --espresso_gen --espresso_data_file=${data_file} --espresso_db_name=EspressoDB16 --espresso_table_name=IdNamePair --num_events=100 --event_per_sec=100
+#clear checkpoint before use is set to true here...
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_1_value_log} --cmdline_props="databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_1_cp_dir};databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_1_log};databus.espresso.client.container.httpPort=${client_port};databus.espresso.client.checkpointPersistence.clearBeforeUse=true;databus.espresso.client.runtime.relay(1).sources=${espresso_sources}" -p ${espresso_conf_dir}/espresso_client.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties --jvm_args="${jvm_args}"
+
+sleep 30
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o stop
+for i in {1..5}
+do
+    $SCRIPT_DIR/dbus2_gen_event.py --espresso_gen --espresso_data_file=${data_file} --espresso_db_name=EspressoDB16 --espresso_table_name=IdNamePair --num_events=300
+    $SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_1_value_log} --cmdline_props="databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_1_cp_dir};databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_1_log};databus.espresso.client.container.httpPort=${client_port};databus.espresso.client.checkpointPersistence.clearBeforeUse=false;databus.espresso.client.connectionDefaults.eventBuffer.trace.appendOnly=true;databus.espresso.client.runtime.relay(1).sources=${espresso_sources}" -p ${espresso_conf_dir}/espresso_client.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties --jvm_args="${jvm_args}"
+    sleep 30
+   $SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o stop
+done
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_storage_node -o stop
+
+echo == Looking for Error,ERROR or Exception in log files
+ls -1tr $LOG_DIR/esp* | xargs grep ERROR
+ls -1tr $LOG_DIR/esp* | xargs grep Error
+ls -1tr $LOG_DIR/esp* | xargs grep -i Exception
+
+#stat_txt="Test $0: Compare relay log and client log"
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_compare --file1=${relay_event_trace} --file2=${consumer_1_log} --db_list=${espressoDB_list} --db_range=${espressoDB_partitions}
+source report_pass_fail.inc
+final_report=1
+$SCRIPT_DIR/dbus2_json_compare.py --merge --in=${relay_event_trace} --out=${relay_event_trace} --db_list=${espressoDB_list} --db_range=${espressoDB_partitions}
+source report_pass_fail.inc
+echo Number of failures = $all_stat
+exit $all_stat

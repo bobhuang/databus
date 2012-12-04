@@ -1,0 +1,380 @@
+#!/bin/bash
+#********************************************************************************************************
+# Test case covering the checkpointing feature for 2 clients subscribing to a disjoint set of partitions.
+# This testcase follows the same steps as espresso_client_5_3_2_test4.test except that we have 2 clients instead of 1 and  additional steps given below
+# StorageNode Setup with 16 Partition EspressoDB16 with 16 Master and 16 Slave
+#  1. Setup Storage Nodes and cluster
+#  2. Start Relay Cluster and Start Relays
+#  3. Start client1 with subscriptions to EspressoDB partitions 1-7
+#  4. Start client2 with subscriptions to EspressoDB partitions 8-15
+#  5. Generate Data to the Storage Node
+#  6. Verify Data at the Clients and their states
+#  7. Stop Relays
+#  8. Verify Clients are suspended as there are no more relays ( this ensures dynamic notification happens as without this 
+#                                          client will not go to Suspended state (since retry is set to -1 (never stop)))
+#  9. Flip partition in Storage Node / Bounce Storage nodes
+# 10. Start Relays 
+# 11. Verify clients are back to active.
+# 12. Generate Data to the Storage Node.
+# 13. Verify all the data is present at the clients ( compare with both relay and data file )
+# 14. Restart Clients
+# 15. Generate data 
+# 16. Verify all the data is present at the clients ( compare with both relay and data file )
+
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=espresso_client_5_3_2_test12
+
+# sets up common environmnet variables and 
+source setup_env2.inc
+source ${SCRIPT_DIR}/test_common.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+espressoDB_list=EspressoDB16  	#Can be a comma-separated list
+espressoDB_range=16     	#Can be a comma-separated list
+espressoDB_replicas=2 	#Can be a comma-separated list
+clusterName=relayIntTemp
+jvm_direct_memory="-XX:MaxDirectMemorySize=200m"
+jvm_min_heap="-Xms100m"
+jvm_max_heap="-Xmx100m"
+jvm_gc_args="-XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution"
+jvm_args="${jvm_direct_memory} ${jvm_min_heap} ${jvm_max_heap} ${jvm_new_size} ${gvm_gc_args}"
+let client_port="${CLIENT_PORT_BASE}+2"
+let client_port_1="${CLIENT_PORT_BASE}+2"
+let client_port_2="${CLIENT_PORT_BASE}+3"
+relay_event_trace_1=${WORK_DIR_FROM_ROOT}/espresso_relay_event_trace
+relay_event_trace_merged=${WORK_DIR_FROM_ROOT}/espresso_relay_event_trace_merged
+relay_event_trace_merged_2=${WORK_DIR_FROM_ROOT}/espresso_relay_event_trace_merged_2
+relay_event_trace_merged_3=${WORK_DIR_FROM_ROOT}/espresso_relay_event_trace_merged_3
+consumer_1_log_1=${WORK_DIR_FROM_ROOT}/espresso_consumer_1.events.1
+consumer_1_value_log=${WORK_DIR_FROM_ROOT}/espresso_consumer_1.values
+consumer_2_log_1=${WORK_DIR_FROM_ROOT}/espresso_consumer_2.events.1
+consumer_2_value_log=${WORK_DIR_FROM_ROOT}/espresso_consumer_2.values
+consumer_1_cp_dir=${WORK_DIR_FROM_ROOT}/ckpt/1
+consumer_2_cp_dir=${WORK_DIR_FROM_ROOT}/ckpt/2
+consumer_1_cp_dir_from_root=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/ckpt/1
+consumer_2_cp_dir_from_root=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/ckpt/2
+espresso_conf_dir=${CONFIG_DIR}/espresso
+espressoDB_config_file_base=${espresso_conf_dir}/json/ppart__es_EspressoDB16
+client1_subs=espresso://MASTER/EspressoDB16/0/*,espresso://MASTER/EspressoDB16/1/*,espresso://MASTER/EspressoDB16/2/*,espresso://MASTER/EspressoDB16/3/*,espresso://MASTER/EspressoDB16/4/*,espresso://MASTER/EspressoDB16/5/*,espresso://MASTER/EspressoDB16/6/*,espresso://MASTER/EspressoDB16/7/*
+client2_subs=espresso://MASTER/EspressoDB16/8/*,espresso://MASTER/EspressoDB16/9/*,espresso://MASTER/EspressoDB16/10/*,espresso://MASTER/EspressoDB16/11/*,espresso://MASTER/EspressoDB16/12/*,espresso://MASTER/EspressoDB16/13/*,espresso://MASTER/EspressoDB16/14/*,espresso://MASTER/EspressoDB16/15/*
+data_root=${VIEW_ROOT}/integration-test/testcases/espresso/data
+data_file=${data_root}/EspressoDB_Random1.dat
+
+relay1_maxscn_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/maxScn1
+relay1_mmap_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/mmap1
+relay2_maxscn_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/maxScn2
+relay2_mmap_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/mmap2
+
+######### SETUP #########
+# Uncomment this if you want the relay cluster and storage node clusters to be hosted on separate zookeeper instances
+# export RELAY_ZK_PORT=2183
+
+LOG_INFO Setup espresso components
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o stop
+$SCRIPT_DIR/dbus2_driver.py -n ${TEST_NAME} -c cluster_manager -o setup --db_list ${espressoDB_list} --db_range ${espressoDB_range} --db_replicas ${espressoDB_replicas} --zookeeper_server_hosts=${ZK_HOST} --zookeeper_server_ports=${ZK_PORT} --helix_clustername=${STORAGE_NODE_CLUSTER} --relay_zookeeper_server_hosts=${RELAY_ZK_HOST} --relay_zookeeper_server_ports=${RELAY_ZK_PORT}
+LOG_INFO '***** done setting up espresso components *****'
+
+
+$SCRIPT_DIR/dbus2_driver.py -c cluster_manager -o movePartition --db_list=${espressoDB_list} --partition_num=MasterNode1 --db_replicas ${espressoDB_replicas} --zookeeper_server_hosts=${ZK_HOST} --zookeeper_server_ports=${ZK_PORT} --helix_clustername=${STORAGE_NODE_CLUSTER} --no_increment_genid
+
+LOG_INFO Create the directories
+CREATE_CLEAN_DIR ${consumer_1_cp_dir_from_root}
+CREATE_CLEAN_DIR ${consumer_2_cp_dir_from_root}
+CREATE_CLEAN_DIR ${relay1_maxscn_dir}
+CREATE_CLEAN_DIR ${relay1_mmap_dir}
+CREATE_CLEAN_DIR ${relay2_maxscn_dir}
+CREATE_CLEAN_DIR ${relay2_mmap_dir}
+
+TEST_STEP Setup Relay Cluster
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--addCluster ${clusterName} --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}"
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--listClusters --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}" 
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--addNode ${clusterName} localhost:${relay1Port} --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}"
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--addNode ${clusterName} localhost:${relay2Port} --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}"
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--addResource ${clusterName} relayLeaderStandby 1 LeaderStandby --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}"
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--rebalance ${clusterName} relayLeaderStandby 2 --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}" 
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--addResource ${clusterName} ${espressoDB_list} ${espressoDB_range} OnlineOffline --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}" 
+REPORT_TEST_STEP
+LOG_INFO '***** done creating relay cluster ***** '
+
+LOG_INFO Start helix controller for relay cluster
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o start --helix_clustername=${clusterName} --zookeeper_server_hosts=${RELAY_ZK_HOST} --zookeeper_server_ports=${RELAY_ZK_PORT}
+LOG_INFO '***** done starting helix controller for relay cluster ***** '
+
+LOG_INFO start the 2 relays. Configure them to recieve events from the EspressoDB schema. Register it to listen to the EV of the "DevCluster_Dbus" Espresso Storage Node Cluster 
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_range} --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace_1}_${relay1Name};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay1Port};databus.relay.clusterManager.instanceName=${relay1Name};databus.relay.container.tcp.port=${relay1TCPPort};databus.relay.clusterManager.relayClusterName=${clusterName};databus.relay.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay1_maxscn_dir};databus.relay.eventBuffer.mmapDirectory=${relay1_mmap_dir}" -p ${espresso_conf_dir}/espresso_relay_5_3_2.properties -l ${espresso_conf_dir}/espresso_relay_log4j.properties --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating first relay ***** '
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_range} --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace_1}_${relay2Name};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay2Port};databus.relay.clusterManager.instanceName=${relay2Name};databus.relay.container.tcp.port=${relay2TCPPort};databus.relay.clusterManager.relayClusterName=${clusterName};databus.relay.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay2_maxscn_dir};databus.relay.eventBuffer.mmapDirectory=${relay2_mmap_dir}" -p ${espresso_conf_dir}/espresso_relay_5_3_2.properties -l ${espresso_conf_dir}/espresso_relay_log4j2.properties --jvm_args="${jvm_args}"
+LOG_INFO '***** done creating second relay ***** '
+
+# Write events
+$SCRIPT_DIR/dbus2_gen_event.py --espresso_gen --espresso_data_file=${data_file} --espresso_db_name=${espressoDB_list} --espresso_table_name=IdNamePair --num_events=100 --event_per_sec=100 --espresso_host=${EspressoRouter} --espresso_port=${EspressoRouterPort} 
+
+# Sleep for the relay to catchup
+sleep 10
+
+#start the client and register it to receive events for EspressoDB all partitions
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_1_value_log} --cmdline_props="databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_1_cp_dir_from_root};databus.espresso.client.checkpointPersistence.clearBeforeUse=true;databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_1_log_1};databus.espresso.client.container.httpPort=${client_port_1};databus.espresso.client.clusterManager.relayClusterName=${clusterName};databus.espresso.client.clusterManager.enableDynamic=true;databus.espresso.client.subscriptions=${client1_subs};databus.espresso.client.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.espresso.client.connectionDefaults.dispatcherRetries.maxSleep=6000" -p ${espresso_conf_dir}/espresso_client_53.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties  --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating first client ***** '
+#start the client and register it to receive events for EspressoDB all partitions
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_2_value_log} --cmdline_props="databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_2_cp_dir_from_root};databus.espresso.client.checkpointPersistence.clearBeforeUse=true;databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_2_log_1};databus.espresso.client.container.httpPort=${client_port_2};databus.espresso.client.clusterManager.relayClusterName=${clusterName};databus.espresso.client.clusterManager.enableDynamic=true;databus.espresso.client.subscriptions=${client2_subs};databus.espresso.client.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.espresso.client.connectionDefaults.dispatcherRetries.maxSleep=6000" -p ${espresso_conf_dir}/espresso_client_53.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties  --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating second client ***** '
+
+# sleep for the client to start the puller threads
+sleep 15
+
+TEST_STEP Verify Registrations for client 1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o verifyRegistrations --expected_num_registrations=8 --client_base_port_list=${client_port_1}
+REPORT_TEST_STEP
+TEST_STEP Verify Registrations for client 2
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o verifyRegistrations --expected_num_registrations=8 --client_base_port_list=${client_port_2}
+REPORT_TEST_STEP
+
+# Get RegId
+regId1=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getRegistrationsByPhysicalPartition --client_base_port_list=${client_port_1} --db_name=${espressoDB_list} --db_partitions=0-7`
+LOG_INFO "RegIds for client1 are : ${regId1}"
+regId2=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getRegistrationsByPhysicalPartition --client_base_port_list=${client_port_2} --db_name=${espressoDB_list} --db_partitions=8-15`
+LOG_INFO "RegIds for client2 are : ${regId2}"
+
+# check if Relay Puller is active
+TEST_STEP Check If Relay Puller is active for client1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_1} --db_name=${espressoDB_list} --db_partitions=0-7 
+REPORT_TEST_STEP
+TEST_STEP Check If Relay Puller is active for client2
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_2} --db_name=${espressoDB_list} --db_partitions=8-15 
+REPORT_TEST_STEP
+
+curr_relay_list1=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_1} --reg_id=${regId1}`
+LOG_INFO "Current Relay List for client 1 is : ${curr_relay_list1}"
+curr_relay_list2=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_2} --reg_id=${regId2}`
+LOG_INFO "Current Relay List for client 2 is : ${curr_relay_list2}"
+
+## Wait for clients to  catch up
+TEST_STEP Waiting for client1 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=0-7 --client_base_port_list=${client_port_1} 
+REPORT_TEST_STEP
+TEST_STEP Waiting for client2 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=8-15 --client_base_port_list=${client_port_2} 
+REPORT_TEST_STEP
+
+## Wait for 30 sec
+sleep 30
+
+#compare relay and client event logs
+TEST_STEP Compare relay log and client1 log 
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_1_log_1} --db_list=${espressoDB_list} --db_partitions=0-7 --client_host=${CLIENT_HOST} --client_port=${client_port_1} --master=True --slave=False  --append=False 
+REPORT_TEST_STEP
+TEST_STEP Compare relay log and client2 log 
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_2_log_1} --db_list=${espressoDB_list} --db_partitions=8-15 --client_host=${CLIENT_HOST} --client_port=${client_port_2} --master=True --slave=False --append=False 
+REPORT_TEST_STEP
+
+LOG_INFO "Test : Compare that merged relay log and client log have a size greater than 0"
+$SCRIPT_DIR/dbus2_json_compare.py --cluster_merge --in=${relay_event_trace_1} --out=${relay_event_trace_merged_2} --db_list=${espressoDB_list} --db_range=${espressoDB_range}  --client_host=${CLIENT_HOST} --client_port=${client_port} --append=False  
+REPORT_TEST_STEP
+
+## Now stop the relay  and wait for 30 secs
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o stop
+
+## Wait for 60 sec (need more than 30 sec here)
+sleep 60
+
+## Expect the relay to be not active
+# check if Relay Puller is active
+TEST_STEP Check If Relay Puller for client 1 is inactive
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerInactive --client_base_port_list=${client_port_1} --db_list=${esperssoDB_list} --db_partitions=0-7 
+REPORT_TEST_STEP
+TEST_STEP Check If Relay Puller for client 2 is inactive
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerInactive --client_base_port_list=${client_port_2} --db_list=${esperssoDB_list} --db_partitions=8-15 
+REPORT_TEST_STEP
+
+# *****swap the partitions *****
+LOG_INFO swapping all 16 partitions
+$SCRIPT_DIR/dbus2_driver.py -c cluster_manager -o movePartition --db_list=${espressoDB_list} --partition_num=MasterNode2 --db_replicas ${espressoDB_replicas} --zookeeper_server_hosts=${ZK_HOST} --zookeeper_server_ports=${ZK_PORT} --helix_clustername=${STORAGE_NODE_CLUSTER}
+
+sleep 30
+
+#start the 2 relays. Configure them to recieve events from the EspressoDB schema. Register it to listen to the EV of the "DevCluster_Dbus" Espresso Storage Node Cluster 
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_range} --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace_1}_${relay1Name};databus.relay.eventBuffer.trace.appendOnly=true;databus.relay.container.httpPort=${relay1Port};databus.relay.clusterManager.instanceName=${relay1Name};databus.relay.container.tcp.port=${relay1TCPPort};databus.relay.clusterManager.relayClusterName=${clusterName};databus.relay.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay1_maxscn_dir};databus.relay.eventBuffer.mmapDirectory=${relay1_mmap_dir}" -p ${espresso_conf_dir}/espresso_relay_5_3_2.properties -l ${espresso_conf_dir}/espresso_relay_log4j.properties --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating first relay ***** '
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_range} --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace_1}_${relay2Name};databus.relay.eventBuffer.trace.appendOnly=true;databus.relay.container.httpPort=${relay2Port};databus.relay.clusterManager.instanceName=${relay2Name};databus.relay.container.tcp.port=${relay2TCPPort};databus.relay.clusterManager.relayClusterName=${clusterName};databus.relay.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay2_maxscn_dir};databus.relay.eventBuffer.mmapDirectory=${relay2_mmap_dir}" -p ${espresso_conf_dir}/espresso_relay_5_3_2.properties -l ${espresso_conf_dir}/espresso_relay_log4j2.properties --jvm_args="${jvm_args}"
+LOG_INFO '***** done creating second relay ***** '
+
+## Wait for 60 sec (need more than 30 sec here)
+sleep 60
+
+# check if Relay Puller is active
+TEST_STEP Check If Relay Puller is active for client1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_1} --db_name=${espressoDB_list} --db_partitions=0-7
+REPORT_TEST_STEP
+TEST_STEP Check If Relay Puller is active for client2
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_2} --db_name=${espressoDB_list} --db_partitions=8-15
+REPORT_TEST_STEP
+
+curr_relay_list1=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_1} --reg_id=${regId1}`
+LOG_INFO "Current Relay List for client 1 is : ${curr_relay_list1}"
+curr_relay_list2=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_2} --reg_id=${regId2}`
+LOG_INFO "Current Relay List for client 2 is : ${curr_relay_list2}"
+
+# Write events
+$SCRIPT_DIR/dbus2_gen_event.py --espresso_gen --espresso_data_file=${data_file} --espresso_db_name=${espressoDB_list} --espresso_table_name=IdNamePair --event_offset=100 --num_events=100 --event_per_sec=100 --espresso_host=${EspressoRouter} --espresso_port=${EspressoRouterPort}  
+
+LOG_INFO ==Sleeping for 30 secs to let relay pickup the events
+sleep 30
+
+## Wait for clients to  catch up
+TEST_STEP Waiting for client1 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=0-7 --client_base_port_list=${client_port_1} 
+REPORT_TEST_STEP
+TEST_STEP Waiting for client2 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=8-15 --client_base_port_list=${client_port_2} 
+REPORT_TEST_STEP
+
+sleep 60
+
+#compare relay and client event logs
+TEST_STEP Compare relay log and client1 log 
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_1_log_1} --db_list=${espressoDB_list} --db_partitions=0-7 --client_host=${CLIENT_HOST} --client_port=${client_port_1} --master=True --slave=False --append=False
+REPORT_TEST_STEP
+TEST_STEP Compare relay log and client2 log 
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_2_log_1} --db_list=${espressoDB_list} --db_partitions=8-15 --client_host=${CLIENT_HOST} --client_port=${client_port_2} --master=True --slave=False --append=False
+REPORT_TEST_STEP
+
+TEST_STEP Compare that merged relay log and client log have a size greater than 0
+$SCRIPT_DIR/dbus2_json_compare.py --cluster_merge --in=${relay_event_trace_1} --out=${relay_event_trace_merged_3} --db_list=${espressoDB_list} --db_range=${espressoDB_range}  --client_host=${CLIENT_HOST} --client_port=${client_port} --append=False
+REPORT_TEST_STEP
+
+LOG_INFO Stopping Clients...
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o stop
+
+# Sleep for 10 sec
+sleep 10
+
+declare -a regIdArr1
+declare -a regIdArr2
+
+regIdArr1=(`LOG_INFO ${regId1}`)
+regIdArr2=(`LOG_INFO ${regId2}`)
+len1=${#regIdArr1[@]}
+len2=${#regIdArr2[@]}
+
+for (( i=0; i<${len1}; i++ ));
+do
+  reg=${regIdArr1[$i]}
+  LOG_INFO "Registration for client 1 is : $reg"
+  cp1_reg_dir="${consumer_1_cp_dir_from_root}/${reg}"
+  files1=$(ls ${cp1_reg_dir}/cp_*current 2>/dev/null | wc -l)
+  TEST_STEP check If checkpoint exit in ${cp1_reg_dir}
+  if [ **"$files1" != "0"** ]; then
+    echo "exit 0" | bash  # success
+  else
+    echo "exit -1" | bash  # fail
+  fi 
+  REPORT_TEST_STEP
+done
+
+for (( i=0; i<${len2}; i++ ));
+do
+  reg=${regIdArr2[$i]}
+  LOG_INFO "Registration for client 2 is : $reg"
+  cp2_reg_dir="${consumer_2_cp_dir_from_root}/${reg}"
+  files2=$(ls ${cp2_reg_dir}/cp_*current 2>/dev/null | wc -l)
+  TEST_STEP Check If checkpoint exit in ${cp2_reg_dir}
+  if [ **"$files2" != "0"** ]; then
+    echo "exit 0" | bash  # success
+  else
+    echo "exit -1" | bash  # fail
+  fi 
+  REPORT_TEST_STEP
+done
+
+# Write events
+$SCRIPT_DIR/dbus2_gen_event.py --espresso_gen --espresso_data_file=${data_file} --espresso_db_name=${espressoDB_list} --espresso_table_name=IdNamePair --event_offset=200 --num_events=100 --event_per_sec=100 --espresso_host=${EspressoRouter} --espresso_port=${EspressoRouterPort}  
+
+# Sleep for the relay to catchup
+sleep 10
+
+#start the client and register it to receive events for EspressoDB all partitions
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_1_value_log} --cmdline_props="databus.espresso.client.connectionDefaults.eventBuffer.trace.appendOnly=true;databus.espresso.testconsumer.appendOnly=true;databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_1_cp_dir_from_root};databus.espresso.client.checkpointPersistence.clearBeforeUse=false;databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_1_log_1};databus.espresso.client.container.httpPort=${client_port_1};databus.espresso.client.clusterManager.relayClusterName=${clusterName};databus.espresso.client.clusterManager.enableDynamic=true;databus.espresso.client.subscriptions=${client1_subs};databus.espresso.client.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.espresso.client.connectionDefaults.dispatcherRetries.maxSleep=6000" -p ${espresso_conf_dir}/espresso_client_53.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties  --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating first client ***** '
+#start the client and register it to receive events for EspressoDB all partitions
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o start --value_file=${consumer_2_value_log} --cmdline_props="databus.espresso.client.connectionDefaults.eventBuffer.trace.appendOnly=true;databus.espresso.testconsumer.appendOnly=true;databus.espresso.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_2_cp_dir_from_root};databus.espresso.client.checkpointPersistence.clearBeforeUse=false;databus.espresso.client.connectionDefaults.eventBuffer.trace.filename=${consumer_2_log_1};databus.espresso.client.container.httpPort=${client_port_2};databus.espresso.client.clusterManager.relayClusterName=${clusterName};databus.espresso.client.clusterManager.enableDynamic=true;databus.espresso.client.subscriptions=${client2_subs};databus.espresso.client.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.espresso.client.connectionDefaults.dispatcherRetries.maxSleep=6000" -p ${espresso_conf_dir}/espresso_client_53.properties -l ${espresso_conf_dir}/espresso_client_log4j.properties  --jvm_args="${jvm_args}" 
+LOG_INFO '***** done creating second client ***** '
+
+# sleep for the client to start the puller threads
+sleep 15
+
+##Verify number of Registrations in client == number of partitions we specified
+TEST_STEP Verify Registrations for client 1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o verifyRegistrations --expected_num_registrations=8 --client_base_port_list=${client_port_1}
+REPORT_TEST_STEP
+TEST_STEP Verify Registrations for client 2
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o verifyRegistrations --expected_num_registrations=8 --client_base_port_list=${client_port_2}
+REPORT_TEST_STEP
+
+# Get RegId
+regId1=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getRegistrationsByPhysicalPartition --client_base_port_list=${client_port_1} --db_name=${espressoDB_list} --db_partitions=0-7`
+LOG_INFO "RegIds for client1 are : ${regId1}"
+regId2=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getRegistrationsByPhysicalPartition --client_base_port_list=${client_port_2} --db_name=${espressoDB_list} --db_partitions=8-15`
+LOG_INFO "RegIds for client2 are : ${regId2}"
+
+# check if Relay Puller is active
+TEST_STEP Check If Relay Puller is active for client1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_1} --db_name=${espressoDB_list} --db_partitions=0-7 
+REPORT_TEST_STEP
+TEST_STEP Check If Relay Puller is active for client1
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerActive --client_base_port_list=${client_port_2} --db_name=${espressoDB_list} --db_partitions=8-15 
+REPORT_TEST_STEP
+
+curr_relay_list1=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_1} --reg_id=${regId1}`
+LOG_INFO "Current Relay List for client 1 is : ${curr_relay_list1}"
+curr_relay_list2=`$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o getCurrentRelay --client_base_port_list=${client_port_2} --reg_id=${regId2}`
+LOG_INFO "Current Relay List for client 2 is : ${curr_relay_list2}"
+
+## Wait for clients to  catch up
+TEST_STEP Waiting for client1 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=0-7 --client_base_port_list=${client_port_1} 
+REPORT_TEST_STEP
+TEST_STEP Waiting for client2 to catchup
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o wait_event_53  --db_list=${espressoDB_list} --db_partitions=8-15 --client_base_port_list=${client_port_2} 
+REPORT_TEST_STEP
+
+## Wait for 30 sec
+sleep 30
+
+#compare relay and client event logs
+TEST_STEP Compare relay log and client1 log 
+#$SCRIPT_DIR/dbus2_json_compare.py --espresso_compare --file1=${file1} --file2=${consumer_1_log_1} --db_list=${espressoDB_list} --db_range=1
+# Now Client logs will have 300 events whereas relay will have only 200 events(since they have been restarted with no append). We need to compare last 200 elements of client logs with relay log
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_1_log_1} --db_list=${espressoDB_list} --db_partitions=0-7 --client_host=${CLIENT_HOST} --client_port=${client_port_1} --master=True --slave=False --append=False 
+REPORT_TEST_STEP
+
+#compare relay and client event logs
+TEST_STEP Compare relay log and client2 log 
+# Now Client logs will have 300 events whereas relay will have only 200 events(since they have been restarted with no append). We need to compare last 200 elements of client logs with relay log
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_cluster_compare --file1=${relay_event_trace_1} --file2=${consumer_2_log_1} --db_list=${espressoDB_list} --db_partitions=8-15 --client_host=${CLIENT_HOST} --client_port=${client_port_2} --master=True --slave=False --append=False  
+REPORT_TEST_STEP
+
+LOG_INFO Cleaning up...
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o stop
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o stop
+sleep 10
+
+TEST_STEP Compare value dumps for client 1
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_value_compare --file1=${data_file} --file2=${consumer_1_value_log} --db_list=${espressoDB_list} --db_partitions=0-7 --espresso_host=${EspressoRouter} --espresso_port=${EspressoRouterPort} --espresso_key_range=300 
+REPORT_TEST_STEP
+
+TEST_STEP Compare value dumps for client 2
+$SCRIPT_DIR/dbus2_json_compare.py --espresso_value_compare --file1=${data_file} --file2=${consumer_2_value_log} --db_list=${espressoDB_list} --db_partitions=8-15 --espresso_host=${EspressoRouter} --espresso_port=${EspressoRouterPort} --espresso_key_range=300 
+REPORT_TEST_STEP
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_manager -o invoke --cluster_manager_props="--dropCluster ${clusterName} --zkSvr ${RELAY_ZK_HOST}:${RELAY_ZK_PORT}"
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c cluster_admin_client -o stop
+$SCRIPT_DIR/dbus2_driver.py -n ${TEST_NAME} -c cluster_manager -o teardown
+
+LOG_INFO ***********TEARDOWN COMPLETE*********************************
+FINAL_TEST_REPORT
+exit $all_stat

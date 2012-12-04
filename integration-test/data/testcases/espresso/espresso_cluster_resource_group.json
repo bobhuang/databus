@@ -1,0 +1,16 @@
+{
+"id" : "relayIntTemp",
+"mapFields" : {
+"relayIntTemp" : {
+      "eat1-app113.corp.linkedin.com_12924" : "LEADER",
+      "eat1-app114.corp.linkedin.com_12924" : "STANDBY"
+    }
+},
+"simpleFields" : {
+    "ideal_state_mode" : "AUTO",
+    "partitions" : "1",
+    "state_model_def_ref" : "LeaderStandby"
+  },
+"listFields" : {
+    "relayIntTemp" : [ "eat1-app113.corp.linkedin.com_12924", "eat1-app114.corp.linkedin.com_12924"]}
+}

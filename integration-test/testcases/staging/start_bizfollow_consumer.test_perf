@@ -1,0 +1,48 @@
+#!/bin/bash 
+# test bizfollow db relay can run with a small buffer.
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=start_bizfollow_consumer.test_perf
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+relay_host=esv4-be40.corp
+#relay_host=localhost
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+bootstrap_host=esv4-bed06.corp
+#bootstrap_host=localhost
+client_port=${CLIENT_PORT_BASE}
+db_config_file=config/sources-bizfollow.json 
+# start the consumer
+log4j=$PWD/perf_bootstrap_log4j.properties
+
+
+#set number of consumers
+num_consumers=10
+consumers_start=1
+
+for (( i=$consumers_start; i<$num_consumers+1; i++ ))
+do
+  consumer_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_${i}.events
+  let client_port="${CLIENT_PORT_BASE} + ${i}"
+  let partitionListLow="${i}-1"
+  partitionListHigh=$i
+
+  #each should have a separate checkpoint dir
+  checkpointDir=./bizfollowclient-checkpoints${i}
+
+  # we turn off dumping of events
+  #--dump_file=${consumer_log} 
+
+
+
+  $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=${client_port} --relay_host=${relay_host} --relay_port=${relay_port} --bootstrap_host=${bootstrap_host} --bootstrap_port=${bootstrap_server_port} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=${checkpointDir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=15024000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=5024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.container.jmx.jmxServicePort=20000;databus.client.loggingListener.runtime.enabled=false;databus.client.connectionDefaults.checkpointThresholdPct=30;databus.client.container.readTimeoutMs=900000;" -l ${log4j}
+
+done

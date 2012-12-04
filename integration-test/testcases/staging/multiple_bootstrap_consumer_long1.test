@@ -1,0 +1,74 @@
+#!/bin/bash
+# test a relay with multiple client can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-1.properties
+#  -. gen event, monitoring the buffer stats, freespace etc
+#  start client before the gen_event
+
+# start the relay on port 8080
+#test_only=echo
+source setup_env.inc
+#NUM_CONSUMERS=20
+loop_cnt=$1
+bootstrap_host=$2
+relay_host=esv4-be40
+start_port=8080
+# actual loop coun
+actual_loop_cnt=1
+
+
+while [ 1 ]; do
+    NUM_CONSUMERS=4
+    num=1
+    while [ "$num" -le $NUM_CONSUMERS ]
+    do
+      rm -rf $WORK_DIR/ckpt_${loop_cnt}_${num}
+      logname=log_${loop_cnt}_${num}
+      port=$(($start_port + $loop_cnt*$NUM_CONSUMERS + $num))
+      $test_only $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=$port --logfile=$logname --relay_host=${relay_host} --relay_port=9090 --bootstrap_host=${bootstrap_host} --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${loop_cnt}_${num} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+      let "num+=1"
+    done     
+
+  total_sleep_time=$((3600 + 1800*$actual_loop_cnt))
+  sleep_sec=0
+  sleep_interval=100
+  if [ "$test_only" == "echo" ]; then
+    total_sleep_time=5
+    sleep_interval=3
+  fi
+  while [ $sleep_sec -lt $total_sleep_time ]; do
+    # print stats
+    num=1
+    while [ "$num" -le $NUM_CONSUMERS ]
+    do
+      logname=$VIEW_ROOT/$WORK_DIR_FROM_ROOT/log_${loop_cnt}_${num}
+      port=$(($start_port + $loop_cnt*$NUM_CONSUMERS + $num))
+      echo "bootstrap stats: " `date` >> $logname
+      python -c "import urllib; print urllib.urlopen('http://localhost:${port}/clientStats/bootstrap/events/total').read()" >> $logname
+      echo "inbound stats: " `date` >> $logname
+      python -c "import urllib; print urllib.urlopen('http://localhost:${port}/containerStats/inbound/events/total').read()" >> $logname
+      let "num+=1"
+    done     
+
+    #let "loop_cnt+=1"
+    sleep_sec=$(($sleep_sec + $sleep_interval))
+    sleep $sleep_interval
+    date
+    echo loop_cnt=$loop_cnt sleep_sec=$sleep_sec total_sleep_time=$total_sleep_time
+    #echo sleep_sec=$sleep_sec
+  done
+
+  # pause the consumer
+  echo pause
+  NUM_CONSUMERS=4
+  num=1
+  while [ "$num" -le $NUM_CONSUMERS ]
+  do
+    port=$(($start_port + $loop_cnt*$NUM_CONSUMERS + $num))
+    echo "consumer $loop_cnt $num: " `date` 
+    python -c "import urllib; print urllib.urlopen('http://localhost:${port}/pauseConsumer/pause').read()"
+    let "num+=1"
+  done     
+  let "loop_cnt+=1"
+  let "actual_loop_cnt+=1"
+  
+done  # loop cnt

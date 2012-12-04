@@ -1,0 +1,143 @@
+#!/bin/bash
+
+#initialization
+export TEST_NAME=dds_demo_20110609
+source setup_env.inc
+
+export db_config_file_1=integration-test/config/dds_demo_20110609/sources-bizfollow-1.json
+export db_config_file_2=integration-test/config/dds_demo_20110609/sources-bizfollow-2.json
+export zookeeper_server_ports="localhost:2181,localhost:2182,localhost:2183"
+export consumer_1_log=${WORK_DIR_FROM_ROOT}/consumer_1.events
+export consumer_2_log=${WORK_DIR_FROM_ROOT}/consumer_2.events
+export consumer_2_log=${WORK_DIR_FROM_ROOT}/consumer_3.events
+
+# clean up and reset databases
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+rm -r ../var/log/$TEST_NAME ../var/work/$TEST_NAME
+ant -f ../../databus2-client/util-pkg/build.xml dist
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 remove
+
+# start the zookeeper cluster
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o start --zookeeper_reset --zookeeper_server_ports=${zookeeper_server_ports}  --cmdline_props="tickTime=2000;initLimit=5;syncLimit=2" 
+
+# Start 1 relays
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --conf=integration-test/config/dds_demo_20110609/relay_1.conf --db_config_file=${db_config_file_1} --jvm_direct_memory_size=300M
+export relay1_pid=`jps | grep DatabusRelayMain | awk '{print $1;}'`
+
+
+# Start a bootstrap producer & 1 servers
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --conf=integration-test/config/dds_demo_20110609/bst_producer.conf
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --conf=integration-test/config/dds_demo_20110609/bst_server_1.conf
+export bst_server_1_pid=`jps | grep BootstrapHttpServer | awk '{print $1;}'`
+
+# Start 3 clients with ZK: 1 master and 2 slaves
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --http_port=6201 --bootstrap_port=6161 --jvm_args="-Xms24m -Xmx50m" --conf=integration-test/config/dds_demo_20110609/consumer_1.conf --cmdline_props='databus.client.runtime.bootstrap.enabled=true'
+export consumer_1_pid=`jps | grep SimpleBizfollowConsumer | awk '{print $1;}'`
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_2_log} --http_port=6202 --bootstrap_port=6161 --jvm_args="-Xms24m -Xmx50m" --conf=integration-test/config/dds_demo_20110609/consumer_2.conf --cmdline_props='databus.client.runtime.bootstrap.enabled=true'
+export consumer_2_pid=`jps | grep SimpleBizfollowConsumer | egrep -v ${consumer_1_pid} | awk '{print $1;}'`
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_3_log} --http_port=6203 --bootstrap_port=6161 --jvm_args="-Xms24m -Xmx50m" --conf=integration-test/config/dds_demo_20110609/consumer_3.conf --cmdline_props='databus.client.runtime.bootstrap.enabled=true'
+export consumer_3_pid=`jps | grep SimpleBizfollowConsumer | egrep -v '${consumer_1_pid}|${consumer_2_pid}' | awk '{print $1;}'`
+
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 members
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 leader
+
+# Start 1 more relay
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --conf=integration-test/config/dds_demo_20110609/relay_2.conf --db_config_file=${db_config_file_2} --jvm_direct_memory_size=300M
+export relay2_pid=`jps | grep DatabusRelayMain | egrep -v ${relay2_pid} | awk '{print $1;}'`
+
+# Generate 100 events
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s bizfollow --server_port=9091 --db_config_file=${db_config_file_1} --db_testdata_truncate --from_scn=10
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow --db_testdata_insert --db_config_file=${db_config_file} --num_events=100
+
+# Start relay db polling
+curl 'localhost:9091/controlSources/start?sources=bizfollow&scn=10'
+curl localhost:9091/controlSources/status
+curl 'localhost:9092/controlSources/start?sources=bizfollow&scn=10'
+curl localhost:9092/controlSources/status
+
+# check stats
+# relay
+curl 'localhost:9091/containerStats/inbound/events/total?pretty'
+curl 'localhost:9091/containerStats/outbound/events/total?pretty'
+# bootstrap producer
+curl 'localhost:6061/containerStats/inbound/events/total?pretty'
+mysql -uroot -Dbootstrap -e 'select * from bootstrap_sources;'
+mysql -uroot -Dbootstrap -e 'select * from bootstrap_producer_state;'
+# bootstrap server
+curl 'localhost:6161/containerStats/outbound/events/total?pretty'
+# clients
+curl 'localhost:6201/containerStats/inbound/events/total?pretty'
+curl 'localhost:6201/clientStats/bootstrap/events/total?pretty'
+curl 'localhost:6202/containerStats/inbound/events/total?pretty'
+curl 'localhost:6202/clientStats/bootstrap/events/total?pretty'
+curl 'localhost:6203/containerStats/inbound/events/total?pretty'
+curl 'localhost:6203/clientStats/bootstrap/events/total?pretty'
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 readSCN
+cat ../var/work/${TEST_NAME}/consumer_1.events
+
+# generate more events
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow --db_testdata_insert --db_config_file=${db_config_file_1} --num_events=100
+curl 'localhost:6201/clientStats/bootstrap/events/total?pretty'
+
+# Start to generate continuously events
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow --db_testdata_insert --db_config_file=${db_config_file_1} --insert_interval_delay 10  --num_events=10000000 &
+export dbgen_pid=$!
+
+#relay stats
+curl 'localhost:9091/containerStats/inbound/events/total?pretty'
+curl 'localhost:9091/containerStats/outbound/events/total?pretty'
+
+
+#client stats
+curl 'localhost:6201/containerStats/inbound/events/total?pretty'
+curl 'localhost:6201/clientStats/bootstrap/events/total?pretty'
+
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 readSCN
+tail -f ../var/work/${TEST_NAME}/consumer_1.events
+
+# Kill master client
+kill ${consumer_1_pid}
+
+#client stats
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 members
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 leader
+curl 'localhost:6202/containerStats/inbound/events/total?pretty'
+curl 'localhost:6202/clientStats/bootstrap/events/total?pretty'
+curl 'localhost:6203/containerStats/inbound/events/total?pretty'
+curl 'localhost:6203/clientStats/bootstrap/events/total?pretty'
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 readSCN
+
+
+# Kill the master relay
+kill $relay1_pid
+curl 'localhost:9092/containerStats/inbound/events/total?pretty'
+curl 'localhost:9092/containerStats/outbound/events/total?pretty'
+
+# client stats
+curl 'localhost:6202/containerStats/inbound/events/total?pretty'
+curl 'localhost:6202/clientStats/bootstrap/events/total?pretty'
+curl 'localhost:6203/containerStats/inbound/events/total?pretty'
+curl 'localhost:6203/clientStats/bootstrap/events/total?pretty'
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 readSCN
+
+# stop all clients and reset checkpoint
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+../../dist/databus2-client-util-pkg/bin/run-databus-client-cluster-util.sh -n /Databus-Client-Domain -g default-databus-group -s localhost:2181,localhost:2182,localhost:2183 remove
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --bootstrap_port=6161  --jvm_args="-Xms24m -Xmx50m" --conf=integration-test/config/dds_demo_20110609/consumer_1.conf --cmdline_props='databus.client.runtime.bootstrap.enabled=true'
+export consumer_1_pid=`jps | grep SimpleBizfollowConsumer | awk '{print $1;}'`
+
+
+# Start one more bootstrap server & kill old server 
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --conf=integration-test/config/dds_demo_20110609/bst_server_2.conf
+export bst_server_2_pid=`jps | grep BootstrapHttpServer | grep -v ${bst_server_1_pid} | awk '{print $1;}'`
+kill ${bst_server_1_pid}
+
+
+# stop
+kill ${dbgen_pid}
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o stop

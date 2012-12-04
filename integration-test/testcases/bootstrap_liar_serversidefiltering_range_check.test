@@ -1,0 +1,134 @@
+#!/bin/bash
+#******************************************************
+# The test checks if the SQL level(predicate push down) and application level filtering produce the same results
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=bootstrap_liar_serversidefiltering_range_check.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#The test checks if the results from the consumer with and without and predicate push down are the same.
+#The consumer consumes data from bootstrap producers with and without predicate push down and the results are diffed.
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
+relay_gc_file=${WORK_DIR_FROM_ROOT}/liar_relay_gc.log
+num_consumers=10
+consumers_start=0
+range_size=1000
+
+#start the relay
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m" --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}"
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer, use a given port to avoid conflict with consumer
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.liar.jobrelay.LiarJobRelay,com.linkedin.events.liar.memberrelay.LiarMemberRelay;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=102400;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=102400;databus.bootstrap.client.container.httpPort=${bootstrap_producer_port};databus.bootstrap.client.runtime.relay(1).port=${relay_port};databus.bootstrap.client.connectionDefaults.pullerRetries.initSleep=10;databus.bootstrap.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# generate events
+# may need to break it to 80%, 40% if producer cannot catch up
+$SCRIPT_DIR/dbus2_gen_event.py -s 20,21 -e 500 --percent_buff=80 --keyMin=0 --keyMax=9999 --wait_until_suspend --server_port=${relay_port}
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40 --relay_port=${relay_port}
+
+#Generate more events and start the bootstrap server
+$SCRIPT_DIR/dbus2_gen_event.py -s 20,21 -e 500 --resume_gen --percent_buff=40 --keyMin=0 --keyMax=9999 --wait_until_suspend --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --cmdline_props="databus.bootstrap.predicatePushDown=true;databus.bootstrap.db.container.httpPort=${bootstrap_server_port}"
+
+# wait for producer to catch up
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o producer_wait_event --timeout=40 --relay_port=${relay_port}
+
+# start the consumers
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    cp_dir=${WORK_DIR_FROM_ROOT}/ckpt_${i}
+    consumer_events=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}_withpredicate.events
+    consumer_log=liar_consumer_${i}.log
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+    let partitionList="$i"
+
+    $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --relay_port=${relay_port} --http_port=${client_port} --dump_file=${consumer_events} --logfile=${consumer_log} --bootstrap_port=${bootstrap_server_port} --cmdline_props="serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).type=RANGE;serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).range.size=${range_size};serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).range.partitions=[${partitionList}];serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).type=RANGE;serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).range.size=${range_size};serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).range.partitions=[${partitionList}];databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true" 
+   
+done
+
+#check the consumers for bootstrap complete event
+stat_txt="Bootstrap complete event (snap shot)"
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+    consumer_log=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}.log
+    $SCRIPT_DIR/dbus2_driver.py -c logs_check -o wait_for_occurence --log_file=${consumer_log} --log_msg="Bootstrap got completed" --timeout=4000
+    source report_pass_fail.inc
+done 
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*liar_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop the consumer and the bootstrap server
+stat_txt="Stoping the consumer and the bootstrap server"
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+source report_pass_fail.inc
+
+# start the server without predicate pushdown 
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --cmdline_props="databus.bootstrap.predicatePushDown=false;databus.bootstrap.db.container.httpPort=${bootstrap_server_port}"
+
+# start the consumers
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    cp_dir=${WORK_DIR_FROM_ROOT}/ckpt_${i}
+    consumer_events=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}_withoutpredicate.events
+    consumer_log=liar_consumer_${i}.log
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+    let partitionList="$i"
+
+    $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --relay_port=${relay_port} --http_port=${client_port} --dump_file=${consumer_events} --logfile=${consumer_log} --bootstrap_port=${bootstrap_server_port} --cmdline_props="serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).type=RANGE;serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).range.size=${range_size};serversidefilter.filter(com.linkedin.events.liar.memberrelay.LiarMemberRelay).range.partitions=[${partitionList}];serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).type=RANGE;serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).range.size=${range_size};serversidefilter.filter(com.linkedin.events.liar.jobrelay.LiarJobRelay).range.partitions=[${partitionList}];databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true" 
+   
+done
+
+#check the consumers for bootstrap complete event
+stat_txt="Bootstrap complete event (snap shot)"
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    let client_port="${CLIENT_PORT_BASE} + ${i}"
+    consumer_log=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}.log
+    $SCRIPT_DIR/dbus2_driver.py -c logs_check -o wait_for_occurence --log_file=${consumer_log} --log_msg="Bootstrap got completed" --timeout=4000
+    source report_pass_fail.inc
+done 
+
+#stop the producer and the relay
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o stop
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*liar_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+#compare result
+echo ==Compare JSON between withPredicatePushDown withoutPredicatePushDown
+stat_txt="Test $0"
+
+for (( i=$consumers_start; i<$num_consumers+$consumers_start; i++ ))
+do
+    consumer_log_predicatePushDown=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}_withpredicate.events
+    consumer_log_withoutPredicatePushDown=${WORK_DIR_FROM_ROOT}/liar_consumer_${i}_withoutpredicate.events
+    $SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s  ${consumer_log_predicatePushDown} ${consumer_log_withoutPredicatePushDown}
+    source report_pass_fail.inc
+done
+
+final_report=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+exit $all_stat

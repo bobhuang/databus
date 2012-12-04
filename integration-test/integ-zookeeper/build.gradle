@@ -1,0 +1,7 @@
+apply plugin: 'li-java'
+apply plugin: 'li-cmdline'
+
+dependencies {
+  runtime spec.external.zookeeper
+  runtime spec.external.log4j
+}

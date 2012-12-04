@@ -1,0 +1,15 @@
+{
+    "name" : "EspressoDB4",
+    "id"  : 1,
+    "uri" : "esv4-app76.stg_12101",
+        "slowSourceQueryThreshold" : 2000,
+        "sources" :
+        [
+                {"id" : 24,
+                 "name" : "EspressoDB4.IdNamePair",
+                 "uri": "EspressoDB4.IdNamePair",
+                 "partitionFunction" : "constant:1",
+                 "partition" : 1
+                }
+        ]
+}

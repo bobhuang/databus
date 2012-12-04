@@ -1,0 +1,89 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+# test a relay with multiple client can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-2.properties
+#  -. add one client
+#  -. start generation
+#  -. compare after generation stop
+#  -. add another client
+#  -. resume generation
+#  -. compare after generation stop
+#  start client before the gen_event
+#******************************************************
+export TEST_NAME=relay_small_buffer_5.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+let client_port_2="${CLIENT_PORT_BASE}+1"
+relay_event_trace=${WORK_DIR_FROM_ROOT}/profile_relay_event_trace
+consumer_1_log=${WORK_DIR_FROM_ROOT}/profile_consumer_1.events
+consumer_2_log=${WORK_DIR_FROM_ROOT}/profile_consumer_2.events
+
+
+source setup_env.inc
+relay_event_trace=$WORK_DIR_FROM_ROOT/profile_relay_event_trace
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}"
+
+#
+# start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --http_port=${client_port} --relay_port=${relay_port} --dump_file=${consumer_1_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=./profileclient1-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 250 -t 500 --wait_until_suspend --server_port=${relay_port}
+
+#sleep 2 more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o wait_event --sleep_before_wait=1 --http_port=${client_port} --relay_port=${relay_port}
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*profile_{relay,consumer}_start* | ${TAIL_PATH} -n 2| xargs grep ERROR
+
+#compare result
+stat_txt="Test $0, step 1"
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_trace} ${consumer_1_log}
+source report_pass_fail.inc
+
+# start another consumer
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --http_port=${client_port_2} --relay_port=${relay_port} --dump_file=${consumer_2_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=./profileclient2-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# generate again events
+$SCRIPT_DIR/dbus2_gen_event.py --suspend_gen --server_port=${relay_port}
+$SCRIPT_DIR/dbus2_gen_event.py --resume_gen --wait_until_suspend --server_port=${relay_port}
+
+# sleep 1 more intelligent wait
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o wait_event --sleep_before_wait=1 --timeout=30 --http_port=${client_port_2} --relay_port=${relay_port}
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/profile_{relay,consumer}_start* | ${TAIL_PATH} -n 3 | xargs grep ERROR
+
+#compare result
+stat_txt="Test $0, step 21"
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_trace} ${consumer_1_log}
+source report_pass_fail.inc
+
+stat_txt="Test $0, step 22"
+$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_trace} ${consumer_2_log}
+source report_pass_fail.inc
+
+# stop
+stat_txt="Stop Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o stop
+source report_pass_fail.inc
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o stop
+
+final_report=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+
+exit $all_stat

@@ -1,0 +1,42 @@
+# 
+# Start all the containers and make sure we have some events
+# need to clean up dist before the test
+
+source setup_env.inc
+db_config_file=config/sources-bizfollow.json 
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+# grant to all host at the localhost expand as -h does not work
+mysql -vvv -u root -Dbootstrap -e "grant all on bootstrap.* to bootstrap@'%' identified by 'bootstrap'; flush privileges;"
+
+consumer_port=7062
+# do not change this as the producer depends on it
+bizfollow_relay_port=9090
+# start the containers
+$SCRIPT_DIR/dbus2_driver.py -c relay_container -o start
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_producer_container -o start
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server_container -o start
+
+# deploy the wars
+$SCRIPT_DIR/dbus2_driver.py -c relay_deploy -o start -x "databus2.relay.default;databus.relay.eventBuffer.maxSize;2048000" -x "databus2.relay.local.bizfollow;databus.relay.container.httpPort;${bizfollow_relay_port}"
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_producer_deploy -o start
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server_deploy -o start
+#
+# truncate, start db gen
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s bizfollow  --db_config_file=${db_config_file} --db_testdata_truncate --from_scn=1 --server_port=${bizfollow_relay_port}
+# insert events
+$SCRIPT_DIR/dbus2_gen_event.py -s bizfollow --db_testdata_insert --db_config_file=${db_config_file} --num_events=100
+sleep 1
+
+$SCRIPT_DIR/dbus2_driver.py -c client_container -o start
+$SCRIPT_DIR/dbus2_driver.py -c test_consumer_deploy -o start -x "databus2.test.consumer.default;databus.test.consumer.client.container.httpPort;${consumer_port}" -x "databus2.test.consumer.default;databus.test.consumer.client.runtime.relay(1).port;${bizfollow_relay_port}"
+
+sleep 5
+# may not get start here
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event_bootstrap --relay_port=9090 --http_port=${consumer_port} --timeout=60
+
+exit 0
+echo Number of failures = $all_stat
+exit $all_stat
+

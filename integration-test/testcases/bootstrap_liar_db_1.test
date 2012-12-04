@@ -1,0 +1,74 @@
+#!/bin/bash
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+# simple bootstrap test, generate random event, put that in bootstrap
+export TEST_NAME=bootstrap_liar_db_1.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
+consumer_1_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
+consumer_1_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
+db_config_file=config/sources-liar.json
+
+
+# 10M buffer , event dump file 
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --cmdline_props="databus.relay.eventBuffer.maxSize=102400;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" --jvm_direct_memory_size=10M
+
+# reset the db and delete the checkpoints
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
+
+# start the producer, use a given port to avoid conflict with consumer
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start --cmdline_props="databus.bootstrap.client.runtime.relay(1).sources=com.linkedin.events.liar.jobrelay.LiarJobRelay,com.linkedin.events.liar.memberrelay.LiarMemberRelay;databus.bootstrap.client.container.httpPort=9067;databus.bootstrap.client.checkpointPersistence.fileSystem.rootDirectory=./bootstrap-checkpoints;databus.bootstrap.client.checkpointPersistence.clearBeforeUse=true;databus.bootstrap.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.bootstrap.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.bootstrap.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.bootstrap.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.bootstrap.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.bootstrap.client.container.httpPort=${bootstrap_producer_port};databus.bootstrap.client.runtime.relay(1).port=${relay_port};databus.bootstrap.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# truncate
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s liar  --db_config_file=${db_config_file} --db_testdata_truncate --from_scn=2 --server_port=${relay_port}
+
+# If ramp this up, can increase the event buffer size
+$SCRIPT_DIR/dbus2_gen_event.py -s liar --db_testdata_insert --db_config_file=${db_config_file} --num_events=50 --server_port=${relay_port}
+
+# start the bootstrap server
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --cmdline_props="databus.bootstrap.db.container.httpPort=${bootstrap_server_port}"
+
+# start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --dump_file=${consumer_1_log}  --value_file=${consumer_1_value_log} --http_port=${client_port} --relay_port=${relay_port} --bootstrap_port=${bootstrap_server_port}  --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.checkpointPersistence.fileSystem.rootDirectory=./liarclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event_bootstrap --timeout=60 --http_port=${client_port} --relay_port=${relay_port}
+
+# look at the log, there should be some SCN not found errors
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+ls -1tr $LOG_DIR/*consumer_start* | ${TAIL_PATH} -n 1 | xargs grep "Bootstrap completed"
+
+stat_txt="Test $0 Step 1"
+echo ==$stat_txt :Compare JSON
+$SCRIPT_DIR/dbus2_json_compare.py -s -c ${relay_event_dump_file} ${consumer_1_log} --fk_src_order=20,21
+source report_pass_fail.inc
+
+#compare result
+stat_txt="Test $0 Step 2"
+$SCRIPT_DIR/dbus2_json_compare.py -s -c --sort_key --db_src_ids=20,21 --db_config_file=${db_config_file} ${consumer_1_value_log}
+source report_pass_fail.inc
+
+# stop
+stat_txt="Stop Consumer"
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+source report_pass_fail.inc
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o stop
+$SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o stop
+
+final_result=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+exit $all_stat

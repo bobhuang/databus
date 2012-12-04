@@ -1,0 +1,22 @@
+#!/bin/bash
+# test a relay with multiple client can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-1.properties
+#  -. gen event, monitoring the buffer stats, freespace etc
+#  start client before the gen_event
+
+# start the relay on port 8080
+source setup_env.inc
+NUM_CONSUMERS=20
+num=1
+while [ "$num" -le $NUM_CONSUMERS ]
+do
+#  consumer_event_log=${WORK_DIR_FROM_ROOT}/profile_consumer_${num}.events
+#  $SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --dump_file=${consumer_event_log}
+#  $SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --relay_host=sdas-md
+  #$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --relay_host=esv4-be38 
+  $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=perftest9.qa
+  #$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --relay_host=172.16.20.230
+  let "num+=1"
+done     
+
+
