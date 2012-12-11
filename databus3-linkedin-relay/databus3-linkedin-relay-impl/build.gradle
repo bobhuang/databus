@@ -16,3 +16,6 @@ dependencies {
   compile externalDependency.netty
   compile externalDependency.avro
 }
+
+configurations.testCompile.exclude(group: "com.oracle", module: "ojdbc14")
+
