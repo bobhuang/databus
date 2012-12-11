@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':databus-core:databus2-espresso-core')
+  compile project(':databus3-core:databus2-espresso-core')
   compile project(':databus3-client:databus3-client-impl')
 
   compile externalDependency.avro

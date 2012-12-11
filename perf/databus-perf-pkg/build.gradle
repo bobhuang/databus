@@ -3,7 +3,11 @@ dependencies {
   compile project(':perf:databus-perf-core')
 }
 
-project.tasks.cmdline {
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
+
 
   into("conf") { from "conf/" }
 
@@ -13,3 +17,6 @@ project.tasks.cmdline {
   }
 
 }
+
+myTar.dependsOn ':perf:databus-perf-core:assemble'
+assemble.dependsOn myTar

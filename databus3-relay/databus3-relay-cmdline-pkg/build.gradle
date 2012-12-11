@@ -2,10 +2,13 @@
 dependencies {
   compile project(':databus2-relay:databus2-relay-impl')
   compile project(':databus3-relay:databus3-relay-espresso-impl')
-  compile project(':databus2-tools:databus2-tools-event-tool-impl')
 }
 
-project.tasks.cmdline {
+
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   into("conf") { from "config/" }
 
@@ -31,3 +34,9 @@ project.tasks.cmdline {
   }
 
 }
+
+myTar.dependsOn ':databus2-relay:databus2-relay-impl:assemble'
+myTar.dependsOn ':databus3-relay:databus3-relay-espresso-impl:assemble'
+assemble.dependsOn myTar
+
+

@@ -1,5 +1,8 @@
 
-project.tasks.cmdline {
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   from("script") {
     into ("bin")
@@ -7,3 +10,5 @@ project.tasks.cmdline {
   }
 
 }
+
+assemble.dependsOn myTar
