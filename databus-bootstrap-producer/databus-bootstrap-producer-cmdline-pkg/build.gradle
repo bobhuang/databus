@@ -1,3 +1,5 @@
+apply plugin: 'java'
+
 dependencies {
     compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
     compile project(':databus-bootstrap-server:databus-bootstrap-server-impl')
