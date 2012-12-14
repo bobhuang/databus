@@ -18,9 +18,11 @@ task myTar(type: Tar) {
     fileMode = 0755
   }
 
-  into("bin") {
-    from("${project.rootDir}/database")
-    include('**/*')
+  into("lib") {
+    from project.configurations.runtime
+    if (project.tasks.findByName("jar")) {
+      from project.tasks.jar
+    }
   }
 
   into("bin") {
@@ -39,6 +41,18 @@ task myTar(type: Tar) {
 myTar.dependsOn ':databus2-relay:databus2-relay-impl:assemble'
 myTar.dependsOn ':databus3-relay:databus3-relay-espresso-impl:assemble'
 assemble.dependsOn myTar
+
+
+// build project.classpath file with all the resovled artifacts
+task printClasspath() {
+  println "builddir=${project.buildDir} ; name= ${project.name}"
+  File classpathFile = project.file("${project.buildDir}/${project.name}.classpath")
+  def configuration = project.configurations.getByName("default")
+  def runtimePath = configuration.resolve().join(":")
+  //classpathFile.write(runtimePath + ":" + configuration.allArtifacts.files.getAsPath())
+}
+assemble.dependsOn printClasspath
+
 
 configurations.testCompile.exclude(group: "com.oracle", module: "ojdbc14")
 

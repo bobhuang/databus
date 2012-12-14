@@ -40,4 +40,4 @@ project.afterEvaluate {
     }
 }
 
-configurations.testCompile.exclude(group: "com.oracle", module: "ojdbc14")
+configurations.compile.exclude(group: "com.oracle", module: "ojdbc14")
