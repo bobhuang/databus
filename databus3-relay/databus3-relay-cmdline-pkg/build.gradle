@@ -5,7 +5,6 @@ dependencies {
   compile project(':databus3-relay:databus3-relay-espresso-impl')
 }
 
-
 task myTar(type: Tar) {
   extension = 'tar.gz'
   baseName = project.name
@@ -42,19 +41,4 @@ myTar.dependsOn ':databus2-relay:databus2-relay-impl:assemble'
 myTar.dependsOn ':databus3-relay:databus3-relay-espresso-impl:assemble'
 assemble.dependsOn myTar
 
-
-// build project.classpath file with all the resovled artifacts
-task printClasspath() {
-  println "builddir=${project.buildDir} ; name= ${project.name}"
-  File classpathFile = project.file("${project.buildDir}/${project.name}.classpath")
-  def configuration = project.configurations.getByName("default")
-  def runtimePath = configuration.resolve().join(":")
-  //classpathFile.write(runtimePath + ":" + configuration.allArtifacts.files.getAsPath())
-}
-assemble.dependsOn printClasspath
-
-
 configurations.testCompile.exclude(group: "com.oracle", module: "ojdbc14")
-
-
-
