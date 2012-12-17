@@ -43,3 +43,4 @@ project.afterEvaluate {
   project.tasks.test.systemProperties['databus.integ.cp'] = cp
 }
 
+test.useTestNG()

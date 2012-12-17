@@ -1,8 +1,6 @@
 package com.linkedin.databus.test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -23,6 +21,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
+import org.testng.Assert;
 
 import com.linkedin.databus.bootstrap.monitoring.server.mbean.DbusBootstrapHttpStatsMBean;
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
@@ -336,7 +335,7 @@ public class DatabusBaseIntegTest {
 		}
 
 		if (null != ignoredList) {
-			assertFalse("ignoredList is empty", 0 == ignoredList.size());
+			Assert.assertFalse(0 == ignoredList.size(), "ignoredList is empty");
 			arguments.add("-i");
 			arguments.addAll(ignoredList);
 		}
@@ -358,7 +357,7 @@ public class DatabusBaseIntegTest {
 
 		if (0 != exitValue) {
 			String errString = new String(cmd.getError());
-			fail(errString);
+			Assert.fail(errString);
 		}
 	}
 
@@ -395,7 +394,7 @@ public class DatabusBaseIntegTest {
   			  in.close();
               LOG.error("failed test (" + testName + ")output end: ###################");
 			}
-			assertTrue(errString, false);
+			Assert.assertTrue(false, errString);
 		}
 		else
 		{
@@ -418,7 +417,7 @@ public class DatabusBaseIntegTest {
 				} else if (timeout <= sleptTime) { // throw an error since
 													// expected number of events
 													// are not received
-					fail("Timed out after waiting for " + sleptTime
+					Assert.fail("Timed out after waiting for " + sleptTime
 							+ " seconds. Value expected (" + totalWork
 							+ "), Value current ("
 							+ outStats.getNumDataEvents() + ").");
@@ -454,7 +453,7 @@ public class DatabusBaseIntegTest {
 				} else if (timeout < sleptTime) { // throw an error since
 													// expected number of events
 													// are not received
-					fail("Timed out after waiting for " + sleptTime
+					Assert.fail("Timed out after waiting for " + sleptTime
 							+ " seconds. Value expected (" + totalWork
 							+ "), Value current (" + inStats.getNumDataEvents()
 							+ ").");
@@ -495,7 +494,7 @@ public class DatabusBaseIntegTest {
 				} else if (timeout < sleptTime) { // throw an error since
 													// expected number of events
 													// are not received
-					fail("Timed out after waiting for " + sleptTime
+					Assert.fail("Timed out after waiting for " + sleptTime
 							+ " seconds. Value expected (" + expectedStatus
 							+ "), Value current (" + adminMBean.getStatus()
 							+ ").");
@@ -525,7 +524,7 @@ public class DatabusBaseIntegTest {
 				} else if (timeout < sleptTime) { // throw an error since
 													// expected number of events
 													// are not received
-					fail("Timed out after waiting for " + sleptTime
+					Assert.fail("Timed out after waiting for " + sleptTime
 							+ " seconds. Target scn (" + targetScn
 							+ "), Current scn ("
 							+ consumer.getMaxRelayWindowScn() + ").");
@@ -557,7 +556,7 @@ public class DatabusBaseIntegTest {
 				} else if (timeout < sleptTime) { // throw an error since
 													// expected number of events
 													// are not received
-					fail("Timed out after waiting for " + sleptTime
+					Assert.fail("Timed out after waiting for " + sleptTime
 							+ " seconds. Target scn (" + targetScn
 							+ "), Current scn ("
 							+ consumer.getMaxBootstrapWindowScn() + ").");
@@ -653,7 +652,7 @@ public class DatabusBaseIntegTest {
 			throws InterruptedException {
 		if (cmd.exitValue() != 0) {
 			LOG.error(cmd.getStringOutput());
-			fail(cmdName + " failed");
+			Assert.fail(cmdName + " failed");
 		}
 	}
 
