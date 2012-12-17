@@ -1,15 +1,17 @@
 package com.linkedin.databus.test.relay;
 
-import static org.junit.Assert.assertTrue;
+
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 import javax.management.MalformedObjectNameException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
+
 
 import com.linkedin.databus.core.monitoring.mbean.DbusEventsTotalStatsMBean;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
@@ -29,7 +31,7 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
   private String _testName;
 
   @Override
-@Before
+@BeforeTest
   public void setUp() throws Exception
   {
     _testName = "testDbRelayJmxStats";
@@ -41,7 +43,7 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
   }
 
   @Override
-@After
+@AfterTest
   public void tearDown() throws Exception
   {
     closeJMXAgentHelper(_relayJMXHelper);
@@ -63,11 +65,11 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
     // wait for relay jmx stats to be populated
     waitForInputDone(_relayInStatsMBean, initialTotalDataEvents + 1, 5000);
     long totalDataEvents = _relayInStatsMBean.getNumDataEvents();
-    assertTrue("relay inbound total data events not populated!",
-               totalDataEvents > initialTotalDataEvents);
+    Assert.assertTrue(totalDataEvents > initialTotalDataEvents,
+               "relay inbound total data events not populated!");
     long maxWindowScn = _relayInStatsMBean.getMaxSeenWinScn();
-    assertTrue("relay inbound max. window scn not populated!",
-               maxWindowScn > initialMaxWindowScn);
+    Assert.assertTrue(maxWindowScn > initialMaxWindowScn,
+               "relay inbound max. window scn not populated!");
   }
 
   private void dbWorkloadGen() throws IOException, InterruptedException, TimeoutException
