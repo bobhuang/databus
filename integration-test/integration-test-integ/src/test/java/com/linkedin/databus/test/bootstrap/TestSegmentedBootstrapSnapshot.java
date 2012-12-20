@@ -1,14 +1,16 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertEquals;
-
 import java.io.File;
 import java.util.ArrayList;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.junit.Before;
-import org.junit.Test;
+
+import org.testng.Assert;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
+
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
@@ -31,7 +33,7 @@ public class TestSegmentedBootstrapSnapshot extends DatabusBaseIntegTest
   private ArrayList<Integer> _srcIdList;
 
   @Override
-  @Before
+  @BeforeTest
   public void setUp() throws Exception
   {
 
@@ -58,7 +60,7 @@ public class TestSegmentedBootstrapSnapshot extends DatabusBaseIntegTest
     LOG.info("wait for events to be put into relay: " + totalWorkload);
     waitForInputDone(_relayInStatsMBean, totalWorkload, TOTAL_GENERATION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", totalWorkload, numEventsPopulated);
+    Assert.assertEquals(totalWorkload, numEventsPopulated, "Unexpected number of events populated in relay");
 
     // start bootstrap producer to initialize bootstrap db
     // noted that the producer can NOT be started before workload is generated on relay

@@ -58,11 +58,11 @@ public class DatabusBaseIntegTest {
 	public static final String SMALL_BUFFER_RELAY_PROPERTY_NAME = "integration-test/config/small_integ_relay.properties";
 
 	public static final String BOOTSTRAP_PROPERTY_OPTION_STR = "-p";
-	public static final String BOOTSTRAP_PROPERTY_NAME = "config/bootstrap-server-config.properties";
+	public static final String BOOTSTRAP_PROPERTY_NAME = "integration-test/config/bootstrap-server-config.properties";
 	public static final String SMALL_FETCHSIZE_BOOTSTRAP_PROPERTY_NAME = "integration-test/config/small-fetchsize-bootstrap-service-config.properties";
 
 	public static final String BOOTSTRAP_PRODUCER_OPTION_STR = "-p";
-	public static final String BOOTSTRAP_PRODUCER_PROPERTY_NAME = "config/bootstrap-producer-config.properties";
+	public static final String BOOTSTRAP_PRODUCER_PROPERTY_NAME = "integration-test/config/bootstrap-producer-config.properties";
 	public static final String SMALL_LOG_BOOTSTAP_PRODUCER_PROPERTY_NAME = "integration-test/config/small-log-producer-config.properties";
 
 	public static final String WORKLOAD_GEN_SCRIPT = "dbus2_gen_event.py";

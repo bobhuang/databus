@@ -1,14 +1,14 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
+import static org.testng.Assert.fail;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 import com.linkedin.databus.test.ExternalCommand;
@@ -17,7 +17,7 @@ import com.linkedin.databus.test.ExternalCommand;
 public class TestServicesStartStop extends DatabusBaseIntegTest
 {
   @Override
-@Before
+@BeforeTest
   public void setUp() throws Exception
   {
 	setTestName("TestServicesStartStop");
@@ -27,7 +27,7 @@ public class TestServicesStartStop extends DatabusBaseIntegTest
   }
 
   @Override
-@After
+@AfterTest
   public void tearDown() throws Exception
   {
 	    LOG.info("Test Complete" + getTestName());
@@ -64,7 +64,7 @@ public class TestServicesStartStop extends DatabusBaseIntegTest
                                              RELAY_PROPERTY_OPTION_STR,
                                              RELAY_PROPERTY_NAME);
  //   System.out.println(cmd.getStringOutput());
-    assertFalse(RELAY_SERVICE_COMPONENT + " started twice.", (0 == cmd.exitValue()));
+    Assert.assertFalse((0 == cmd.exitValue()), RELAY_SERVICE_COMPONENT + " started twice.");
 
     // STOP
     cmd = ExternalCommand.executeWithTimeout(_scriptDir,
@@ -112,7 +112,7 @@ public class TestServicesStartStop extends DatabusBaseIntegTest
                                              SERVICE_OPERATION_START,
                                              RELAY_PROPERTY_OPTION_STR,
                                              RELAY_PROPERTY_NAME);
-    assertFalse(BOOTSTRAP_SERVICE_COMPONENT + " started twice.", (0 == cmd.exitValue()));
+    Assert.assertFalse((0 == cmd.exitValue()), BOOTSTRAP_SERVICE_COMPONENT + " started twice.");
 
     // STOP
     cmd = ExternalCommand.executeWithTimeout(_scriptDir,

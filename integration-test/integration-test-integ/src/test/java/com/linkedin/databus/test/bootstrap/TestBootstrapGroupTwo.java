@@ -3,9 +3,9 @@ package com.linkedin.databus.test.bootstrap;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
@@ -14,7 +14,7 @@ public class TestBootstrapGroupTwo extends DatabusBaseIntegTest
   public static final String MODULE = TestBootstrapGroupTwo.class.getName();
 
   @Override
-  @Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
     // skip the super Setup. Just load the view root
@@ -26,7 +26,7 @@ public class TestBootstrapGroupTwo extends DatabusBaseIntegTest
   }
 
   @Override
-  @After
+  @AfterTest
   public void tearDown() throws Exception
   {
     // skip the super Setup. Just load the view root

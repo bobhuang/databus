@@ -5,6 +5,7 @@ test {
     enabled = false
     logger.lifecycle("Skip tests in $project.name ...............")
   }
+  useTestNG()
   systemProperties['databus.basedir.path'] = "./"
   workingDir = new File("${project.rootDir}")
 }
@@ -26,7 +27,7 @@ dependencies {
   compile project(':databus-profile-client:databus-profile-client-impl')
   compile project(':databus-client:databus-client-common')
 
-  compile externalDependency.junit
+  compile externalDependency.testng
   compile externalDependency.log4j
   compile externalDependency.netty
 }
@@ -42,5 +43,3 @@ project.afterEvaluate {
   //print cp
   project.tasks.test.systemProperties['databus.integ.cp'] = cp
 }
-
-test.useTestNG()

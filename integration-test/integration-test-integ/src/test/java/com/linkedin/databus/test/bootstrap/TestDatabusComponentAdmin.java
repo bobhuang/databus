@@ -1,11 +1,9 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.core.DatabusComponentStatus;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
@@ -14,18 +12,18 @@ import com.linkedin.databus2.core.container.monitoring.mbean.DatabusComponentAdm
 public class TestDatabusComponentAdmin extends DatabusBaseIntegTest
 {
   @Override
-  @Before
+  @BeforeTest
   public void setUp() throws Exception
   {
     super.setUp();
     operateBootstrapProducer(SERVICE_OPERATION_START);
     setTestName("TestDatabusComponentAdmin");
     LOG.info("setup complete" + getTestName());
-    
+
   }
 
   @Override
-  @After
+  @AfterTest
   public void tearDown() throws Exception
   {
     operateBootstrapProducer(SERVICE_OPERATION_STOP);
@@ -55,14 +53,14 @@ public class TestDatabusComponentAdmin extends DatabusBaseIntegTest
                                long containerId,
                                int httpPort)
   {
-    assertEquals("Component Name doesn't match!", componentName, adminMBean.getComponentName());
-    assertEquals("Container Id doesn't match!", containerId, adminMBean.getContainerId());
-    assertEquals("Http Port doesn't match!", httpPort, adminMBean.getHttpPort());
+    Assert.assertEquals(componentName, adminMBean.getComponentName(), "Component Name doesn't match!");
+    Assert.assertEquals(containerId, adminMBean.getContainerId(), "Container Id doesn't match!");
+    Assert.assertEquals(httpPort, adminMBean.getHttpPort(), "Http Port doesn't match!");
     DatabusComponentStatus status =
         new DatabusComponentStatus("test",
                                    DatabusComponentStatus.Status.valueOf(adminMBean.getStatus()),
                                    adminMBean.getStatusMessage());
-    assertTrue("Status is not in 'running' status!", status.isRunningStatus());
+    Assert.assertTrue(status.isRunningStatus(), "Status is not in 'running' status!");
 
   }
 }
