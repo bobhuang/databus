@@ -1,11 +1,12 @@
 package com.linkedin.databus.test.bootstrap;
 
+import static org.junit.Assert.assertEquals;
+
 import java.util.ArrayList;
 
-import org.testng.Assert;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
@@ -22,11 +23,11 @@ public class TestOneSourceBootstrapConcurrentRelayTraffic extends DatabusBaseInt
   private ArrayList<Integer> _srcIdList;
 
   @Override
-  @BeforeTest
+  @Before
   public void setUp() throws Exception
   {
-
-    setTestName("BootstrapSwitchConcurrentRelayTraffic");
+	  
+    setTestName("BootstrapSwitchConcurrentRelayTraffic");  
     super.setUp();
 
     // source1 maps to id 1 - it's hard-coded for now
@@ -38,7 +39,7 @@ public class TestOneSourceBootstrapConcurrentRelayTraffic extends DatabusBaseInt
   }
 
   @Override
-  @AfterTest
+  @After
   public void tearDown() throws Exception
   {
     super.tearDown();
@@ -52,12 +53,12 @@ public class TestOneSourceBootstrapConcurrentRelayTraffic extends DatabusBaseInt
     long initalBootstrapWorkload = EVENT_PER_SECOND * INITIAL_BOOTSTRAP_CONSUMPTION_DURATION / 1000;
     long totalWorkload = EVENT_PER_SECOND * INITIAL_GENERATION_DURATION / 1000;
     generateNumEvents(initalBootstrapWorkload, INITIAL_START_SCN, EVENT_PER_SECOND, _srcIdList);
-
+   
     // wait for the initial bootstrap workload (1/10 of the total workload) to be put into relay so we can start bootstrap
     waitForInputDone(_relayInStatsMBean, initalBootstrapWorkload, INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    Assert.assertEquals(initalBootstrapWorkload, numEventsPopulated, "Unexpected number of events populated in relay");
-
+    assertEquals("Unexpected number of events populated in relay", initalBootstrapWorkload, numEventsPopulated);
+    
     // start bootstrap producer to initialize bootstrap db
     // noted that the producer can NOT be started before workload is generated on relay
     // it is a bug that will be fixed later
@@ -68,24 +69,24 @@ public class TestOneSourceBootstrapConcurrentRelayTraffic extends DatabusBaseInt
     waitForInputDone(_bootstrapProducerInStatsMBean, initalBootstrapWorkload, INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     long bootstrapEndScn = _bootstrapProducerInStatsMBean.getMaxSeenWinScn();
     resumeWorkloadGen(totalWorkload);
-
+    
     _consumer = new IntegratedDummyDatabusConsumer(_databusBaseDir + CLIENT_RESULT_DIR + getTestName() + CONSUMER_EVENT_FILE_NAME);
-
+    
     _consumer.initConn(_srcList);
     _consumer.start();
 
-    // bootstrapEndScn shall be no less
-    waitForConsumerBootstrapScn(bootstrapEndScn, _consumer, INITIAL_GENERATION_DURATION * 5);
-
+    // bootstrapEndScn shall be no less 
+    waitForConsumerBootstrapScn(bootstrapEndScn, _consumer, INITIAL_GENERATION_DURATION * 5); 
+    
     // wait for workload generation to finish so we can get the max windown scn
     long expectedNumEvents = totalWorkload + initalBootstrapWorkload;
     waitForInputDone(_relayInStatsMBean, expectedNumEvents, INITIAL_GENERATION_DURATION * 5);
     numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    Assert.assertEquals( expectedNumEvents, numEventsPopulated, "Unexpected number of events populated in relay");
+    assertEquals("Unexpected number of events populated in relay", expectedNumEvents, numEventsPopulated);
 
     long relayMaxScn = _relayInStatsMBean.getMaxSeenWinScn();
     waitForConsumerRelayScn(relayMaxScn, _consumer, INITIAL_GENERATION_DURATION * 5);
-
+    
     // compare the final result (ignore scn field because the are useless in bootstrap case)
     ArrayList<String> ignoredFields = new ArrayList<String>();
     ignoredFields.add("scn");

@@ -3,9 +3,9 @@ package com.linkedin.databus.test.relay;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
@@ -13,7 +13,7 @@ public class TestRelayIntegrationOne extends DatabusBaseIntegTest
 {
 
   @Override
-  @BeforeTest
+  @Before
   public void setUp() throws Exception
   {
     // skip the super Setup. Just load the view root
@@ -25,7 +25,7 @@ public class TestRelayIntegrationOne extends DatabusBaseIntegTest
   }
 
   @Override
-  @AfterTest
+  @After
   public void tearDown() throws Exception
   {
     // skip the super Setup. Just load the view root

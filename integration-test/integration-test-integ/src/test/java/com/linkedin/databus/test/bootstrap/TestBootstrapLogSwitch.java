@@ -1,13 +1,14 @@
 package com.linkedin.databus.test.bootstrap;
 
+import static org.junit.Assert.assertEquals;
+
 import java.util.ArrayList;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.testng.Assert;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
@@ -28,7 +29,7 @@ public class TestBootstrapLogSwitch extends DatabusBaseIntegTest
   }
 
   @Override
-  @BeforeTest
+  @Before
   public void setUp() throws Exception
   {
     setBootstrapServiceConfigFile(SMALL_FETCHSIZE_BOOTSTRAP_PROPERTY_NAME);
@@ -46,7 +47,7 @@ public class TestBootstrapLogSwitch extends DatabusBaseIntegTest
   }
 
   @Override
-  @AfterTest
+  @After
   public void tearDown() throws Exception
   {
     super.tearDown();
@@ -65,7 +66,7 @@ public class TestBootstrapLogSwitch extends DatabusBaseIntegTest
     // wait for the initial bootstrap workload to be put into relay so we can start bootstrap
     waitForInputDone(_relayInStatsMBean, numEventsExpected, GENERATION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
+    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
 
     // start bootstrap producer to initialize bootstrap db
     // noted that the producer can NOT be started before workload is generated on relay
@@ -82,7 +83,7 @@ public class TestBootstrapLogSwitch extends DatabusBaseIntegTest
 
     numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
     long bootstrapEndScn = _bootstrapProducerInStatsMBean.getMaxSeenWinScn();
-    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in bootstrap server");
+    assertEquals("Unexpected number of events populated in bootstrap server", numEventsExpected, numEventsPopulated);
 
     _consumer.initConn(_srcList);
     _consumer.start();

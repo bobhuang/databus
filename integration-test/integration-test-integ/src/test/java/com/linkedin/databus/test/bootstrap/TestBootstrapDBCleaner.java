@@ -1,5 +1,6 @@
 package com.linkedin.databus.test.bootstrap;
 
+import static org.junit.Assert.*;
 
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
@@ -16,18 +17,17 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.Before;
+import org.junit.Test;
 
 import com.linkedin.databus.bootstrap.api.BootstrapProducerStatus;
 import com.linkedin.databus.bootstrap.common.BootstrapCleanerConfig;
-import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.BootstrapDBType;
-import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.RetentionType;
 import com.linkedin.databus.bootstrap.common.BootstrapConfig;
 import com.linkedin.databus.bootstrap.common.BootstrapConn;
 import com.linkedin.databus.bootstrap.common.BootstrapDBCleaner;
 import com.linkedin.databus.bootstrap.common.BootstrapDBMetaDataDAO;
+import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.BootstrapDBType;
+import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.RetentionType;
 import com.linkedin.databus.bootstrap.common.BootstrapProducerThreadBase;
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventInfo;
@@ -35,6 +35,7 @@ import com.linkedin.databus.core.DbusEventKey;
 import com.linkedin.databus.core.DbusOpcode;
 import com.linkedin.databus.core.KeyTypeNotImplementedException;
 import com.linkedin.databus.core.UnsupportedKeyException;
+import com.linkedin.databus.core.util.InvalidConfigException;
 import com.linkedin.databus2.test.TestUtil;
 import com.linkedin.databus2.util.DBHelper;
 
@@ -49,10 +50,10 @@ public class TestBootstrapDBCleaner {
 	private ByteArrayInputStream _bufStream2 = null;
 	private ByteArrayInputStream _bufStream3 = null;
 	private ByteBuffer _buf = null;
-	private final int _srcId = 1;
-	private final String _srcName = "src1";
+	private int _srcId = 1;
+	private String _srcName = "src1";
 
-	@BeforeMethod
+	@Before
 	public void setup() {
 		System.out.println("setup() called !!");
 
@@ -145,11 +146,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 0; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(0, gotTabRows.size(), "Tab should be empty");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 0; i < allKeyScns.size(); i++) {
@@ -161,12 +164,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(0L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 0L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -226,15 +229,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 1; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals( expectedLogs,gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 99; i < allKeyScns.size(); i++) {
@@ -246,12 +251,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(99L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 99L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -317,11 +322,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 0; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(0, gotTabRows.size(), "Tab should be empty");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 0; i < allKeyScns.size(); i++) {
@@ -333,12 +340,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(0L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 0L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -404,15 +411,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -424,12 +433,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Tab Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -495,15 +504,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs,	gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 405; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -515,12 +526,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals( 399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -581,11 +592,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 0; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( 0, gotTabRows.size(), "Remaining Log tables check 2");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 0; i < allKeyScns.size(); i++) {
@@ -597,12 +610,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(0L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 0L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -662,15 +675,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 1; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 99; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 99; i < allKeyScns.size(); i++) {
@@ -682,12 +697,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals( 99L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 99L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -748,15 +763,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 1; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals( expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs,gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 99; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 99; i < allKeyScns.size(); i++) {
@@ -768,12 +785,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check" );
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(99L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 99L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -840,12 +857,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 0; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals( expectedLogs,
-						gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( 0, gotTabRows.size(), "Tab should be empty");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 0; i < allKeyScns.size(); i++) {
@@ -857,12 +875,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals( expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(0L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 0L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -928,17 +946,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs,
-						gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs,
-						gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 399; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -950,12 +968,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1021,16 +1039,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 6; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals( expectedLogs,
-						gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 599; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 599; i < allKeyScns.size(); i++) {
@@ -1042,12 +1061,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals( expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals( 599L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 599L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1112,15 +1131,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs,	gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 399; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1132,12 +1153,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals( 399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1200,17 +1221,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals( expectedLogs,
-						gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,
-						gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1222,12 +1243,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check" );
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1293,15 +1314,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 399; i < 605; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1313,12 +1336,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1384,11 +1407,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals(expectedLogs,	gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals( expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(0, gotTabRows.size(), "Tab should be empty");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1400,12 +1425,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals( 399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1467,16 +1492,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs,
-						gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs, gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 205; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1488,12 +1514,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1550,11 +1576,13 @@ public class TestBootstrapDBCleaner {
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
 
-				Assert.assertEquals( expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals(0, gotTabRows.size(), "Tab should be empty");
+				assertEquals("Tab should be empty", 0, gotTabRows.size());
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1566,12 +1594,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
@@ -1627,15 +1655,17 @@ public class TestBootstrapDBCleaner {
 				List<String> expectedLogs = new ArrayList<String>();
 				for (int i = 4; i <= 9; i++)
 					expectedLogs.add("log_" + _srcId + "_" + i);
-				Assert.assertEquals(expectedLogs, gotLogFromLogInfo, "Remaining Log tables check 1");
-				Assert.assertEquals(expectedLogs,	gotLogTables, "Remaining Log tables check 2");
+				assertEquals("Remaining Log tables check 1", expectedLogs,
+						gotLogFromLogInfo);
+				assertEquals("Remaining Log tables check 2", expectedLogs,
+						gotLogTables);
 
 				List<String> expTabRows = new ArrayList<String>();
 				for (int i = 0; i < 205; i++) {
 					expTabRows.add(allKeyScns.get(i));
 				}
 				List<String> gotTabRows = getScnKeyFromTable("tab_" + _srcId);
-				Assert.assertEquals( expTabRows, gotTabRows, "Tab Rows Check");
+				assertEquals("Tab Rows Check", expTabRows, gotTabRows);
 
 				List<String> expLogRows = new ArrayList<String>();
 				for (int i = 399; i < allKeyScns.size(); i++) {
@@ -1647,12 +1677,12 @@ public class TestBootstrapDBCleaner {
 					gotLogRows.addAll(getScnKeyFromTable(l));
 				}
 
-				Assert.assertEquals(expLogRows, gotLogRows, "Log Rows Check");
+				assertEquals("Log Rows Check", expLogRows, gotLogRows);
 				long gotStartScn = _dao.getBootstrapConn()
 						.executeQueryAndGetLong(
 								"select logstartscn from bootstrap_sources where id = "
 										+ _srcId, -1);
-				Assert.assertEquals(399L, gotStartScn, "Expected StartSCN");
+				assertEquals("Expected StartSCN", 399L, gotStartScn);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			} finally {
