@@ -1,6 +1,0 @@
-apply plugin: 'java'
-
-dependencies {
-  runtime externalDependency.zookeeper
-  runtime externalDependency.log4j
-}

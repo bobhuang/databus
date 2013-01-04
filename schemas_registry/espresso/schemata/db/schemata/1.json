@@ -1,8 +1,0 @@
-{
-  "schemaType" : "DBSchema",
-  "name" : "schemata",
-  "version" : 1,
-  "doc" : "Espresso Schema for Schemas",
-  "partitionType" : "HASH",
-  "numBuckets" : 1
-}

@@ -1,8 +1,0 @@
-{
-  "schemaType":    "DBSchema",
-  "name":          "BizProfile",
-  "version":       1,
-  "doc":           "Espresso Schema for TeamMoney BizProfile DB",
-  "partitionType": "HASH",
-  "numBuckets":    256
-}

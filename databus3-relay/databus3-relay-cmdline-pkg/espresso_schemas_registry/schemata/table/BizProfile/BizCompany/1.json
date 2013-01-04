@@ -1,9 +1,0 @@
-{"name":       "BizCompany",
- "doc":        "Table Schema for Company Profile",
- "schemaType": "TableSchema",
- "version":    1,
- "recordType": "/schemata/document/BizProfile/BizCompany",
- "resourceKeyParts":
-  [
-    {"name": "companyId", "type": "INT"}
-]}

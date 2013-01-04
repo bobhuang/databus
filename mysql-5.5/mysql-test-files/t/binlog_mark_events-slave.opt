@@ -1,1 +1,0 @@
---binlog-mark-events=1 --binlog-format=row

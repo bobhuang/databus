@@ -1,9 +1,0 @@
-{"name":       "BizCSAdmins",
- "doc":        "Table Schema for BizProfile LinkedIn Customer Support Administrators",
- "version":    1,
- "schemaType": "TableSchema",
- "recordType": "/schemata/document/BizProfile/BizCSAdmins",
- "resourceKeyParts":
-  [
-    {"name": "adminGroupId", "type": "INT"}
-]}
