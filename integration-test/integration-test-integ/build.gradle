@@ -1,4 +1,4 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 test {
   if (!project.hasProperty('integ.test')) {
@@ -26,9 +26,9 @@ dependencies {
   compile project(':databus-profile-client:databus-profile-client-impl')
   compile project(':databus2-linkedin:databus2-linkedin-impl')
 
-  compile spec.external.testng
-  compile spec.external.log4j
-  compile spec.external.netty
+  compile externalDependency.testng
+  compile externalDependency.log4j
+  compile externalDependency.netty
 }
 
 def depFilesSet = [] as Set

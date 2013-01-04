@@ -1,4 +1,4 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 test {
   if (!project.hasProperty('integ.test')) {
@@ -17,6 +17,6 @@ dependencies {
   compile project(':databus-bootstrap-common:databus-bootstrap-common-api')
   compile project(':databus-client:databus-client-http')
 
-  compile spec.external.junit
-  compile spec.external.log4j
+  compile externalDependency.junit
+  compile externalDependency.log4j
 }

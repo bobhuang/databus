@@ -1,4 +1,4 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 dependencies {
   compile project(':databus-core:databus-core-container')
@@ -10,24 +10,24 @@ dependencies {
   compile project(':databus3-relay:databus-cluster-manager-utils')
   testCompile project(':databus-core:databus-core-fwk-test')
 
-  compile spec.external.log4j
-  compile spec.external.helixCore
+  compile externalDependency.log4j
+  compile externalDependency.helixCore
   compile spec.product.espresso.espressoCommonImpl
   compile spec.product.espresso.espressoSchema
   compile spec.product.espresso.espressoStoreImpl
-  compile spec.external.commonsCli
-  compile spec.external.commonsLang
-  compile spec.external.zkclientHelix
-  compile spec.external.zookeeper
+  compile externalDependency.commonsCli
+  compile externalDependency.commonsLang
+  compile externalDependency.zkclientHelix
+  compile externalDependency.zookeeper
 
-  compile spec.external.jacksonCoreAsl 
-  compile spec.external.jacksonMapperAsl 
-  compile spec.external.netty
+  compile externalDependency.jacksonCoreAsl 
+  compile externalDependency.jacksonMapperAsl 
+  compile externalDependency.netty
 
-  testCompile spec.external.testng
-  testCompile spec.external.avro
-  testCompile spec.external.easymock
-  testCompile spec.external.easymockext
+  testCompile externalDependency.testng
+  testCompile externalDependency.avro
+  testCompile externalDependency.easymock
+  testCompile externalDependency.easymockext
 }
 
 test.useTestNG()
