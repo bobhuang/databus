@@ -1,0 +1,28 @@
+{
+  "name" : "Teams_V1",
+  "doc" : "Auto-generated Avro schema for sy$TEAMS. Generated at Aug 31, 2012 11:44:05 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$TEAMS;",
+  "namespace" : "com.linkedin.events.collab",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "teamData",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TEAM_DATA;dbFieldPosition=2;"
+  }, {
+    "name" : "version",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=VERSION;dbFieldPosition=3;"
+  }, {
+    "name" : "state",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=STATE;dbFieldPosition=4;"
+  } ]
+}

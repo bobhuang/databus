@@ -1,0 +1,41 @@
+<project name="compile-relay-monitoring-events" >
+	
+  <!-- Import Product Properties -->
+  <import file="${basedir}/../../../product/product-properties.xml"/>
+	
+  <property name="ivy.cache.dir" value="${user.home}/.ivy2/lin-cache/ivy-cache" />
+  <property name="sandbox-repo.dir" value="${basedir}/../../../sandbox-repo" />
+  <property name="java.src.dir" value="${basedir}/../../../databus-bootstrap-common/impl/java" />
+
+  <taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+  		classpath="${ivy.cache.dir}/org.apache.avro/avro/${artifact.version.avro}/avro-${artifact.version.avro}.jar:${ivy.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/${artifact.version.jackson-core-asl}/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${ivy.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/${artifact.version.jackson-mapper-asl}/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" />
+  <!-- taskdef name="avro-schema-compile" classname="org.apache.avro.specific.SchemaTask" 
+	   		 classpath="${sandbox-repo.dir}/org/apache/avro/avro/${artifact.version.avro}/avro-${artifact.version.avro}.jar:${ivy.cache.dir}/org.codehaus.jackson-core-asl/jackson-core-asl/${artifact.version.jackson-core-asl}/jackson-core-asl-${artifact.version.jackson-core-asl}.jar:${ivy.cache.dir}/org.codehaus.jackson-mapper-asl/jackson-mapper-asl/${artifact.version.jackson-mapper-asl}/jackson-mapper-asl-${artifact.version.jackson-mapper-asl}.jar" / -->
+	
+
+  <target name="build-DbusBootstrapHttpStats">
+  	<avro-schema-compile file="${basedir}/DbusBootstrapHttpStatsEvent.1.avsc" 
+  		                 destdir="${java.src.dir}" />
+  </target>
+
+  <target name="build-DbusBootstrapProducerStats">
+  	<avro-schema-compile file="${basedir}/DbusBootstrapProducerStatsEvent.1.avsc" 
+  		                 destdir="${java.src.dir}" />
+  </target>
+
+
+  <target name="build" 
+  	      depends="build-DbusBootstrapHttpStats">
+  </target>
+
+  <target name="build-All">
+    <avro-schema-compile file="${basedir}/*.avsc"
+                        destdir="${java.src.dir}"/>
+  </target>
+
+  <target name="buildAll"
+          depends="build-All">
+  </target>
+
+	
+</project>

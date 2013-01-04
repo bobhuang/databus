@@ -1,0 +1,60 @@
+#!/bin/bash 
+# test liar db relay can run with a small buffer.
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=db_relay_liar_small_buffer_1.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/profile_relay_event_trace
+db_config_file=config/sources-liar.json 
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
+consumer_1_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
+
+#remove old log files
+rm -f $LOG_DIR/*db_relay_start*
+
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c db_relay -o start  --db_config_file=${db_config_file} --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" 
+
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --dump_file=${consumer_1_log} --http_port=${client_port} --relay_port=${relay_port} --value_file=${consumer_1_value_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=./liarclient-checkpoints;databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"
+
+# start db generator and reload test data
+$SCRIPT_DIR/dbus2_gen_event.py -s liar --db_testdata_truncate --db_config_file=${db_config_file} --from_scn=2 --server_port=${relay_port}
+
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s liar --db_config_file=${db_config_file} --from_scn=2 --server_port=${relay_port}
+
+$SCRIPT_DIR/dbus2_gen_event.py -s liar --db_testdata_insert --db_config_file=${db_config_file} --num_events=50 --from_scn=1 --server_port=${relay_port}
+
+#wait for 1 secs before start checking relay and consumer inbound event
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event --sleep_before_wait=1 --http_port=${client_port} --relay_port=${relay_port}
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*db_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o stop
+
+#compare result
+stat_txt="Test $0"
+
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c --db_src_ids=20,21 --db_config_file=${db_config_file} ${consumer_1_value_log}
+source report_pass_fail.inc
+
+final_result=1
+stat_txt="Relay Pull Thread Validation"
+cat ${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/*log* | perl $SCRIPT_DIR/validateRelayPullerMessageQueue.pl
+source report_pass_fail.inc
+
+exit $all_stat

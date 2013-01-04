@@ -1,0 +1,13 @@
+apply plugin: 'li-java'
+
+dependencies {
+  compile project(':databus2-relay:databus2-relay-impl')
+  compile project(':databus3-relay:databus3-relay-espresso-impl')
+  compile project(':databus-util-cmdline:databus-util-cmdline-impl')
+
+  compile spec.external.commonsIo
+  compile spec.external.jacksonCoreAsl
+  compile spec.external.jacksonMapperAsl
+  compile spec.external.log4j
+  compile spec.external.netty
+}

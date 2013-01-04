@@ -1,0 +1,33 @@
+{
+    "name" : "multBufferTest",
+    "id" : 1,
+    "uri" : "uri1",
+	"slowSourceQueryThreshold" : 2000,
+	"sources" :
+	[
+		{"id" : 1, 
+		 "name" : "source1",
+		 "uri": "member2.member_profile", 
+		 "partitionFunction" : "constant:1",
+                 "partition" : 0
+		},
+		{"id" : 2, 
+		 "name" : "source2",
+		 "uri" : "member2.member_account", 
+		 "partitionFunction" : "constant:1",
+		 "partition" : 0
+		},
+		{"id" : 3, 
+		 "name" : "source3",
+		 "uri" : "member2.member_business_attr", 
+		 "partitionFunction" : "constant:1",
+		 "partition" : 0
+		},
+		{"id" : 4, 
+		 "name" : "com.linkedin.events.member2.setting.MemberSetting",
+		 "uri" : "member2.member_setting", 
+		 "partitionFunction" : "constant:1",
+		 "partition" : 0
+		}
+	]
+}

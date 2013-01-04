@@ -1,0 +1,11 @@
+Bootstrap events read :996 during phase:BOOTSTRAP_SNAPSHOT \[0,0\],1
+Bootstrap events read :6 during phase:BOOTSTRAP_CATCHUP \[1,0\],1
+Bootstrap events read :996 during phase:BOOTSTRAP_SNAPSHOT \[1,0\],1
+Bootstrap events read :6 during phase:BOOTSTRAP_CATCHUP \[2,0\],1
+Bootstrap events read :6 during phase:BOOTSTRAP_CATCHUP \[2,1\],1
+Bootstrap phase completed - BOOTSTRAP_SNAPSHOT \[0, 0\],1
+Bootstrap phase completed - BOOTSTRAP_CATCHUP \[1, 0\],1
+Bootstrap phase completed - BOOTSTRAP_SNAPSHOT \[1, 0\],1
+Bootstrap phase completed - BOOTSTRAP_CATCHUP \[2, 0\],1
+Bootstrap phase completed - BOOTSTRAP_CATCHUP \[2, 1\],1
+Bootstrap phase completed - BOOTSTRAP_CATCHUP \[2, 2\],1

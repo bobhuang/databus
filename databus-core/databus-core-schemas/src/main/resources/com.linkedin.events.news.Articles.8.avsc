@@ -1,0 +1,132 @@
+{
+  "name" : "Articles_V8",
+  "doc" : "Auto-generated Avro schema for sy$articles_8. Generated at Dec 12, 2012 06:51:03 PM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$articles_8;",
+  "namespace" : "com.linkedin.events.news",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "articleId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ARTICLE_ID;dbFieldPosition=1;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=2;"
+  }, {
+    "name" : "title",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TITLE;dbFieldPosition=3;"
+  }, {
+    "name" : "summary",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SUMMARY;dbFieldPosition=4;"
+  }, {
+    "name" : "language",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LANGUAGE;dbFieldPosition=5;"
+  }, {
+    "name" : "source",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SOURCE;dbFieldPosition=6;"
+  }, {
+    "name" : "articleSource",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ARTICLE_SOURCE;dbFieldPosition=7;"
+  }, {
+    "name" : "url",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=URL;dbFieldPosition=8;"
+  }, {
+    "name" : "vendorRank",
+    "type" : [ "float", "null" ],
+    "meta" : "dbFieldName=VENDOR_RANK;dbFieldPosition=9;"
+  }, {
+    "name" : "vendorArticleId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VENDOR_ARTICLE_ID;dbFieldPosition=10;"
+  }, {
+    "name" : "publishDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PUBLISH_DATE;dbFieldPosition=11;"
+  }, {
+    "name" : "fetchDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=FETCH_DATE;dbFieldPosition=12;"
+  }, {
+    "name" : "articleText",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ARTICLE_TEXT;dbFieldPosition=13;"
+  }, {
+    "name" : "signature",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SIGNATURE;dbFieldPosition=14;"
+  }, {
+    "name" : "directUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DIRECT_URL;dbFieldPosition=15;"
+  }, {
+    "name" : "boost",
+    "type" : [ "float", "null" ],
+    "meta" : "dbFieldName=BOOST;dbFieldPosition=16;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=17;"
+  }, {
+    "name" : "articleTopics",
+    "type" : {
+      "name" : "DATABUS_ARTICLE_TOPICS_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "articleTopics",
+        "type" : {
+          "items" : {
+            "name" : "databusArticleTopicT",
+            "type" : "record",
+            "meta" : "dbFieldName=ARTICLE_TOPICS;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "topicId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=TOPIC_ID;dbFieldPosition=0;"
+            }, {
+              "name" : "rank",
+              "type" : [ "float", "null" ],
+              "meta" : "dbFieldName=RANK;dbFieldPosition=1;"
+            } ]
+          },
+          "name" : "articleTopicsArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=ARTICLE_TOPICS;dbFieldPosition=18;"
+  }, {
+    "name" : "articleSourceId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ARTICLE_SOURCE_ID;dbFieldPosition=19;"
+  }, {
+    "name" : "isPrivate",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=IS_PRIVATE;dbFieldPosition=20;"
+  }, {
+    "name" : "media",
+    "type" : [ "bytes", "null" ],
+    "meta" : "dbFieldName=MEDIA;dbFieldPosition=21;"
+  }, {
+    "name" : "associatedPulseSlices",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ASSOCIATED_PULSE_SLICES;dbFieldPosition=22;"
+  }, {
+    "name" : "contentQualityRank",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CONTENT_QUALITY_RANK;dbFieldPosition=23;"
+  }, {
+    "name" : "contentPublishDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CONTENT_PUBLISH_DATE;dbFieldPosition=24;"
+  } ]
+}

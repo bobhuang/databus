@@ -1,0 +1,116 @@
+{
+  "name" : "DiscussionDTO",
+  "doc" : "Auto-generated Avro schema for forum.sy$discussions_6. Generated at Sep 22, 2011 11:43:44 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=forum.sy$discussions_6;pk=discussionKey",
+  "namespace" : "com.linkedin.events.forum",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "discussionKey",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=DISCUSSION_KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "discussionId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=DISCUSSION_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "forumId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=FORUM_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "categoryId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CATEGORY_ID;dbFieldPosition=4;"
+  }, {
+    "name" : "scopeType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SCOPE_TYPE;dbFieldPosition=5;"
+  }, {
+    "name" : "scopeId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SCOPE_ID;dbFieldPosition=6;"
+  }, {
+    "name" : "topicType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TOPIC_TYPE;dbFieldPosition=7;"
+  }, {
+    "name" : "topicId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TOPIC_ID;dbFieldPosition=8;"
+  }, {
+    "name" : "originatorId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ORIGINATOR_ID;dbFieldPosition=9;"
+  }, {
+    "name" : "subject",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SUBJECT;dbFieldPosition=10;"
+  }, {
+    "name" : "detail",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DETAIL;dbFieldPosition=11;"
+  }, {
+    "name" : "locale",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOCALE;dbFieldPosition=12;"
+  }, {
+    "name" : "discState",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DISC_STATE;dbFieldPosition=13;"
+  }, {
+    "name" : "discDeletedBy",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=DISC_DELETED_BY;dbFieldPosition=14;"
+  }, {
+    "name" : "commentCount",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=COMMENT_COUNT;dbFieldPosition=15;"
+  }, {
+    "name" : "uniqueCommenterCount",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=UNIQUE_COMMENTER_COUNT;dbFieldPosition=16;"
+  }, {
+    "name" : "discCreatedAt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DISC_CREATED_AT;dbFieldPosition=17;"
+  }, {
+    "name" : "discUpdatedAt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DISC_UPDATED_AT;dbFieldPosition=18;"
+  }, {
+    "name" : "discVersion",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=DISC_VERSION;dbFieldPosition=19;"
+  }, {
+    "name" : "discExpireAt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DISC_EXPIRE_AT;dbFieldPosition=20;"
+  }, {
+    "name" : "pinnedIndex",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=PINNED_INDEX;dbFieldPosition=21;"
+  }, {
+    "name" : "discLastActivityAt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DISC_LAST_ACTIVITY_AT;dbFieldPosition=22;"
+  }, {
+    "name" : "activeCommentCount",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ACTIVE_COMMENT_COUNT;dbFieldPosition=23;"
+  }, {
+    "name" : "topicTitle",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TOPIC_TITLE;dbFieldPosition=24;"
+  }, {
+    "name" : "topicDescription",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TOPIC_DESCRIPTION;dbFieldPosition=25;"
+  }, {
+    "name" : "visibility",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VISIBILITY;dbFieldPosition=26;"
+  } ]
+}

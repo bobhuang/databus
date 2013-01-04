@@ -1,0 +1,123 @@
+#!/bin/bash
+# CHO testing
+#   -. start 3 shared clients and point to the same relay and bootstrap
+#   -. round robin kill client
+#   -. accumulate events and make sure there are no gaps in between
+
+source setup_env.inc
+#relay_event_dump_file=integration-test/var/work/bizfollow_relay_event_trace
+#$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=10M
+
+zookeeper_server_ports="localhost:2181,localhost:2182,localhost:2183"
+# default datadir integration_test/var/work/zookeeper/data/1
+# start the zookeeper cluster
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o start --zookeeper_reset --zookeeper_server_ports=${zookeeper_server_ports}  --cmdline_props="tickTime=2000;initLimit=5;syncLimit=2" 
+# server port server.1=localhost:2800:3800 server.2=localhost:2801:3801 server.3=localhost:2802:3802# start the consumer
+
+# start three clients
+start_consumer_port=8090
+relay_host=esv4-be38
+relay_port=9090
+bootstrap_host=esv4-be39
+bootstrap_port=6161
+total_num_consumers=3
+
+#cnt=1
+#while [ $cnt -lt $total_num_consumers]; do
+#  consumer_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_${cnt}.events
+#  consumer_port=$(($start_consumer_port+1))
+#  $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --logfile=$consumer_server_log --relay_host=$relay_host --bootstrap_host=$bootstrap_host --dump_file=${consumer_log} --http_port=${consumer_port} -cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED"
+#  cnt=$(($cnt+1))
+#done
+
+# start the first consumer
+consumer_log_combined=$VIEW_ROOT/${WORK_DIR_FROM_ROOT}/bizfollow_consumer_combined.events
+rm -rf $consumer_log_combined
+cnt=1
+total_cnt=1
+#test_only=echo
+while [ 1 ]; do
+  consumer_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_${cnt}.events
+  consumer_port=$(($start_consumer_port+$cnt))
+  consumer_server_log=${VIEW_ROOT}/${LOG_DIR_FROM_ROOT}/bizfollow_consumer_${cnt}_`date +%Y_%m_%d_%H_%M_%S`.log 
+  if [ $total_cnt -gt $total_num_consumers ]; then
+    echo == `date` >> $consumer_log_combined
+    cat $VIEW_ROOT/$consumer_log >> $consumer_log_combined
+    $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o shutdown_force --http_port=${consumer_port}
+    echo == `date` >> $consumer_log_combined
+    echo == consumer $cnt killed >> $consumer_log_combined
+    sleep $(($RANDOM % 120 + 1))
+  fi
+  cnt=$(($cnt % $total_num_consumers + 1))
+  total_cnt=$(($total_cnt+1))
+  # restart
+  $test_only $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --logfile=$consumer_server_log --relay_host=$relay_host --relay_port=$relay_port --bootstrap_host=$bootstrap_host --bootstrap_port=$bootstrap_port --dump_file=${consumer_log} --http_port=${consumer_port} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED"
+done
+
+exit 0
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+consumer_port_1=8091
+debug_port_2=8991
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --http_port=${consumer_port_1} --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:${debug_port_1},server=y " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED"
+
+# start the second consumer, which will be waiting
+consumer_2_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_2.events
+consumer_port_2=8092
+debug_port_2=8992
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_2_log} --http_port=${consumer_port_2} --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:${debug_port_2},server=y " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED"
+
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=50 --wait_until_suspend
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer --http_port=${consumer_port_1} -o wait_event --timeout=60 
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0. Step 1"
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+# cp the event log, consumer_log will be removed after killing the process
+cp ${VIEW_ROOT}/${consumer_1_log} ${VIEW_ROOT}/${consumer_log_combined}
+# kill the first client, generate more events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o shutdown --http_port=${consumer_port_1}
+$SCRIPT_DIR/dbus2_gen_event.py  --resume_gen --num_events=60 --wait_until_suspend
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer --http_port=${consumer_port_2} -o wait_event --timeout=60 
+
+cat ${VIEW_ROOT}/${consumer_2_log} >> ${VIEW_ROOT}/${consumer_log_combined}
+
+echo ==Compare JSON after fail over
+stat_txt="Test $0. Step 2"
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_log_combined}
+source report_pass_fail.inc
+
+# restart the first
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --http_port=${consumer_port_1} --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=n,address=localhost:${debug_port_1},server=y " --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.cluster.enabled=true;databus.client.cluster.clusterServerList=${zookeeper_server_ports};databus.client.checkpointPersistence.type=SHARED"
+
+exit 0
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=100 --wait_until_suspend
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60 
+
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o shutdown --http_port=${consumer_port_1}
+
+MaxWinScn=`$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60 | grep "Wait maxWinScn:" | awk '{print $NF}' FS=:`
+
+exit 0
+ 
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o stop
+
+zookeeper_server_ports="localhost:2191,localhost:2192,localhost:2193"
+
+#$SCRIPT_DIR/dbus2_driver.py -c zookeeper -o start  --zookeeper_server_ports=${zookeeper_server_ports}  --cmdline_props="tickTime=2000;initLimit=5;syncLimit=2" 
+
+# how to emulation one consumer temporarily lost zookeeper
+# change port, restart zookeeper
+# start a new consumer
+# restart does not seems to work
+
+# zookeeper lost state?
+
+exit $all_stat

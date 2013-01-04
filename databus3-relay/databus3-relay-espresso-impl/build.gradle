@@ -1,0 +1,44 @@
+apply plugin: 'li-java'
+
+dependencies {
+  compile project(':databus-core:databus-core-container')
+  compile project(':databus-core:databus-core-impl')
+  compile project(':databus-core:databus-core-schemas')
+  compile project(':databus2-relay:databus2-relay-impl')
+  compile project(':databus3-core:databus3-espresso-core')
+  compile project(':databus3-relay:databus-rpldbus-manager')
+  compile project(':databus3-relay:databus-cluster-manager-utils')
+  testCompile project(':databus-core:databus-core-fwk-test')
+
+  compile spec.external.log4j
+  compile spec.external.helixCore
+  compile spec.product.espresso.espressoCommonImpl
+  compile spec.product.espresso.espressoSchema
+  compile spec.product.espresso.espressoStoreImpl
+  compile spec.external.commonsCli
+  compile spec.external.commonsLang
+  compile spec.external.zkclientHelix
+  compile spec.external.zookeeper
+
+  compile spec.external.jacksonCoreAsl 
+  compile spec.external.jacksonMapperAsl 
+  compile spec.external.netty
+
+  testCompile spec.external.testng
+  testCompile spec.external.avro
+  testCompile spec.external.easymock
+  testCompile spec.external.easymockext
+}
+
+test.useTestNG()
+test.workingDir = "${project.rootDir}"
+
+project.afterEvaluate {
+    test {
+        workingDir = "${project.rootDir}"
+        systemProperties.put('espresso.schema.rootdir', 'databus3-relay/databus3-relay-cmdline-pkg/espresso_schemas_registry')
+    }
+}
+
+
+configurations.compile.exclude(group: "com.oracle", module: "ojdbc14")

@@ -1,0 +1,40 @@
+{
+  "name" : "TeamRelationships_V1",
+  "doc" : "Auto-generated Avro schema for sy$TEAM_RELATIONSHIPS. Generated at Aug 31, 2012 11:44:08 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$TEAM_RELATIONSHIPS;",
+  "namespace" : "com.linkedin.events.collab",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "teamId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TEAM_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "sourceUrn",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SOURCE_URN;dbFieldPosition=3;"
+  }, {
+    "name" : "relationshipType",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=RELATIONSHIP_TYPE;dbFieldPosition=4;"
+  }, {
+    "name" : "relationshipState",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=RELATIONSHIP_STATE;dbFieldPosition=5;"
+  }, {
+    "name" : "version",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=VERSION;dbFieldPosition=6;"
+  }, {
+    "name" : "relationshipData",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=RELATIONSHIP_DATA;dbFieldPosition=7;"
+  } ]
+}

@@ -1,0 +1,10 @@
+{
+  "schemaType": "TableSchema",
+  "name" : "IdAddressPair",
+  "doc" : "Espresso Table Schema for a simple Id Address Pair Table",
+  "version": 1,
+  "recordType" : "/schemata/document/EspressoDB8/IdAddressPair",
+  "resourceKeyParts": [
+      {"name":"id", "type":"INT"}
+  ]
+}

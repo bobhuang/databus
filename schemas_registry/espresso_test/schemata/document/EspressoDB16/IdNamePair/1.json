@@ -1,0 +1,14 @@
+{
+  "name" : "IdNamePair",
+  "version":	   1,
+  "doc" : "Espresso Schema for a simple Id Name Pair Table",
+  "type" : "record",
+  "namespace": "com.linkedin.espresso.test.espressodb",
+  "fields" : [ {
+    "name" : "id",
+    "type" : "int"
+  }, {
+    "name" : "name",
+    "type" : "string"
+  } ]
+}

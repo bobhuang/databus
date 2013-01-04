@@ -1,0 +1,15 @@
+{
+  "name" : "Table2",
+  "doc" : "Test table",
+  "version" : 1,
+  "schemaType" : "TableSchema",
+  "recordType" : "/schemata/document/TestDB/Table2",
+  "index"      :
+    {
+      "granularity": "PartitionKey"
+    },
+  "resourceKeyParts" : [
+    {"name": "key1", "type":"INT"},
+    {"name": "key2", "type":"INT"}
+  ]
+}

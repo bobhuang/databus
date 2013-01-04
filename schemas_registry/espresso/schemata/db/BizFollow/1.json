@@ -1,0 +1,8 @@
+{
+  "schemaType":    "DBSchema",
+  "name":          "BizFollow",
+  "version":       1,
+  "doc":           "Espresso Schema for BizFollow DB",
+  "partitionType": "HASH",
+  "numBuckets":    10
+}

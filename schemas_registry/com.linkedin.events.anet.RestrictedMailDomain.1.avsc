@@ -1,0 +1,24 @@
+{
+  "name" : "RestrictedMailDomain_V1",
+  "doc" : "Auto-generated Avro schema for anet.sy$restricted_mail_domain_1. Generated at Sep 15, 2011 03:21:45 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=anet.sy$restricted_mail_domain_1;pk=id",
+  "namespace" : "com.linkedin.events.anet",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "id",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ID;dbFieldPosition=1;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=2;"
+  }, {
+    "name" : "mailDomain",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=MAIL_DOMAIN;dbFieldPosition=3;"
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "name" : "ProspectDocuments_V1",
+  "doc" : "Auto-generated Avro schema for sy$PROSPECT_DOCUMENTS. Generated at Oct 30, 2012 05:08:31 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$PROSPECT_DOCUMENTS;",
+  "namespace" : "com.linkedin.events.cappr",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "documentId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=DOCUMENT_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "schemaVersion",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SCHEMA_VERSION;dbFieldPosition=3;"
+  }, {
+    "name" : "content",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=CONTENT;dbFieldPosition=4;"
+  } ]
+}

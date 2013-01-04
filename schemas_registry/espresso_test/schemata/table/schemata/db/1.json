@@ -1,0 +1,11 @@
+{
+  "name" : "db",
+  "doc" : "Espresso Schema for a db schemas table",
+  "schemaType" : "TableSchema",
+  "version" : 1,
+  "recordType" : "/schemata/document/schemata/blob",
+  "resourceKeyParts" : [
+    {"name": "dbName", "type":"STRING"},
+    {"name": "version", "type":"INT"}
+  ]
+}

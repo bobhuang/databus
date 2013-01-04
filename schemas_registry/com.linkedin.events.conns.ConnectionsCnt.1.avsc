@@ -1,0 +1,24 @@
+{
+  "name" : "ConnectionsCnt_V1",
+  "doc" : "Auto-generated Avro schema for conns.sy$connections_cnt. Generated at Sep 15, 2011 09:42:49 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=conns.sy$connections_cnt;",
+  "namespace" : "com.linkedin.events.conns",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "cnt",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=CNT;dbFieldPosition=3;"
+  } ]
+}

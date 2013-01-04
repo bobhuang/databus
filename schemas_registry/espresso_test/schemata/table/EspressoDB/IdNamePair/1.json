@@ -1,0 +1,10 @@
+{
+  "schemaType" : "TableSchema",
+  "name" : "IdNamePair",
+  "version" : 1,
+  "doc" : "Espresso Table Schema for a simple Id Name Pair Table",
+  "recordType" : "/schemata/document/EspressoDB/IdNamePair",
+  "resourceKeyParts" : [
+      {"name": "id", "type": "INT"}
+  ]
+}

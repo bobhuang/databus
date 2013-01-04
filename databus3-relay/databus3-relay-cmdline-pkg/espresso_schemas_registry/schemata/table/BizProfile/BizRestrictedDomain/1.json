@@ -1,0 +1,9 @@
+{"name":       "BizRestrictedDomain",
+ "doc":        "Table Schema for Email Domain Restricted by Companies",
+ "schemaType": "TableSchema",
+ "version":    1,
+ "recordType": "/schemata/document/BizProfile/BizRestrictedDomain",
+ "resourceKeyParts":
+  [
+    {"name": "emailDomain", "type": "STRING"}
+]}

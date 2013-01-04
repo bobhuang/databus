@@ -1,0 +1,61 @@
+#!/bin/bash
+# Test a case where relay and consumer both restarts
+#   -. start relay and consumer, generate some events
+#   -. shutdown both
+#   -. restart relay from the last seen scn , generate some events, start consumer from checkpoint
+export TEST_NAME=bootstrap_relay_restart_1.test
+
+# start the relay on port 8080
+source setup_env.inc
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=10M
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+consumer_cp_dir=${WORK_DIR_FROM_ROOT}/consumer_checkpoint_bizfollow
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true"
+
+# generate events
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=100 --wait_until_suspend
+
+MaxWinScn=`$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60 | grep "Wait maxWinScn:" | awk '{print $NF}' FS=:`
+ 
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/default_bizfollow_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+
+#compare result
+echo ==Compare JSON
+stat_txt="Test $0. Step 1"
+#$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log} --keyMin=1000 --keyMax=2000
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log}
+source report_pass_fail.inc
+
+# restart relay from the previous maxWinScn, actually -1 from the code
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.scnIndexSize=102400;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=10M
+
+$SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=100 --from_scn=${MaxWinScn} --wait_until_suspend
+
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_cp_dir}"  -l config/client-log4j2file.properties.debug
+
+MaxWinScn1=`$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60 | grep "Wait maxWinScn:" | awk '{print $NF}' FS=:`
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+
+echo ==Compare JSON
+stat_txt="Test $0. Step 2"
+#$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log} --keyMin=1000 --keyMax=2000
+$SCRIPT_DIR/dbus2_json_compare.py --sort_key -c -s $WORK_DIR/bizfollow_relay_event_trace ${consumer_1_log}
+final_report=1
+source report_pass_fail.inc
+
+exit $all_stat

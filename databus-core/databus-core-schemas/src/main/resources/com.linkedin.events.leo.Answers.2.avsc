@@ -1,0 +1,88 @@
+{
+  "name" : "Answers_V2",
+  "doc" : "Auto-generated Avro schema for leo2.sy$answers_2. Generated at Sep 15, 2011 09:53:14 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=leo2.sy$answers_2;",
+  "namespace" : "com.linkedin.events.leo",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "answerId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ANSWER_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "questionId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=QUESTION_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "askerId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ASKER_ID;dbFieldPosition=4;"
+  }, {
+    "name" : "answererId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ANSWERER_ID;dbFieldPosition=5;"
+  }, {
+    "name" : "type",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TYPE;dbFieldPosition=6;"
+  }, {
+    "name" : "answerLevel",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ANSWER_LEVEL;dbFieldPosition=7;"
+  }, {
+    "name" : "good",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=GOOD;dbFieldPosition=8;"
+  }, {
+    "name" : "best",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=BEST;dbFieldPosition=9;"
+  }, {
+    "name" : "withdrawn",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=WITHDRAWN;dbFieldPosition=10;"
+  }, {
+    "name" : "hiddenByCs",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=HIDDEN_BY_CS;dbFieldPosition=11;"
+  }, {
+    "name" : "answererAccountClosed",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ANSWERER_ACCOUNT_CLOSED;dbFieldPosition=12;"
+  }, {
+    "name" : "abuseLevel",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ABUSE_LEVEL;dbFieldPosition=13;"
+  }, {
+    "name" : "hiddenByUsers",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=HIDDEN_BY_USERS;dbFieldPosition=14;"
+  }, {
+    "name" : "celebrityType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=CELEBRITY_TYPE;dbFieldPosition=15;"
+  }, {
+    "name" : "createDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATE_DATE;dbFieldPosition=16;"
+  }, {
+    "name" : "modifiedDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MODIFIED_DATE;dbFieldPosition=17;"
+  }, {
+    "name" : "xmlVersion",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=XML_VERSION;dbFieldPosition=18;"
+  }, {
+    "name" : "details",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DETAILS;dbFieldPosition=19;"
+  } ]
+}

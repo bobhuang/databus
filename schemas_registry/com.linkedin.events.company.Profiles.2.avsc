@@ -1,0 +1,404 @@
+{
+  "name" : "Profiles_V2",
+  "doc" : "Auto-generated Avro schema for sy$profiles_2. Generated at Jul 09, 2012 01:52:44 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$profiles_2;",
+  "namespace" : "com.linkedin.events.company",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "companyId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "universalName",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=UNIVERSAL_NAME;dbFieldPosition=3;"
+  }, {
+    "name" : "companySize",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_SIZE;dbFieldPosition=4;"
+  }, {
+    "name" : "companyType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_TYPE;dbFieldPosition=5;"
+  }, {
+    "name" : "industry",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=INDUSTRY;dbFieldPosition=6;"
+  }, {
+    "name" : "symbol",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SYMBOL;dbFieldPosition=7;"
+  }, {
+    "name" : "companyUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_URL;dbFieldPosition=8;"
+  }, {
+    "name" : "exchangeSymbol",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXCHANGE_SYMBOL;dbFieldPosition=9;"
+  }, {
+    "name" : "exactSize",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=EXACT_SIZE;dbFieldPosition=10;"
+  }, {
+    "name" : "statusCode",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATUS_CODE;dbFieldPosition=11;"
+  }, {
+    "name" : "foundedYear",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=FOUNDED_YEAR;dbFieldPosition=12;"
+  }, {
+    "name" : "endYear",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=END_YEAR;dbFieldPosition=13;"
+  }, {
+    "name" : "tags",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TAGS;dbFieldPosition=14;"
+  }, {
+    "name" : "blogUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=BLOG_URL;dbFieldPosition=15;"
+  }, {
+    "name" : "blogRssUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=BLOG_RSS_URL;dbFieldPosition=16;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=17;"
+  }, {
+    "name" : "logoMediaId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOGO_MEDIA_ID;dbFieldPosition=18;"
+  }, {
+    "name" : "showNews",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SHOW_NEWS;dbFieldPosition=19;"
+  }, {
+    "name" : "administratorId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ADMINISTRATOR_ID;dbFieldPosition=20;"
+  }, {
+    "name" : "squareLogoMediaId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SQUARE_LOGO_MEDIA_ID;dbFieldPosition=21;"
+  }, {
+    "name" : "attributes",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ATTRIBUTES;dbFieldPosition=22;"
+  }, {
+    "name" : "profileDv",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PROFILE_DV;dbFieldPosition=23;"
+  }, {
+    "name" : "profileSv",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PROFILE_SV;dbFieldPosition=24;"
+  }, {
+    "name" : "profile",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=PROFILE;dbFieldPosition=25;"
+  }, {
+    "name" : "companyNames",
+    "type" : {
+      "name" : "COMPANY_NAMES_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyNames",
+        "type" : {
+          "items" : {
+            "name" : "companyNameT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_NAMES;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "crudType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CRUD_TYPE;dbFieldPosition=0;"
+            }, {
+              "name" : "companyNameId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_NAME_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "name",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=NAME;dbFieldPosition=3;"
+            }, {
+              "name" : "locale",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=LOCALE;dbFieldPosition=4;"
+            }, {
+              "name" : "changesetId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=CHANGESET_ID;dbFieldPosition=5;"
+            }, {
+              "name" : "nameType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=NAME_TYPE;dbFieldPosition=6;"
+            }, {
+              "name" : "active",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ACTIVE;dbFieldPosition=7;"
+            } ]
+          },
+          "name" : "companyNamesArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_NAMES;dbFieldPosition=26;"
+  }, {
+    "name" : "companyRelationships",
+    "type" : {
+      "name" : "COMPANY_RELATIONSHIPS_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyRelationships",
+        "type" : {
+          "items" : {
+            "name" : "companyRelationshipT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_RELATIONSHIPS;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "crudType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CRUD_TYPE;dbFieldPosition=0;"
+            }, {
+              "name" : "relationshipId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=RELATIONSHIP_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "relatedCompanyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=RELATED_COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=3;"
+            }, {
+              "name" : "startDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=START_DATE;dbFieldPosition=4;"
+            }, {
+              "name" : "endDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=END_DATE;dbFieldPosition=5;"
+            }, {
+              "name" : "state",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=STATE;dbFieldPosition=6;"
+            }, {
+              "name" : "changesetId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=CHANGESET_ID;dbFieldPosition=7;"
+            }, {
+              "name" : "relationshipType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=RELATIONSHIP_TYPE;dbFieldPosition=8;"
+            }, {
+              "name" : "active",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ACTIVE;dbFieldPosition=9;"
+            } ]
+          },
+          "name" : "companyRelationshipsArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_RELATIONSHIPS;dbFieldPosition=27;"
+  }, {
+    "name" : "companyRevenues",
+    "type" : {
+      "name" : "COMPANY_REVENUES_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyRevenues",
+        "type" : {
+          "items" : {
+            "name" : "companyRevenueT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_REVENUES;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "crudType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CRUD_TYPE;dbFieldPosition=0;"
+            }, {
+              "name" : "revenueId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=REVENUE_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "revenueAmount",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=REVENUE_AMOUNT;dbFieldPosition=3;"
+            }, {
+              "name" : "currencyCode",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CURRENCY_CODE;dbFieldPosition=4;"
+            }, {
+              "name" : "revenueYear",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=REVENUE_YEAR;dbFieldPosition=5;"
+            }, {
+              "name" : "changesetId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=CHANGESET_ID;dbFieldPosition=6;"
+            } ]
+          },
+          "name" : "companyRevenuesArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_REVENUES;dbFieldPosition=28;"
+  }, {
+    "name" : "companyDescriptions",
+    "type" : {
+      "name" : "COMPANY_DESCRIPTIONS_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyDescriptions",
+        "type" : {
+          "items" : {
+            "name" : "companyDescriptionT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_DESCRIPTIONS;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "crudType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CRUD_TYPE;dbFieldPosition=0;"
+            }, {
+              "name" : "descriptionId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=DESCRIPTION_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "description",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=DESCRIPTION;dbFieldPosition=3;"
+            }, {
+              "name" : "locale",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=LOCALE;dbFieldPosition=4;"
+            }, {
+              "name" : "changesetId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=CHANGESET_ID;dbFieldPosition=5;"
+            } ]
+          },
+          "name" : "companyDescriptionsArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_DESCRIPTIONS;dbFieldPosition=29;"
+  }, {
+    "name" : "companyLocations",
+    "type" : {
+      "name" : "COMPANY_LOCATIONS_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyLocations",
+        "type" : {
+          "items" : {
+            "name" : "companyLocationT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_LOCATIONS;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "crudType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CRUD_TYPE;dbFieldPosition=0;"
+            }, {
+              "name" : "companyLocationId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_LOCATION_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "street1",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=STREET1;dbFieldPosition=3;"
+            }, {
+              "name" : "street2",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=STREET2;dbFieldPosition=4;"
+            }, {
+              "name" : "city",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=CITY;dbFieldPosition=5;"
+            }, {
+              "name" : "state",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=STATE;dbFieldPosition=6;"
+            }, {
+              "name" : "postalCode",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=POSTAL_CODE;dbFieldPosition=7;"
+            }, {
+              "name" : "countryCode",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=COUNTRY_CODE;dbFieldPosition=8;"
+            }, {
+              "name" : "regionCode",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=REGION_CODE;dbFieldPosition=9;"
+            }, {
+              "name" : "phone1",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=PHONE1;dbFieldPosition=10;"
+            }, {
+              "name" : "phone2",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=PHONE2;dbFieldPosition=11;"
+            }, {
+              "name" : "fax",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=FAX;dbFieldPosition=12;"
+            }, {
+              "name" : "hq",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=HQ;dbFieldPosition=13;"
+            }, {
+              "name" : "active",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ACTIVE;dbFieldPosition=14;"
+            }, {
+              "name" : "description",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=DESCRIPTION;dbFieldPosition=15;"
+            }, {
+              "name" : "locationSize",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=LOCATION_SIZE;dbFieldPosition=16;"
+            } ]
+          },
+          "name" : "companyLocationsArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_LOCATIONS;dbFieldPosition=30;"
+  } ]
+}

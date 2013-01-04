@@ -1,0 +1,50 @@
+#!/bin/bash
+# test a relay with multiple client can run with a small buffer.
+#  -. start member2relay with a property file config/relay-config-small-1.properties
+#  -. gen event, monitoring the buffer stats, freespace etc
+#  start client before the gen_event
+
+# start the relay on port 8080
+source setup_env.inc
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o start -p $CONFIG_DIR/relay-config-logging-1.properties
+
+relay_event_log=${WORK_DIR_FROM_ROOT}/profile_relay_1.events
+
+# can start generation here
+$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 15000 -t 4000
+
+NUM_CONSUMERS=4
+num=1
+while [ "$num" -le $NUM_CONSUMERS ]
+do
+  consumer_event_log=${WORK_DIR_FROM_ROOT}/profile_consumer_${num}.events
+  $SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o start --dump_file=${consumer_event_log}
+  let "num+=1"
+done     
+
+# generate events
+#$SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 15000 -t 2000
+
+#sleep 5
+sleep 5
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/profile_{relay,consumer}_start* | ${TAIL_PATH} -n $(($NUM_CONSUMERS+1))| xargs grep ERROR
+
+#compare result
+num=1
+while [ "$num" -le $NUM_CONSUMERS ]
+do
+  consumer_event_log=${WORK_DIR_FROM_ROOT}/profile_consumer_${num}.events
+  stat_txt="Test $0, comp ${num}"
+  #$SCRIPT_DIR/dbus2_json_compare.py -s ${relay_event_log} ${consumer_event_log}
+  $SCRIPT_DIR/dbus2_json_compare.py ${relay_event_log} ${consumer_event_log}
+  source report_pass_fail.inc
+  let "num+=1"
+done     
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c profile_consumer -o stop
+
+

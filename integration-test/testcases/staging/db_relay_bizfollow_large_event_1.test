@@ -1,0 +1,51 @@
+#!/bin/bash 
+# test liar db relay can run with a small buffer.
+#******************************************************
+# set TEST_NAME before calling setup_env.inc
+#******************************************************
+export TEST_NAME=db_relay_bizfollow_large_event_1.test
+#******************************************************
+# sets up common environmnet variables and 
+source setup_env.inc
+
+#***************************************************************************************************************************************
+#all ${ALL_CAPS} type vars come from setup_env.inc(except TEST_NAME)...check that file first before introducing any new variables here
+#***************************************************************************************************************************************
+relay_port=${RELAY_PORT_BASE}
+bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
+bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
+client_port=${CLIENT_PORT_BASE}
+relay_event_dump_file=${WORK_DIR_FROM_ROOT}/profile_relay_event_trace
+db_config_file=config/sources-bizfollow.json 
+# start the consumer
+consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
+consumer_1_value_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.values
+# test bizfollow db relay can run with a small buffer.
+
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=1024000000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" --db_config_file=${db_config_file} --jvm_direct_memory_size=1200M
+
+# start the consumer
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=${client_port} --relay_port=${relay_port} --dump_file=${consumer_1_log} --value_file=${consumer_1_value_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400000" --jvm_max_heap=768m
+
+# start db generator and reload test data
+$SCRIPT_DIR/dbus2_gen_event.py --db_gen -s bizfollow --from_scn=2 --db_testdata_reload --db_load_large_event --db_config_file=${db_config_file} --server_port=${relay_port}
+
+#wait for 1 secs before start checking relay and consumer inbound event
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --sleep_before_wait=1 --http_port=${client_port} --relay_port=${relay_port}
+
+# look at the log
+echo ==GREP ERROR
+ls -1tr $LOG_DIR/*db_relay_start* | ${TAIL_PATH} -n 1 | xargs grep ERROR
+
+# stop
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o stop
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o stop
+
+
+#compare result
+stat_txt="Test $0"
+
+$SCRIPT_DIR/dbus2_json_compare.py --db_src_ids=101 --db_config_file=${db_config_file} ${consumer_1_value_log}
+source report_pass_fail.inc
+
+exit $all_stat

@@ -1,0 +1,15 @@
+{
+  "name" : "EmailStatsLite",
+  "version":   1,
+  "doc" : "Espresso Schema Lite for Linkedin mailbox counters",
+  "type" : "record",
+  "namespace" : "com.linkedin.espresso.test.espressodb",
+  "fields" : [ 
+   {
+    "name" : "total",
+    "type" : "int"
+   }, {
+    "name" : "unread",
+    "type" : "int"
+  } ]
+}

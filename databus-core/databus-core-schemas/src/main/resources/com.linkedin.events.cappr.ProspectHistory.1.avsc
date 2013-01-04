@@ -1,0 +1,44 @@
+{
+  "name" : "ProspectHistory_V1",
+  "doc" : "Auto-generated Avro schema for cappr.sy$prospect_history_1. Generated at Mar 14, 2012 08:18:56 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=cappr.sy$prospect_history_1;pk=uId;",
+  "namespace" : "com.linkedin.events.cappr",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "uId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=U_ID;dbFieldPosition=1;"
+  }, {
+    "name" : "prospectId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PROSPECT_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "contractId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CONTRACT_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "projectId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PROJECT_ID;dbFieldPosition=4;"
+  }, {
+    "name" : "dataType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DATA_TYPE;dbFieldPosition=5;"
+  }, {
+    "name" : "snapshotDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=SNAPSHOT_DATE;dbFieldPosition=6;"
+  }, {
+    "name" : "expireDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=EXPIRE_DATE;dbFieldPosition=7;"
+  }, {
+    "name" : "dataValue",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DATA_VALUE;dbFieldPosition=8;"
+  } ]
+}
