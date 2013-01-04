@@ -1,27 +1,18 @@
 package com.linkedin.databus.test.bootstrap;
 
 
-import static org.junit.Assert.assertEquals;
-
-import java.io.IOException;
 import java.util.ArrayList;
 
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.FileAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.core.DatabusComponentStatus;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
+@Test(singleThreaded=true)
 public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
 {
   public static final String MODULE = TestBootstrapDBTooOld.class.getName();
@@ -35,12 +26,12 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
   private ArrayList<Integer> _srcIdList;
 
   @Override
-  @Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
     setRelayConfigFile(SMALL_BUFFER_RELAY_PROPERTY_NAME);
     setTestName("TestBootstrapDBTooOld");
-    
+
     super.setUp();
 
     // source1 maps to id 1 - it's hard-coded for now
@@ -51,7 +42,7 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
   }
 
   @Override
-  @After
+  @AfterMethod
   public void tearDown() throws Exception
   {
     super.tearDown();
@@ -73,7 +64,7 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
     LOG.info("wait for the initial bootstrap workload to be put into relay so we can start bootstrap");
     waitForInputDone(_relayInStatsMBean, numEventsExpected, INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals( numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
     // start bootstrap producer to initialize bootstrap db
     // noted that the producer can NOT be started before workload is generated on relay
@@ -88,7 +79,7 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
                      numEventsExpected,
                      INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in bootstrap server", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in bootstrap server");
 
     _bootstrapServerOutHttpStatsMBean.reset();
 
@@ -97,9 +88,9 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
     _bootstrapProducerAdminMBean.pause();
     long numEventsBeforePause = numEventsPopulated;
 
-    assertEquals("Bootstrap Producer is in unexpectd state!",
-                 DatabusComponentStatus.Status.PAUSED,
-                 DatabusComponentStatus.Status.valueOf(_bootstrapProducerAdminMBean.getStatus()));
+    Assert.assertEquals(DatabusComponentStatus.Status.PAUSED,
+                 DatabusComponentStatus.Status.valueOf(_bootstrapProducerAdminMBean.getStatus()),
+                 "Bootstrap Producer is in unexpectd state!");
 
     // overrun relay buffer
     LOG.info("overrun relay buffer");
@@ -107,12 +98,12 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
     numEventsExpected = numEventsExpected + overrunWorkload;
     waitForInputDone(_relayInStatsMBean, numEventsExpected, OVERRUN_RELAYBUFFER_DURATION * 5);
     numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
     numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
-    assertEquals("Bootstrap Producer received additional events after paused",
-                 numEventsBeforePause,
-                 numEventsPopulated);
+    Assert.assertEquals(numEventsBeforePause,
+                 numEventsPopulated,
+                 "Bootstrap Producer received additional events after paused");
 
     LOG.info("Resuming bootstrap producer");
     _bootstrapProducerAdminMBean.resume();
@@ -135,6 +126,6 @@ public class TestBootstrapDBTooOld extends DatabusBaseIntegTest
     LOG.info("Sleeping !!");
     Thread.sleep(10*1000);
     LOG.info("The number of TooOld Errors :" + _bootstrapServerOutHttpStatsMBean.getNumErrReqDatabaseTooOld());
-    Assert.assertTrue("Unexpected Num Fell Off Errors",0 <_bootstrapServerOutHttpStatsMBean.getNumErrReqDatabaseTooOld());
+    Assert.assertTrue(0 <_bootstrapServerOutHttpStatsMBean.getNumErrReqDatabaseTooOld(), "Unexpected Num Fell Off Errors");
   }
 }

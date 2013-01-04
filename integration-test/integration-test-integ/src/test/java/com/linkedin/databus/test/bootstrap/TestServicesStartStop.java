@@ -1,36 +1,37 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
+import static org.testng.Assert.fail;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 import com.linkedin.databus.test.ExternalCommand;
 
 
+@Test(singleThreaded=true)
 public class TestServicesStartStop extends DatabusBaseIntegTest
 {
   @Override
-@Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
-	setTestName("TestServicesStartStop");
+    setTestName("TestServicesStartStop");
     setupLogger();
     loadSystemProperties();
     LOG.info("Setup Complete" + getTestName());
   }
 
   @Override
-@After
+  @AfterMethod
   public void tearDown() throws Exception
   {
-	    LOG.info("Test Complete" + getTestName());
+    LOG.info("Test Complete" + getTestName());
   }
 
   @Test
@@ -64,7 +65,7 @@ public class TestServicesStartStop extends DatabusBaseIntegTest
                                              RELAY_PROPERTY_OPTION_STR,
                                              RELAY_PROPERTY_NAME);
  //   System.out.println(cmd.getStringOutput());
-    assertFalse(RELAY_SERVICE_COMPONENT + " started twice.", (0 == cmd.exitValue()));
+    Assert.assertFalse((0 == cmd.exitValue()), RELAY_SERVICE_COMPONENT + " started twice.");
 
     // STOP
     cmd = ExternalCommand.executeWithTimeout(_scriptDir,
@@ -112,7 +113,7 @@ public class TestServicesStartStop extends DatabusBaseIntegTest
                                              SERVICE_OPERATION_START,
                                              RELAY_PROPERTY_OPTION_STR,
                                              RELAY_PROPERTY_NAME);
-    assertFalse(BOOTSTRAP_SERVICE_COMPONENT + " started twice.", (0 == cmd.exitValue()));
+    Assert.assertFalse((0 == cmd.exitValue()), BOOTSTRAP_SERVICE_COMPONENT + " started twice.");
 
     // STOP
     cmd = ExternalCommand.executeWithTimeout(_scriptDir,

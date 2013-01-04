@@ -4,19 +4,20 @@ import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.Level;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.netty.NettyHttpDatabusBootstrapConnection;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
+@Test(singleThreaded=true)
 public class TestBootstrapGroupOne extends DatabusBaseIntegTest
 {
   public static final String MODULE = TestBootstrapGroupOne.class.getName();
 
   @Override
-  @Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
     // skip the super Setup. Just load the view root
@@ -28,7 +29,7 @@ public class TestBootstrapGroupOne extends DatabusBaseIntegTest
   }
 
   @Override
-  @After
+  @AfterMethod
   public void tearDown() throws Exception
   {
     // skip the super Setup. Just load the view root

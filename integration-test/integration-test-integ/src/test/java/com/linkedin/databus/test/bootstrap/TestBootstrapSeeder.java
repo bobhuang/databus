@@ -8,8 +8,8 @@ import java.sql.SQLException;
 
 import oracle.jdbc.pool.OracleDataSource;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.bootstrap.utils.BootstrapDBSeeder;
 import com.linkedin.databus.bootstrap.utils.BootstrapSeederMain;
@@ -21,12 +21,13 @@ import com.linkedin.databus2.schemas.VersionedSchemaSet;
 import com.linkedin.databus2.util.DBHelper;
 import com.linkedin.events.bizfollow.bizfollow.BizFollow;
 
+@Test(singleThreaded=true)
 public class TestBootstrapSeeder {
 
 	private final OracleDataSource _dataSource;
 	private final BootstrapDBSeeder _seeder;
 	private final SeedTester        _seedTester;
-	private boolean                 _txLogExist = false;
+	private final boolean                 _txLogExist = false;
 
 	private static String[] seederArgs = new String[4];
 	private static final String bootstrapConfig = "integration-test/config/bootstrap-seeder-config.properties";
@@ -425,16 +426,16 @@ public class TestBootstrapSeeder {
 	      CharSequence status = (CharSequence) bizFollow.get(7);
 	      Long createdOn =  bizFollow.get(8) == null ? 0 : (Long) bizFollow.get(8);
 	      Long lastModified = bizFollow.get(9) == null ? 0 : (Long) bizFollow.get(9);
-	      Assert.assertEquals("TXN check", exp.getInt(1),txn.intValue());
-	      Assert.assertEquals("ID check", exp.getInt(2),id.intValue());
-          Assert.assertEquals("Member ID check", exp.getInt(3),memberId.intValue());
-          Assert.assertEquals("Company ID check", exp.getInt(4),companyId.intValue());
-          Assert.assertEquals("Notify Options check", exp.getString(5),notifyOptions);
-          Assert.assertEquals("Notify NUS check", exp.getInt(6),notifyNus.intValue());
-          Assert.assertEquals("Source check", exp.getInt(7),source.intValue());
-          Assert.assertEquals("Status check", exp.getString(8),new StringBuilder(status).toString());
-          Assert.assertEquals("Created On check", exp.getLong(9),createdOn.longValue());
-          Assert.assertEquals("Last Modified check", exp.getLong(10),lastModified.longValue());
+	      Assert.assertEquals(exp.getInt(1),txn.intValue(), "TXN check");
+	      Assert.assertEquals( exp.getInt(2),id.intValue(), "ID check");
+	      Assert.assertEquals(exp.getInt(3),memberId.intValue(), "Member ID check");
+	      Assert.assertEquals(exp.getInt(4),companyId.intValue(), "Company ID check");
+	      Assert.assertEquals( exp.getString(5),notifyOptions, "Notify Options check");
+	      Assert.assertEquals(exp.getInt(6),notifyNus.intValue(),"Notify NUS check");
+	      Assert.assertEquals(exp.getInt(7),source.intValue(), "Source check");
+	      Assert.assertEquals(exp.getString(8),new StringBuilder(status).toString(), "Status check" );
+	      Assert.assertEquals(exp.getLong(9),createdOn.longValue(), "Created On check");
+	      Assert.assertEquals(exp.getLong(10),lastModified.longValue(), "Last Modified check");
 
 	    } catch ( SQLException sqlEx) {
 	      sqlEx.printStackTrace();

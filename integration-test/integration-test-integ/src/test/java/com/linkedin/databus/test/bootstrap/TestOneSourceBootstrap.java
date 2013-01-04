@@ -1,23 +1,17 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertEquals;
-
-import java.io.IOException;
 import java.util.ArrayList;
 
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
+@Test(singleThreaded=true)
 public class TestOneSourceBootstrap extends DatabusBaseIntegTest
 {
   public static final String MODULE = TestOneSourceBootstrap.class.getName();
@@ -32,11 +26,11 @@ public class TestOneSourceBootstrap extends DatabusBaseIntegTest
 
 
   @Override
-  @Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
     setTestName("TestOneSourceBootstrap");
-     
+
     super.setUp();
 
     // source1 maps to id 1 - it's hard-coded for now
@@ -45,11 +39,11 @@ public class TestOneSourceBootstrap extends DatabusBaseIntegTest
     _srcIdList = new ArrayList<Integer>();
     _srcIdList.add(1);
     LOG.info("setUp complete" + getTestName());
-    
+
   }
 
   @Override
-  @After
+  @AfterMethod
   public void tearDown() throws Exception
   {
     super.tearDown();
@@ -71,7 +65,7 @@ public class TestOneSourceBootstrap extends DatabusBaseIntegTest
     // wait for events to be put into relay
     waitForInputDone(_relayInStatsMBean, totalWork, INITIAL_GENERATION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", totalWork, numEventsPopulated);
+    Assert.assertEquals(totalWork, numEventsPopulated, "Unexpected number of events populated in relay");
 
     LOG.info("Starting bootstrap producer ...");
 

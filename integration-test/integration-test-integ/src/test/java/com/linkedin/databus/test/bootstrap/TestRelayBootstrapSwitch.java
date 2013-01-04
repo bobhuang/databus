@@ -1,19 +1,20 @@
 package com.linkedin.databus.test.bootstrap;
 
-import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.bootstrap.IntegratedDummyDatabusConsumer;
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
 
+@Test(singleThreaded=true)
 public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
 {
   public static final String MODULE = TestRelayBootstrapSwitch.class.getName();
@@ -38,7 +39,7 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
   private ArrayList<Integer> _srcIdList;
 
   @Override
-  @Before
+  @BeforeMethod
   public void setUp() throws Exception
   {
 
@@ -64,7 +65,7 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
   }
 
   @Override
-  @After
+  @AfterMethod
   public void tearDown() throws Exception
   {
     super.tearDown();
@@ -88,7 +89,7 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
     LOG.info("wait for the initial bootstrap workload to be put into relay so we can start bootstrap");
     waitForInputDone(_relayInStatsMBean, numEventsExpected, INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     long numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
 
     // start bootstrap producer to initialize bootstrap db
@@ -105,7 +106,7 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
                      INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 10);
     numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
     long bootstrapEndScn = _bootstrapProducerInStatsMBean.getMaxSeenWinScn();
-    assertEquals("Unexpected number of events populated in bootstrap server", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in bootstrap server");
 
     LOG.info("Create consumer");
     File testLogDir = new File(_integrationVarLogDir, getTestName());
@@ -131,14 +132,14 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
                      numEventsExpected,
                      INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
     LOG.info("wait for events");
     waitForInputDone(_bootstrapProducerInStatsMBean,
                      numEventsExpected,
                      INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
     numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in bootstrap server", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in bootstrap server");
 
     // make sure client gets all the events
     LOG.info("make sure client gets all the events");
@@ -159,20 +160,20 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
       numEventsExpected = numEventsExpected + workloadBatchSize;
       waitForInputDone(_relayInStatsMBean, workloadBatchSize, OVERRUN_RELAYBUFFER_DURATION * 5);
       numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-      assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+      Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
       waitForInputDone(_bootstrapProducerInStatsMBean,
                        numEventsExpected,
                        INITIAL_BOOTSTRAP_CONSUMPTION_DURATION * 5);
       numEventsPopulated = _bootstrapProducerInStatsMBean.getNumDataEvents();
-      assertEquals("Unexpected number of events populated in bootstrap server", numEventsExpected, numEventsPopulated);
+      Assert.assertEquals(numEventsExpected, numEventsPopulated, "Unexpected number of events populated in bootstrap server");
     }
 
     LOG.info("check if the bootstrap server got all events from relay");
     long overrunRelayMaxScn = _relayInStatsMBean.getMaxSeenWinScn();
     bootstrapEndScn = _bootstrapProducerInStatsMBean.getMaxSeenWinScn();
     LOG.info("checking for overrunRelayMaxScn == bootstrapEndScn == " + overrunRelayMaxScn);
-    assertEquals("bootstrap server didn't get all events from relay", overrunRelayMaxScn, bootstrapEndScn);
+    Assert.assertEquals(overrunRelayMaxScn, bootstrapEndScn, "bootstrap server didn't get all events from relay");
 
     // resume client and make sure it goes to bootstrap server again
     LOG.info("resume client and make sure it goes to bootstrap server again:" + bootstrapEndScn);
@@ -186,7 +187,7 @@ public class TestRelayBootstrapSwitch extends DatabusBaseIntegTest
     LOG.info("numEventsExpected=" + numEventsExpected);
     waitForInputDone(_relayInStatsMBean, numEventsExpected, GENERATION_DURATION * 5);
     numEventsPopulated = _relayInStatsMBean.getNumDataEvents();
-    assertEquals("Unexpected number of events populated in relay", numEventsExpected, numEventsPopulated);
+    Assert.assertEquals( numEventsExpected, numEventsPopulated, "Unexpected number of events populated in relay");
 
     // make sure the consumer gets all events
     LOG.info("make sure the consumer gets all events");

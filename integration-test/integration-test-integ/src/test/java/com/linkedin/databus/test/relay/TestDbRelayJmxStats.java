@@ -8,8 +8,8 @@ import java.util.concurrent.TimeoutException;
 import javax.management.MalformedObjectNameException;
 
 import org.testng.Assert;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 
@@ -31,7 +31,7 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
   private String _testName;
 
   @Override
-@BeforeTest
+  @BeforeMethod
   public void setUp() throws Exception
   {
     _testName = "testDbRelayJmxStats";
@@ -43,7 +43,7 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
   }
 
   @Override
-@AfterTest
+  @AfterMethod
   public void tearDown() throws Exception
   {
     closeJMXAgentHelper(_relayJMXHelper);

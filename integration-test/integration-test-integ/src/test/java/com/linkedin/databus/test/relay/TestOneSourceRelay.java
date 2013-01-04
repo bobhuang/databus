@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 
 import com.linkedin.databus.test.DatabusBaseIntegTest;
 
+@Test(singleThreaded=true)
 public class TestOneSourceRelay extends DatabusBaseIntegTest
 {
 
