@@ -4,9 +4,7 @@ test.workingDir = "${project.rootDir}"
 
 dependencies {
   compile project(':databus3-core:databus3-espresso-core')
-  compile project(':databus2-linkedin:databus-client-impl')
   compile project(':databus-core:databus-core-fwk-test')
-  compile project (':databus2-linkedin:databus2-common-sensor-factory')
   compile project(':databus-client:databus-client-api')
   compile project(':databus-client:databus-client-http')
   compile project(':databus-client:databus-client-common')
@@ -27,7 +25,5 @@ dependencies {
   testCompile externalDependency.easymock
   testCompile externalDependency.easymockext
 }
-
-//configurations.compile.exclude(group: "zkclient", module: "zkclient")
 
 test.useTestNG()
