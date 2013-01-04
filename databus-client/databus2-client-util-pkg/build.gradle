@@ -1,10 +1,12 @@
-apply plugin: 'java'
 
 dependencies {
   compile project(':databus-client:databus2-client-util')
 }
 
-project.tasks.cmdline {
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   into("conf") { from "config/" }
 
@@ -12,4 +14,11 @@ project.tasks.cmdline {
     into ("bin")
     fileMode = 0755
   }
+
+  into("lib") {
+     from configurations.runtime
+  }
 }
+
+myTar.dependsOn ':databus-client:databus2-client-util:assemble'
+assemble.dependsOn myTar

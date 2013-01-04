@@ -1,4 +1,3 @@
-apply plugin: 'java'
 
 dependencies {
   compile project(':databus-bootstrap-producer:databus-bootstrap-producer-impl')
@@ -7,7 +6,10 @@ dependencies {
   compile externalDependency.log4j
 }
 
-project.tasks.cmdline {
+task myTar(type: Tar) {
+  extension = 'tar.gz'
+  baseName = project.name
+  compression = Compression.GZIP
 
   into("conf") { from "config/" }
 
@@ -27,4 +29,11 @@ project.tasks.cmdline {
     fileMode = 0755
   }
 
+  into("lib") {
+     from configurations.runtime
+  }
+
 }
+
+myTar.dependsOn ':databus-bootstrap-producer:databus-bootstrap-producer-impl:assemble'
+assemble.dependsOn myTar
