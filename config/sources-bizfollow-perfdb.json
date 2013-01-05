@@ -1,0 +1,13 @@
+{
+    "name" : "bizfollow",
+    "id"  : 100,
+    "uri" : "jdbc:oracle:thin:system/manager@perfdb.qa:1521:DB",
+	"sources" :
+	[
+		{"id" : 101, 
+		 "name": "com.linkedin.events.bizfollow.bizfollow.BizFollow", 
+		 "uri" : "bizfollow.biz_follow",
+		 "partitionFunction" : "constant:1"
+		}
+	]
+}

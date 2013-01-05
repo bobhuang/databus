@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- For more information on the topology and the bom see:                 -->
+<!-- https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Topology+and+Bom  -->
+<!-- For more information on deployment in DEV see:                        -->
+<!-- https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Deployment+in+DEV -->
+<!-- use jetty port here and jetty + 10000 for debug port                  -->
+<topology>
+  <containers>
+    <container id="databus2-relay" type="jetty" host="localhost" port="11440" debug-port="3887" />
+    <container id="databus2-relay-anet" type="jetty" host="localhost" port="11268" debug-port="21268" />
+    <container id="databus2-relay-bizfollow" type="jetty" host="localhost" port="11106" debug-port="21106" />
+    <container id="databus2-relay-cappr" type="jetty" host="localhost" port="11350" debug-port="21350" />
+    <container id="databus2-relay-conn" type="jetty" host="localhost" port="11280" debug-port="21280" />
+    <container id="databus2-relay-following" type="jetty" host="localhost" port="11360" debug-port="21360" />
+    <container id="databus2-relay-forum" type="jetty" host="localhost" port="11245" debug-port="21245" />
+    <container id="databus2-relay-liar" type="jetty" host="localhost" port="11114" debug-port="21114" />
+    <container id="databus2-relay-mbrrec" type="jetty" host="localhost" port="11321" debug-port="21321" />
+    <container id="databus2-relay-member2" type="jetty" host="localhost" port="11182" debug-port="21182" />
+    <container id="databus2-relay-news" type="jetty" host="localhost" port="11329" debug-port="21329" />
+    <container id="databus2-relay-fuse" type="jetty" host="localhost" port="11400" debug-port="21400" />
+    <container id="databus2-relay-company" type="jetty" host="localhost" port="11412" debug-port="21400" />
+    <container id="databus2-relay-jobs" type="jetty" host="localhost" port="11405" debug-port="21400" />
+    <container id="databus3-relay-espresso" type="jetty" host="localhost" port="11139" debug-port="21139" />
+    <container id="databus3-relay-rpldbus" type="jetty" host="localhost" port="11138" debug-port="21138" />
+    <container id="databus2-relay-espresso-ucp" type="jetty" host="localhost" port="11490" debug-port="21490" />
+    <container id="databus2-relay-espresso-ucpx" type="jetty" host="localhost" port="11492" debug-port="21492" />
+    <container id="databus2-relay-espresso-ucpxactivityevent" type="jetty" host="localhost" port="11494" debug-port="21494" />
+    <container id="databus2-bootstrap-producer" type="jetty" host="localhost" port="3990" debug-port="3880" />
+    <container id="databus2-bootstrap-producer-anet" type="jetty" host="localhost" port="11270" debug-port="21270" />
+    <container id="databus2-bootstrap-producer-bizfollow" type="jetty" host="localhost" port="11108" debug-port="21108" />
+    <container id="databus2-bootstrap-producer-cappr" type="jetty" host="localhost" port="11352" debug-port="21352" />
+    <container id="databus2-bootstrap-producer-collab" type="jetty" host="localhost" port="11694" debug-port="21694" />
+    <container id="databus2-bootstrap-producer-fuse" type="jetty" host="localhost" port="11402" debug-port="21402" />
+    <container id="databus2-bootstrap-producer-flex" type="jetty" host="localhost" port="11692" debug-port="21692" />
+    <container id="databus2-bootstrap-producer-company" type="jetty" host="localhost" port="11414" debug-port="21414" />
+    <container id="databus2-bootstrap-producer-jobs" type="jetty" host="localhost" port="11407" debug-port="21407" />
+    <container id="databus2-bootstrap-producer-conn" type="jetty" host="localhost" port="11272" debug-port="21272" />
+    <container id="databus2-bootstrap-producer-espresso-ucpxactivityevent" type="jetty" host="localhost" port="11494" debug-port="21494" />
+    <container id="databus2-bootstrap-producer-espresso-ucpx" type="jetty" host="localhost" port="11272" debug-port="21272" />
+    <container id="databus2-bootstrap-producer-following" type="jetty" host="localhost" port="11275" debug-port="21275" />
+    <container id="databus2-bootstrap-producer-forum" type="jetty" host="localhost" port="11243" debug-port="21243" />
+    <container id="databus2-bootstrap-producer-liar" type="jetty" host="localhost" port="11116" debug-port="21116" />
+    <container id="databus2-bootstrap-producer-mbrrec" type="jetty" host="localhost" port="11276" debug-port="21276" />
+    <container id="databus2-bootstrap-producer-member2" type="jetty" host="localhost" port="11184" debug-port="21184" />
+    <container id="databus2-bootstrap-producer-news" type="jetty" host="localhost" port="11331" debug-port="21331" />
+    <container id="databus2-bootstrap-producer-targeting" type="jetty" host="localhost" port="11654" debug-port="21654" />
+    <container id="databus2-bootstrap-server" type="jetty" host="localhost" port="11110" debug-port="21110" />
+    <container id="databus2-test-client" type="jetty" host="localhost" port="3998" debug-port="3888" />
+    <container id="databus2-espresso-test-client" type="jetty" host="localhost" port="3998" debug-port="3888" />
+    <container id="databus2-multi-test-client" type="jetty" host="localhost" port="11577" debug-port="21577" />
+</containers>
+
+  <services>
+    <service id="databus2-relay-anet-war" container="databus2-relay-anet" context-path="databus2-relay-anet" cfg2="true"/>
+    <service id="databus2-relay-bizfollow-war" container="databus2-relay-bizfollow" context-path="databus2-relay-bizfollow" cfg2="true"/>
+    <service id="databus2-relay-cappr-war" container="databus2-relay-cappr" context-path="databus2-relay-cappr" cfg2="true"/>
+    <service id="databus2-relay-conn-war" container="databus2-relay-conn" context-path="databus2-relay-conn" cfg2="true"/>
+    <service id="databus3-relay-espresso-war" container="databus3-relay-espresso" context-path="databus3-relay-espresso" cfg2="true"/>
+    <service id="databus3-relay-rpldbus-war" container="databus3-relay-rpldbus" context-path="databus3-relay-rpldbus" cfg2="true"/>
+    <service id="databus2-relay-espresso-ucp-war" container="databus2-relay-espresso-ucp" context-path="databus2-relay-espresso-ucp" cfg2="true"/>
+    <service id="databus2-relay-espresso-ucpx-war" container="databus2-relay-espresso-ucpx" context-path="databus2-relay-espresso-ucpx" cfg2="true"/>
+    <service id="databus2-relay-espresso-ucpxactivityevent-war" container="databus2-relay-espresso-ucpxactivityevent" context-path="databus2-relay-espresso-ucpxactivityevent" cfg2="true"/>
+    <service id="databus2-relay-following-war" container="databus2-relay-following" context-path="databus2-relay-following" cfg2="true"/>
+    <service id="databus2-relay-forum-war" container="databus2-relay-forum" context-path="databus2-relay-forum" cfg2="true"/>
+    <service id="databus2-relay-liar-war" container="databus2-relay-liar" context-path="databus2-relay-liar" cfg2="true"/>
+    <service id="databus2-relay-mbrrec-war" container="databus2-relay-mbrrec" context-path="databus2-relay-mbrrec" cfg2="true"/>
+    <service id="databus2-relay-member2-war" container="databus2-relay-member2" context-path="databus2-relay-member2" cfg2="true"/>
+    <service id="databus2-relay-news-war" container="databus2-relay-news" context-path="databus2-relay-news" cfg2="true"/>
+    <service id="databus2-relay-fuse-war" container="databus2-relay-fuse" context-path="databus2-relay-fuse" cfg2="true"/>
+    <service id="databus2-relay-company-war" container="databus2-relay-company" context-path="databus2-relay-company" cfg2="true"/>
+    <service id="databus2-relay-jobs-war" container="databus2-relay-jobs" context-path="databus2-relay-jobs" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-anet-war" container="databus2-bootstrap-producer-anet" context-path="databus2-bootstrap-producer-anet" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-bizfollow-war" container="databus2-bootstrap-producer-bizfollow" context-path="databus2-bootstrap-producer-bizfollow" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-cappr-war" container="databus2-bootstrap-producer-cappr" context-path="databus2-bootstrap-producer-cappr" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-collab-war" container="databus2-bootstrap-producer-collab" context-path="databus2-bootstrap-producer-collab" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-fuse-war" container="databus2-bootstrap-producer-fuse" context-path="databus2-bootstrap-producer-fuse" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-company-war" container="databus2-bootstrap-producer-company" context-path="databus2-bootstrap-producer-company" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-jobs-war" container="databus2-bootstrap-producer-jobs" context-path="databus2-bootstrap-producer-jobs" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-conn-war" container="databus2-bootstrap-producer-conn" context-path="databus2-bootstrap-producer-conn" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-espresso-ucpxactivityevent-war" container="databus2-bootstrap-producer-espresso-ucpxactivityevent" context-path="databus2-bootstrap-producer-espresso-ucpxactivityevent" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-espresso-ucpx-war" container="databus2-bootstrap-producer-espresso-ucpx" context-path="databus2-bootstrap-producer-espresso-ucpx" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-following-war" container="databus2-bootstrap-producer-following" context-path="databus2-bootstrap-producer-following" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-forum-war" container="databus2-bootstrap-producer-forum" context-path="databus2-bootstrap-producer-forum" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-flex-war" container="databus2-bootstrap-producer-flex" context-path="databus2-bootstrap-producer-flex" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-liar-war" container="databus2-bootstrap-producer-liar" context-path="databus2-bootstrap-producer-liar" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-mbrrec-war" container="databus2-bootstrap-producer-mbrrec" context-path="databus2-bootstrap-producer-mbrrec" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-member2-war" container="databus2-bootstrap-producer-member2" context-path="databus2-bootstrap-producer-member2" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-news-war" container="databus2-bootstrap-producer-news" context-path="databus2-bootstrap-producer-news" cfg2="true"/>
+    <service id="databus2-bootstrap-producer-targeting-war" container="databus2-bootstrap-producer-targeting" context-path="databus2-bootstrap-producer-targeting" cfg2="true"/>
+    <service id="databus2-bootstrap-server-war" container="databus2-bootstrap-server" context-path="databus2-bootstrap-server" cfg2="true"/>
+    <service id="databus2-espresso-test-client-war" container="databus2-espresso-test-client" context-path="databus2-espresso-test-client" cfg2="true"/>
+    <service id="databus2-client-test-consumer-war" container="databus2-test-client" context-path="databus2-client-test-consumer" cfg2="true"/>
+    <service id="databus2-multi-client-test-consumer-war" container="databus2-multi-test-client" context-path="databus2-multi-client-test-consumer" cfg2="true"/>
+    <service id="databus2-relay-war" container="databus2-relay" context-path="databus2-relay" cfg2="true"/>
+   </services>
+</topology>
+
