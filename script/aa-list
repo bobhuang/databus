@@ -1,0 +1,94 @@
+#!/bin/bash
+#quickie hack to query autoalerts and dump alerts for a given single zone/fabric
+
+#my personal use case, you can put your own here so you dont need to use flags
+FABRIC=ELA4
+ZONE=databusv2
+BADONLY=showboth
+
+#a tag I can end my temp files with so I know to delete them
+TEMPVAR=`date +%m%d%H%M%S`
+
+function print_help() 
+   {
+    echo "-f <FABRIC:ELA4|ECH3|EI|BETA|ESV4>                          #defaults to ELA4 if not specified"
+    echo "-z <zone:noc|cloud|search|databus|espresso|pymk|etc..>      #defaults to databusv2 if not specified"
+    echo "-B  set -B if you want to just see BAD entries, not services of the same type in GOOD state"
+    echo
+    echo "example: $0 -f ela4 -z databusv2"
+    echo "example: $0 -f ela4 -z databusv2 -B"
+    echo "example: $0 -h"
+}
+
+#if flags were given, lets do sets with them
+while [ "$1" != "" ]
+do
+	case "$1" in
+		--help) print_help; exit 0;;
+		-h) print_help; exit 0;;
+                -H) print_help; exit 0;;
+                -f)  FABRIC=$2; shift 2;;
+                -F)  FABRIC=$2; shift 2;;
+                -z)  ZONE=$2; shift 2;;
+                -Z)  ZONE=$2; shift 2;;
+                -B)  BADONLY="display_just_bad"; shift;;
+           	*) print_help; echo "cant understand these command line args"; exit;;
+	esac
+done
+
+#check if lynx is installed
+if [ ! -f /usr/bin/lynx ]; then
+   echo "lynx package is required to run this.  install lynx."
+   exit 1
+fi
+
+
+
+echo "Getting list of alerts for zone: $ZONE  in fabric: $FABRIC"
+curl -s "https://alerts.prod.linkedin.com/events/data?fabrics=$FABRIC&show=active&zone=$ZONE&json=False&tz=US%2FPacific" | grep filters | grep -v snippet | tr "\",$" " " > out.$TEMPVAR
+
+#Bail if there are no alerts to diplay
+NUM_ALERTS=`wc -l out.$TEMPVAR | awk '{print $1}'` 
+if [ "$NUM_ALERTS" -eq "0" ]; then
+ echo "No alerts were found for \"$ZONE\" in \"$FABRIC\""
+ exit 0
+fi
+
+echo "Getting detail for each of $NUM_ALERTS alerts, removing alarms due to no valid data."
+for i in `cat out.$TEMPVAR`; do echo -n "curl -s \"https://alerts.prod.linkedin.com" >> out2.$TEMPVAR;echo $i\" >> out2.$TEMPVAR;  done
+chmod +x ./out2.$TEMPVAR
+./out2.$TEMPVAR >> out3.$TEMPVAR.html
+
+#Tranlsating html to text
+lynx --width 300 -dump out3.$TEMPVAR.html > out4.$TEMPVAR
+
+#Removing alerts due to No valid info bug
+cat out4.$TEMPVAR | grep -v "No valid" > out1.$TEMPVAR
+
+
+echo
+awk '/   Title/,/   \[BUTTON\] Edit Overrides/' out1.$TEMPVAR | grep -v BUTTON | grep -v "Start Expiration"|\
+egrep -v 'Contacts:|Filename:|Alert Def. type:|State-check Plugin:|State-check Plugin:|max:|min:|consecutive-events:|Alert Plugin:|Alert Args:|Zones:|RRD Defs:|rrd:|service:|label:|Show RRD Information|State-check Args:|Processor:| No overrides specified| No nodes suppressed|No alert def. suppression|No comments' > out5.$TEMPVAR
+
+
+#if no BADaalaerts left  in output, exit
+grep --silent BAD out1.$TEMPVAR || echo "No alerts found";
+
+
+#strip out "GOOD" entries in output if -B was set
+if [ "$BADONLY" == "display_just_bad" ]; then
+cat out5.$TEMPVAR | grep -v "GOOD" > out6.$TEMPVAR 
+mv out6.$TEMPVAR out5.$TEMPVAR
+fi
+
+#clean up some garbage left in the display
+cat out5.$TEMPVAR | sed -e 's/\[[0-9]*\]//g' | sed -e 's/ms\.//g' | pcregrep -v "Node.*Message.*State.*Since" | sed -e 's/Title\: //g' > out6.$TEMPVAR
+
+#print out each record (delimited by blank line) if a BAD is present in it
+cat out6.$TEMPVAR | awk 'BEGIN{ORS="\n"; RS="";printf ("\n"); } { if (/BAD/)print $0; printf ("\n");}' > out7.$TEMPVAR
+ 
+#remove blank lines and output
+cat -s out7.$TEMPVAR 
+
+#clean up temp variables
+rm -f *.$TEMPVAR 
