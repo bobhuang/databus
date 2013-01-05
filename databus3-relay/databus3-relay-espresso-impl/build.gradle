@@ -11,14 +11,15 @@ dependencies {
   testCompile project(':databus-core:databus-core-fwk-test')
 
   compile externalDependency.log4j
-  compile externalDependency.helixCore
-  compile spec.product.espresso.espressoCommonImpl
-  compile spec.product.espresso.espressoSchema
-  compile spec.product.espresso.espressoStoreImpl
   compile externalDependency.commonsCli
   compile externalDependency.commonsLang
   compile externalDependency.zkclientHelix
   compile externalDependency.zookeeper
+
+  compile externalDependency.helixCore
+  compile externalDependency.espressoCommonImpl
+  compile externalDependency.espressoSchema
+  compile externalDependency.espressoStoreImpl
 
   compile externalDependency.jacksonCoreAsl 
   compile externalDependency.jacksonMapperAsl 

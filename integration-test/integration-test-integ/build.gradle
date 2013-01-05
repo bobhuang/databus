@@ -24,7 +24,6 @@ dependencies {
   compile project(':databus-events:databus-events-liar')
   compile project(':databus-events:databus-events-member2')
   compile project(':databus-profile-client:databus-profile-client-impl')
-  compile project(':databus2-linkedin:databus2-linkedin-impl')
 
   compile externalDependency.testng
   compile externalDependency.log4j
