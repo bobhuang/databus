@@ -7,6 +7,13 @@ test {
   }
   systemProperties['databus.basedir.path'] = "./"
   workingDir = new File("${project.rootDir}")
+
+  // exclude '**/TestBootstrap*'
+
+  beforeTest { desc->
+    logger.lifecycle("Running test: " + desc)
+  }
+
 }
 
 
@@ -24,6 +31,9 @@ dependencies {
   compile project(':databus-events:databus-events-liar')
   compile project(':databus-events:databus-events-member2')
   compile project(':databus-profile-client:databus-profile-client-impl')
+
+  testCompile project(':databus-relay:databus-relay-run')
+  testCompile project(':databus-bootstrap-server:databus-bootstrap-server-run')
 
   compile externalDependency.testng
   compile externalDependency.log4j
