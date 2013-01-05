@@ -1,0 +1,143 @@
+#!/bin/bash
+# $Id: rmiregistrystart 33147 2007-11-18 22:29:12Z dmccutch $
+
+# registrystart - start an rmi registry instance
+
+case $(uname -s) in
+  'SunOS')
+    JAVA_CMD=$JAVA_HOME/bin/$(isainfo -n)/java
+    ;;
+  *)
+    JAVA_CMD=$JAVA_HOME/bin/java
+    ;;
+esac
+
+
+usage() {
+  echo "Usage: registrystart [-hvd]  "
+}
+# resolve links - $0 may be a softlink
+PRG="$0"
+
+while [ -h "$PRG" ]; do
+  ls=`ls -ld "$PRG"`
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+# Get where we are
+PRGDIR=`dirname "$PRG"`
+
+RMI_HOME=`cd "$PRGDIR/.." ; pwd`
+
+source $RMI_HOME/bin/rmifuncs
+
+verbose=false
+rmidebug=false
+while getopts ":hvd" opt ; do
+  case $opt in
+
+    h  ) usage
+         exit 0 
+         ;;
+    v  ) verbose=true
+         ;;
+    d  ) rmidebug=true
+         ;;
+    \? ) echo 'whatdat?'
+         echo "error - unknown option: $opt"
+         usage
+         exit 1
+         ;;
+  esac
+done
+
+# correct the index so the filename argument is always $1
+shift $(($OPTIND - 1)) 
+
+extra_args=$*
+
+#-------------------------------------------------------------------------------
+
+servername='rmiregistry'
+
+# configuration files
+rmi_conf=${RMI_HOME}/conf/rmi_conf.sh
+
+
+# load configuration
+if [ -f ${rmi_conf} ] ; then 
+  source $rmi_conf
+else
+  # reasonable defaults
+  log_dir=${RMI_HOME}/logs
+  echo "warning: ${rmi_config} not found."
+  echo "using log_dir: ${log_dir}"
+fi
+
+impl=sun.rmi.registry.RegistryImpl
+unset CLASSPATH
+add_classpath=""
+
+if [ $rmidebug = true ]; then
+  java_args="-Djava.rmi.server.logCalls=true $java_args";
+fi
+
+
+#-------------------------------------------------------------------------------
+
+
+logfile=$log_dir/${servername}.log
+
+if [ $verbose = true ]; then
+  echo "# request to start server $servername with the following attributes:"
+  echo "   current directory : `pwd`"
+  echo "   LD_LIBRARY_PATH   : $LD_LIBRARY_PATH"
+  echo "   logfile           : $logfile"
+  echo "   code base         : $codepbase"
+  echo "   rmi debug         : $rmidebug"
+  echo "   classpath         : $ADD_CLASSPATH"
+  echo "   main class        : $impl"
+  echo "   port              : $registry_port"
+  echo ""
+fi
+
+pidfile=${pid_dir}/$servername.pid
+
+if [ -f $pidfile ]; then
+  pid=`head -1 $pidfile`
+  status=`ps -p $pid -o'user,pid=' | tail -1 | awk '{print $2}'`
+  if [ ! -z $status ]; then
+    echo "$servername is already running as pid $status"
+    exit 0
+  fi
+fi
+
+savedmsg=""
+
+if [ -f $logfile ]; then
+  backlog=${logfile}_`date "+%y-%m-%d_%H:%M:%S"`
+  savedmsg=" (previous saved as $backlog)"
+  mv $logfile $backlog
+fi
+
+# build the final ADD_CLASSPATH argument
+if [ ! -z $ADD_CLASSPATH ]; then
+  ADD_CLASSPATH="-classpath $ADD_CLASSPATH"
+fi
+
+# bumps the number of file descriptors to the maximum
+ulimit -n `ulimit -Hn`
+
+$JAVA_CMD $ADD_CLASSPATH $java_args $impl $registry_port $extra_args > $logfile 2>&1 & pid=$!
+echo "$pid" > $pidfile
+echo "# started on `date` with the following command " >> $pidfile
+echo "# $JAVA_CMD $ADD_CLASSPATH $java_args $impl $registry_port $extra_args" >> $pidfile
+echo "$servername started, pid $pid, log is ${logfile}${savedmsg}"
+sleep 2
+
+#-------------------------------------------------------------------------------
