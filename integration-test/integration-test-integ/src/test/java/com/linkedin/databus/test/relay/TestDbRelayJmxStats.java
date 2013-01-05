@@ -26,7 +26,7 @@ public class TestDbRelayJmxStats extends DatabusBaseIntegTest
   public static final String OPERATION_START = "start";
   public static final String OPERATION_STOP = "stop";
   public static final String DB_RELAY_PROPERTY_NAME = "integration-test/config/relay-config-small-1.properties";
-  public static final String DB_CONFIG_FILE_NAME = "config/sources-bizfollow.json";
+  public static final String DB_CONFIG_FILE_NAME = "integration-test/config/sources-bizfollow.json";
   public static final String DB_RELAY_INBOUND_STATS_MBEAN_NAME =
     "com.linkedin.databus2:ownerId=1234,dimension=eventsInbound.total,type=AggregatedDbusEventsTotalStats";
   private String _testName;
