@@ -12,9 +12,6 @@ import org.apache.avro.Schema;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.log4j.Logger;
-import org.xeril.util.Shutdownable;
-import org.xeril.util.Startable;
-import org.xeril.util.TimeOutException;
 
 import com.linkedin.databus.client.DatabusHttpClientImpl;
 import com.linkedin.databus.client.generic.DatabusFileLoggingConsumer;
@@ -38,7 +35,7 @@ import com.linkedin.databus2.core.DatabusException;
 import com.linkedin.databus3.espresso.client.DatabusHttpV3ClientImpl;
 import com.linkedin.databus3.espresso.client.data_model.EspressoSubscriptionUriCodec;
 
-public class EspressoTestDatabusClient implements Startable, Shutdownable
+public class EspressoTestDatabusClient
 {
   public static final Logger LOG = Logger.getLogger(EspressoTestDatabusClient.class.getName());
 
@@ -322,14 +319,12 @@ public class EspressoTestDatabusClient implements Startable, Shutdownable
   }
 
 
-  @Override
   public void shutdown()
   {
     LOG.info("shutdown request");
     _v3client.shutdown();
   }
 
-  @Override
   public void waitForShutdown() throws InterruptedException,
       IllegalStateException
   {
@@ -338,17 +333,14 @@ public class EspressoTestDatabusClient implements Startable, Shutdownable
     _v3client.awaitShutdown();
   }
 
-  @Override
   public void waitForShutdown(long timeout) throws InterruptedException,
-      IllegalStateException,
-      TimeOutException
+      IllegalStateException
   {
     LOG.info("waiting for shutdown");
    	assert(null != _v3client);
 	_v3client.awaitShutdown();
   }
 
-  @Override
   public void start() throws Exception
   {
     LOG.info("starting");

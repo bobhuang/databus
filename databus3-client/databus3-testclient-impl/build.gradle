@@ -1,13 +1,13 @@
-apply plugin: 'li-java'
+apply plugin: 'java'
 
 dependencies {
   compile project(':databus3-core:databus3-espresso-core')
   compile project(':databus3-client:databus3-client-http')
 
-  compile spec.external.avro
-  compile spec.external.googleCollections
-  compile spec.external.jacksonCoreAsl
-  compile spec.external.jacksonMapperAsl
-  compile spec.external.log4j
-  compile spec.external.netty
+  compile externalDependency.avro
+  compile externalDependency.googleCollections
+  compile externalDependency.jacksonCoreAsl
+  compile externalDependency.jacksonMapperAsl
+  compile externalDependency.log4j
+  compile externalDependency.netty
 }
