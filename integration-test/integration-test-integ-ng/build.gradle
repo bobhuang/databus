@@ -8,6 +8,16 @@ test {
   useTestNG()
   systemProperties['databus.basedir.path'] = "./"
   workingDir = new File("${project.rootDir}")
+
+  // deployment tests require building a war which is not done here
+  exclude 'TestDeployment'
+
+  doFirst { desc->
+    logger.lifecycle("Running task: " + desc);
+  }
+  beforeTest { desc->
+    logger.lifecycle("Running test: " + desc);
+  }
 }
 
 dependencies {
