@@ -11,13 +11,6 @@ test {
 
   // deployment tests require building a war which is not done here
   exclude 'TestDeployment'
-
-  doFirst { desc->
-    logger.lifecycle("Running task: " + desc);
-  }
-  beforeTest { desc->
-    logger.lifecycle("Running test: " + desc);
-  }
 }
 
 dependencies {
