@@ -47,7 +47,10 @@ dependencies {
   compile project(':databus-events:databus-events-liar')
   compile project(':databus-events:databus-events-member2')
   compile project(':databus-profile-client:databus-profile-client-impl')
+ 
   testCompile project(':integration-test:integration-test-integ')
+  testCompile project(':databus3-client:databus3-testclient-impl')
+
 
   testCompile externalDependency.testng
 }
