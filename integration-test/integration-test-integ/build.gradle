@@ -9,11 +9,6 @@ test {
   workingDir = new File("${project.rootDir}")
 
   // exclude '**/TestBootstrap*'
-
-  beforeTest { desc->
-    logger.lifecycle("Running test: " + desc)
-  }
-
 }
 
 
@@ -53,3 +48,4 @@ project.afterEvaluate {
 }
 
 test.useTestNG()
+test.dependsOn(':database:databus2-bootstrap:reinit')
