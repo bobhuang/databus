@@ -157,7 +157,7 @@ curr_time=`date`
 LOG_INFO "Current Time :${curr_time}"
 
 TEST_STEP Test if Relay Puller is Inactive
-$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerInActive --expected_num_registrations=1 --client_base_port_list=${client_port} --reg_id=${regId} --debug
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_client -o isRelayPullerInactive --expected_num_registrations=1 --client_base_port_list=${client_port} --reg_id=${regId} --debug
 REPORT_TEST_STEP
 
 TEST_STEP Test if Relay Puller Candidate Servers is empty
@@ -167,7 +167,7 @@ REPORT_TEST_STEP
 LOG_INFO move Partition
 $SCRIPT_DIR/dbus2_driver.py -c cluster_manager -o movePartition -n "${TEST_NAME}" --db_list ${espressoDB_list} --db_replicas ${espressoDB_replicas} --partition_num=0 --helix_clustername ${STORAGE_NODE_CLUSTER} --zookeeper_server_hosts ${ZK_HOST} --zookeeper_server_ports ${ZK_PORT} 
 
-LOG_INFO Do not need to copy the mmap buffer files as both relays are hosting the same partitions ( One Master, One Slave )
+LOG_INFO Do not need to copy the mmap buffer files as both relays are hosting the same partitions 
 
 LOG_INFO start the 2 relays. Configure them to recieve events from the EspressoDB schema. Register it to listen to the EV of the DevCluster_Dbus Espresso Storage Node Cluster 
 $SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c espresso_relay -o start --db_config_file=${espressoDB_config_file_base} --db_config_file_range=${espressoDB_range} --cmdline_props="databus.relay.eventBuffer.trace.filename=${relay_event_trace_1}_${relay1Name};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay1Port};databus.relay.clusterManager.instanceName=${relay1Name};databus.relay.container.tcp.port=${relay1TCPPort};databus.relay.clusterManager.relayClusterName=${clusterName};databus.relay.clusterManager.relayZkConnectString=${RELAY_ZK_HOST}:${RELAY_ZK_PORT};databus.relay.clusterManager.relayReplicationFactor=2;databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay1_maxscn_dir};databus.relay.eventBuffer.mmapDirectory=${relay1_mmap_dir}" -p ${espresso_conf_dir}/espresso_relay_5_3_2.properties -l ${espresso_conf_dir}/espresso_relay_log4j.properties --jvm_args="${jvm_args}" 
