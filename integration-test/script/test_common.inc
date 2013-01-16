@@ -89,3 +89,39 @@ function CREATE_CLEAN_DIR(){
   mkdir -p $dir
   rm -rf $dir/*
 }
+
+###############################################################
+# Asserts
+function ASSERT_WITH_RETRY {
+  retries=$1
+  shift
+  assert="$*"
+
+  success=0
+  for ((; retries > 0; --retries)) ; do
+     if eval "$assert" ; then
+       success=1
+       break
+     fi
+     sleep 1
+  done
+  test "$success" == "1"
+}
+
+function ASSERT_FALSE_WITH_RETRY {
+  retries=$1
+  shift
+  assert="$*"
+
+  success=0
+  for ((; retries > 0; --retries)) ; do
+     if eval "$assert" ; then
+       success=0
+     else
+       success=1
+       break
+     fi
+     sleep 1
+  done
+  test "$success" == "1"
+}

@@ -435,7 +435,8 @@ public class TestPartitionMultiplexingConsumer
   public void testConcurrentTicketAcquisitionMany()
       throws InterruptedException, DatabusClientException
   {
-    Logger log = Logger.getLogger("TestPartitionMultiplexingConsumer.testConcurrentTicketAcquisitionMany");
+    final Logger log =
+        Logger.getLogger("TestPartitionMultiplexingConsumer.testConcurrentTicketAcquisitionMany");
     //log.setLevel(Level.DEBUG);
     final PartitionMultiplexingConsumer testConsumer =
         new PartitionMultiplexingConsumer(new RegistrationId("test1"), null, log, null, 500,
@@ -467,24 +468,42 @@ public class TestPartitionMultiplexingConsumer
       call[i] = exec.submit(consRunnable[i]);
     }
 
-    //the first 6 tickets should be granted; the rest should time out
-    for (int i = 0; i < partNum; ++i)
+    try
     {
-      try
+      //the first 6 tickets should be granted; the rest should time out
+      for (int i = 0; i < partNum; ++i)
       {
-        call[i].get(600, TimeUnit.MILLISECONDS);
-      }
-      catch (ExecutionException e)
-      {
+        try
+        {
+          call[i].get(600, TimeUnit.MILLISECONDS);
+        }
+        catch (ExecutionException e)
+        {
           Assert.fail("call " + i + " execution failure: " + e.getMessage(), e);
+        }
+        catch (TimeoutException e)
+        {
+          Assert.fail("call " + i + " timeout failure: " + e);
+        }
+        Assert.assertTrue(call[i].isDone(), "ticket " + i);
+        Assert.assertTrue(!call[i].isCancelled(), "ticket " + i);
+        Assert.assertTrue(consRunnable[i].getTicketSuccess(), "ticket " + i);
       }
-      catch (TimeoutException e)
-      {
-        Assert.fail("call " + i + " timeout failure: " + e);
-      }
-      Assert.assertTrue(call[i].isDone(), "ticket " + i);
-      Assert.assertTrue(!call[i].isCancelled(), "ticket " + i);
-      Assert.assertTrue(consRunnable[i].getTicketSuccess(), "ticket " + i);
+    }
+    catch (AssertionError e)
+    {
+      logPartitionAcquirers(log, partNum, consRunnable);
+      throw e;
+    }
+  }
+
+  private void logPartitionAcquirers(final Logger log,
+                                     final int partNum,
+                                     TestPartitionTicketAcquirer[] consRunnable)
+  {
+    for (int p = 0; p < partNum; ++p)
+    {
+      log.error("acquirer[" + p + "]:" + consRunnable[p]);
     }
   }
 
@@ -891,6 +910,7 @@ class TestPartitionTicketAcquirer implements Runnable
   public final PartitionMultiplexingConsumer _parent;
   public final long _sleepMs;
   public final Logger _log;
+  PartitionMultiplexingConsumer.PartitionTicket _ticket;
 
   public TestPartitionTicketAcquirer(PartitionMultiplexingConsumer parent,
                                      PartitionConsumer owner, long sleepMs,
@@ -907,30 +927,38 @@ class TestPartitionTicketAcquirer implements Runnable
   }
 
   @Override
+  public String toString()
+  {
+    return "{\"owner\":" + _owner +
+           ",\"ticket\":" + _ticket +
+           ",\"ticketSuccess\":" + _ticketSuccess.get() + "}";
+  }
+
+  @Override
   public void run()
   {
     try
     {
       _log.debug("start ");
-      PartitionMultiplexingConsumer.PartitionTicket ticket = _parent.acquireTicket(_owner);
+      _ticket = _parent.acquireTicket(_owner);
       _log.debug("ticket out");
 
-      Assert.assertNotNull(ticket, "no ticket");
+      Assert.assertNotNull(_ticket, "no ticket");
       _log.debug("has ticket");
-      Assert.assertEquals(ticket.getRenewCnt(), 0);
-      Assert.assertEquals(ticket.getOwner(), _owner);
-      Assert.assertTrue(ticket.isValid());
+      Assert.assertEquals(_ticket.getRenewCnt(), 0);
+      Assert.assertEquals(_ticket.getOwner(), _owner);
+      Assert.assertTrue(_ticket.isValid());
 
       TestUtil.sleep(_sleepMs / 2);
 
-      Assert.assertTrue(ticket.validate());
+      Assert.assertTrue(_ticket.validate());
       _log.debug("ticket validated");
       //the first ticket is still valid and the second thread should still be waiting
-      Assert.assertTrue(ticket.isValid());
-      Assert.assertEquals(ticket.getRenewCnt(), 1);
+      Assert.assertTrue(_ticket.isValid());
+      Assert.assertEquals(_ticket.getRenewCnt(), 1);
 
       TestUtil.sleep(_sleepMs / 2);
-      ticket.close();
+      _ticket.close();
       _log.debug("ticket closed");
       _ticketSuccess.set(true);
     }
