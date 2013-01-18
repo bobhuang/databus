@@ -17,7 +17,7 @@ bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
 bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
 bootstrap_host=esv4-bed03
 client_port=${CLIENT_PORT_BASE}
-db_config_file=config/sources-liar.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json 
 
 if [ $# = 1 ] 
 then

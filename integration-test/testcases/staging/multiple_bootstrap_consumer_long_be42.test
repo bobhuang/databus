@@ -22,7 +22,7 @@ while [ 1 ]; do
       rm -rf $WORK_DIR/ckpt_${loop_cnt}_${num}
       logname=log_${loop_cnt}_${num}
       port=$(($start_port + $loop_cnt*$NUM_CONSUMERS + $num))
-      $test_only $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=$port --logfile=$logname --relay_host=esv4-be40 --relay_port=9090 --bootstrap_host=esv4-be43 --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${loop_cnt}_${num} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+      $test_only $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=$port --logfile=$logname --relay_host=esv4-be40 --relay_port=9090 --bootstrap_host=esv4-be43 --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${loop_cnt}_${num} -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
       let "num+=1"
     done     
 

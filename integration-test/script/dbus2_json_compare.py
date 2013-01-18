@@ -974,7 +974,7 @@ def main(argv):
     db_compare_group = OptionGroup(parser, "DB compare options", "")
     db_compare_group.add_option("--db_src_ids", action="store", dest="db_src_ids", default=None,
                        help="Source IDs. Comma separated list. For dbgen, it is the datasource name in the json, e.g., member2. Default to %default")
-    db_compare_group.add_option("--db_config_file", action="store", dest="db_config_file", default="config/sources-member2.json",
+    db_compare_group.add_option("--db_config_file", action="store", dest="db_config_file", default="integration-test/config/sources-member2.json",
                        help="The db config file to use. Default to %default")
     db_compare_group.add_option("--sort_key", action="store_true", dest="sort_key", default = False,
                        help="sort the keys")

@@ -12,7 +12,7 @@
   <property name="module.classification" value ="test"/>
   
   <property name="main.class" value="com.linkedin.databus.tests.inprocess.HttpServer" />
-  <property name="config.dir" value="${basedir}/../../config" />
+  <property name="config.dir" value="${basedir}/../integration-test/config" />
   <property name="config.file" value="${config.dir}/relay-config-template.properties" />
   <property name="run.dir" value="${basedir}/../.."  />
   <property name="jvm.debug.port" value="8998" />

@@ -1,7 +1,7 @@
 # simple bootstrap negative test
 #  start producer, stop it and start it again
 source setup_env.inc
-#db_config_file=config/sources-bizfollow.json 
+#db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 relay_event_dump_file=integration-test/var/work/bizfollow_relay_event_trace
 # 10M buffer , event dump file 
 $SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false" --jvm_direct_memory_size=100M
