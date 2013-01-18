@@ -41,7 +41,7 @@ consumer_1_events_trace=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
 consumer_1_server_log=${VIEW_ROOT}/${LOG_DIR_FROM_ROOT}/liar_consumer_1_`date +%Y_%m_%d_%H_%M_%S`.log
 bs_server_log=${VIEW_ROOT}/${LOG_DIR_FROM_ROOT}/bs_server_`date +%Y_%m_%d_%H_%M_%S`.log
 cp_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/consumer_checkpoint_liar
-db_config_file=config/sources-liar.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json 
 DATA_ROOT=${VIEW_ROOT}/integration-test/data/testcases/bootstrap_bypass_snapshot/${testcase}
 DB_FILE=${DATA_ROOT}/bs.db
 CP_FILE=${DATA_ROOT}/cp_com_linkedin_events_liar_jobrelay_LiarJobRelay-com_linkedin_events_liar_memberrelay_LiarMemberRelay.current
@@ -78,7 +78,7 @@ echo "Generating Events !!";
 $SCRIPT_DIR/dbus2_gen_event.py -e 500 -s 20,21 --num_events=1000  --from_scn=${relay_start_scn}  --wait_until_suspend --server_port=${relay_port_1}
 
 # start the bootstrap server with defaultRowsThresholdForSnapshotBypass 
-$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --logfile=${bs_server_log}  --cmdline_props="databus.bootstrap.db.container.httpPort=${bootstrap_server_port};databus.bootstrap.defaultRowsThresholdForSnapshotBypass=${bootstrap_rows_threshold}" -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -c bootstrap_server -o start --logfile=${bs_server_log}  --cmdline_props="databus.bootstrap.db.container.httpPort=${bootstrap_server_port};databus.bootstrap.defaultRowsThresholdForSnapshotBypass=${bootstrap_rows_threshold}" -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 # start the consumer 
 $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=${consumer_1_port} --relay_port=${relay_port_1} --bootstrap_port=${bootstrap_server_port} --logfile=${consumer_1_server_log} --dump_file=${consumer_1_events_trace} --cmdline_props="databus.client.runtime.relay(1).name=DefaultRelay2;databus.client.runtime.relay(1).port=${relay_port_1};databus.client.runtime.relay(1).sources=com.linkedin.events.liar.jobrelay.LiarJobRelay,com.linkedin.events.liar.memberrelay.LiarMemberRelay;databus.client.checkpointPersistence.fileSystem.rootDirectory=${cp_dir};databus.client.checkpointPersistence.clearBeforeUse=false;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus2.client.runtime.bootstrap.enabled=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"

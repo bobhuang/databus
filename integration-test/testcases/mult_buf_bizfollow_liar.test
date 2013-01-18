@@ -17,8 +17,8 @@ bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
 client_port_bf=${CLIENT_PORT_BASE}
 let client_port_liar="${CLIENT_PORT_BASE}+1"
 
-db_config_file_bf=config/sources-bizfollow.json
-db_config_file_li=config/sources-liar.json
+db_config_file_bf=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json
+db_config_file_li=${CONFIG_DIR_FROM_ROOT}/sources-liar.json
 db_config_file=${db_config_file_bf},${db_config_file_li}
 relay_event_trace=$WORK_DIR_FROM_ROOT/profile_relay_event_trace
 consumer_bf_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
@@ -29,7 +29,7 @@ consumer_li_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
 consumer_li_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
 consumer_li_cp_dir=${WORK_DIR_FROM_ROOT}/databus2-checkpoints
 
-$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.eventBuffer.trace.needFileSuffix=true;databus.relay.container.httpPort=${relay_port}" -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.eventBuffer.trace.needFileSuffix=true;databus.relay.container.httpPort=${relay_port}" -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 ## start the consumer
 $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_bf_log} --http_port=${client_port_bf} --relay_port=${relay_port} --value_file=${consumer_bf_value_log} --cmdline_props="databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_bf_cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.enablePullerMessageQueueLogging=true"

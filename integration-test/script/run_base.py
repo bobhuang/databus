@@ -53,6 +53,7 @@ def cp_from_runpy_path(runpy_path):
 
 def main_base(argv, script_dir, module_name):
   print "\n --Invoking run_base.py target -- \n"
+  print script_dir
   jvm_arg_line = ""
   java_arg_line = ""
   # Parse command line
@@ -93,7 +94,8 @@ def main_base(argv, script_dir, module_name):
   (options, args) = parser.parse_args()
 
   #<TODO> Cleanup
-  options.config_dir = os.path.join(script_dir, "config")
+  options.config_dir = os.path.join(script_dir, "integration-test/config")
+  print options.config_dir
   #<TODO> Cleanup
   if ( options.jvm_debugport == None ):
     options.jvm_debugport = 8998

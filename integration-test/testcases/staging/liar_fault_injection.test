@@ -6,7 +6,7 @@ source setup_env.inc
 
 relay_event_dump_file=integration-test/var/work/${TEST_NAME}/liar_relay_event_trace
 relay_gc_file=integration-test/var/work/${TEST_NAME}/liar_relay_gc.log
-db_config_file=config/sources-liar.json
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json
 relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
 
 #start the relay
