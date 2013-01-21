@@ -1,8 +1,8 @@
 {
   "name" : "ProspectUpdate_V1",
-  "doc" : "Auto-generated Avro schema for sy$prospect_update. Generated at Jan 21, 2013 10:34:43 AM PST",
+  "doc" : "Auto-generated Avro schema for sy$prospect_update. Generated at Jan 21, 2013 11:33:03 AM PST",
   "type" : "record",
-  "meta" : "dbFieldName=sy$prospect_update;pk=prospectId",
+  "meta" : "dbFieldName=sy$prospect_update;pk=prospectId;",
   "namespace" : "com.linkedin.events.cappr",
   "fields" : [ {
     "name" : "txn",

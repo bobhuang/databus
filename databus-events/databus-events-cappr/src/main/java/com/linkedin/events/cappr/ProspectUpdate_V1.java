@@ -6,9 +6,9 @@
 package com.linkedin.events.cappr;
 
 @SuppressWarnings("all")
-/** Auto-generated Avro schema for sy$prospect_update. Generated at Jan 21, 2013 10:34:43 AM PST */
+/** Auto-generated Avro schema for sy$prospect_update. Generated at Jan 21, 2013 11:33:03 AM PST */
 public class ProspectUpdate_V1 extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"ProspectUpdate_V1\",\"namespace\":\"com.linkedin.events.cappr\",\"fields\":[{\"name\":\"txn\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=TXN;dbFieldPosition=0;\"},{\"name\":\"prospectId\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=PROSPECT_ID;dbFieldPosition=1;\"},{\"name\":\"contractId\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=CONTRACT_ID;dbFieldPosition=2;\"}],\"meta\":\"dbFieldName=sy$prospect_update;\"}");
+  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"ProspectUpdate_V1\",\"namespace\":\"com.linkedin.events.cappr\",\"fields\":[{\"name\":\"txn\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=TXN;dbFieldPosition=0;\"},{\"name\":\"prospectId\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=PROSPECT_ID;dbFieldPosition=1;\"},{\"name\":\"contractId\",\"type\":[\"long\",\"null\"],\"meta\":\"dbFieldName=CONTRACT_ID;dbFieldPosition=2;\"}],\"meta\":\"dbFieldName=sy$prospect_update;pk=prospectId;\"}");
   public java.lang.Long txn;
   public java.lang.Long prospectId;
   public java.lang.Long contractId;
