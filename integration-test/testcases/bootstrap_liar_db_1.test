@@ -18,7 +18,7 @@ client_port=${CLIENT_PORT_BASE}
 relay_event_dump_file=${WORK_DIR_FROM_ROOT}/liar_relay_event_trace
 consumer_1_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
 consumer_1_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
-db_config_file=config/sources-liar.json
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json
 
 
 # 10M buffer , event dump file 

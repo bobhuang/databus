@@ -19,7 +19,7 @@ bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
 #bootstrap_host=esv4-bed03
 #bootstrap_host=localhost
 client_port=${CLIENT_PORT_BASE}
-db_config_file=config/sources-bizfollow.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 bootstrap_gc_file=${WORK_DIR_FROM_ROOT}/bizfollow_bootstrap_gc.log
 
 # reset the db and delete the checkpoints

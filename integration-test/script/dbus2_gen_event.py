@@ -447,7 +447,7 @@ def main(argv):
                        help="delay between inserts in milliseconds")
     db_gen_group.add_option("", "--db_load_large_event", action="store_true", dest="db_load_large_event", default = False,
                        help="update large data")
-    db_gen_group.add_option("--db_config_file", action="store", dest="db_config_file", default="config/sources-member2.json",
+    db_gen_group.add_option("--db_config_file", action="store", dest="db_config_file", default="integration-test/config/sources-member2.json",
                        help="The db config file to use. Default to %default")
     db_gen_group.add_option("--espresso_data_file", action="store", dest="espresso_data_file", default=False,
                        help="Data file to load espresso data from")

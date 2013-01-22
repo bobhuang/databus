@@ -18,7 +18,7 @@ bootstrap_producer_port=${BOOTSTRAP_PRODUCER_PORT_BASE}
 bootstrap_server_port=${BOOTSTRAP_SERVER_PORT_BASE}
 client_port=${CLIENT_PORT_BASE}
 relay_event_dump_file=${WORK_DIR_FROM_ROOT}/bizfollow_relay_event_trace
-db_config_file=config/sources-bizfollow.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
 consumer_1_value_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.values
 

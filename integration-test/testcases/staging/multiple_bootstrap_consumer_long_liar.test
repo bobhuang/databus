@@ -27,7 +27,7 @@ while [ 1 ]; do
       port=$(($start_port + $loop_cnt*$NUM_CONSUMERS + $num))
       event_dir=$VIEW_ROOT/integration-test/var/work/liar_event_${loop_cnt}_${num} 
       mkdir -p $event_dir
-      $test_only $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=$port --logfile=$logname --relay_host=${relay_host} --relay_port=${relay_port} --bootstrap_host=${bootstrap_host} --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${loop_cnt}_${num} --dump_file=${event_dir}/liar.event -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+      $test_only $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=$port --logfile=$logname --relay_host=${relay_host} --relay_port=${relay_port} --bootstrap_host=${bootstrap_host} --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${loop_cnt}_${num} --dump_file=${event_dir}/liar.event -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
       let "num+=1"
     done     
 

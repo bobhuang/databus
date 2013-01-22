@@ -15,7 +15,7 @@ for NUM_CONSUMERS in 1 4 8 16 32; do
   num=1
   while [ "$num" -le $NUM_CONSUMERS ]; do 
     date
-    #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=${RELAY_HOST} --bootstrap_host=${BOOTSTRAP_HOST} --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+    #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=${RELAY_HOST} --bootstrap_host=${BOOTSTRAP_HOST} --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
     $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=${RELAY_HOST} --bootstrap_host=${BOOTSTRAP_HOST} --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
     let "num+=1"
     done     

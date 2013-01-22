@@ -10,18 +10,18 @@ PRODUCER_KEY_MIN=20
 PRODUCER_KEY_MAX=2000
 
 relay_event_trace=$WORK_DIR_FROM_ROOT/profile_relay_event_trace
-#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start -p $CONFIG_DIR/relay-config-small-1.properties -l config/client-log4j2file.properties.debug
-$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false"  -l config/client-log4j2file.properties.debug
+#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start -p $CONFIG_DIR/relay-config-small-1.properties -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_relay -o start --cmdline_props="databus.relay.container.id=1234;databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.readBufferSize=1024000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_trace};databus.relay.eventBuffer.trace.appendOnly=false"  -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 client_http_port=8587
 # start the consumer
 consumer_1_log=${WORK_DIR_FROM_ROOT}/profile_consumer_1.events
 consumer_cp_dir=${WORK_DIR_FROM_ROOT}/consumer_checkpoint
 consumer_cmdline_props="databus.client.container.httpPort=$client_http_port;serversidefilter.filter(com.linkedin.events.member2.profile.MemberProfile).type=RANGE;serversidefilter.filter(com.linkedin.events.member2.profile.MemberProfile).range.size=100;serversidefilter.filter(com.linkedin.events.member2.profile.MemberProfile).range.partitions=[1,3-4];databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_cp_dir};databus.client.checkpointPersistence.clearBeforeUse=true"
-$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --filter_conf_file=config/server-filter-test.properties -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --filter_conf_file=${CONFIG_DIR_FROM_ROOT}/server-filter-test.properties -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
-#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=y,address=localhost:8998,server=y " --cmdline_props=$consumer_cmdline_props --checkpoint_dir=integration-test/var/log/checkpoint  -l config/client-log4j2file.properties.debug
-#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --cmdline_props=$consumer_cmdline_props -l config/client-log4j2file.properties.debug
+#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --jvm_args="-Xms24m -Xmx50m -agentlib:jdwp=transport=dt_socket,suspend=y,address=localhost:8998,server=y " --cmdline_props=$consumer_cmdline_props --checkpoint_dir=integration-test/var/log/checkpoint  -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
+#$SCRIPT_DIR/dbus2_driver.py -n $TEST_NAME -c profile_consumer -o start --dump_file=${consumer_1_log} --cmdline_props=$consumer_cmdline_props -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 # generate events
 $SCRIPT_DIR/dbus2_gen_event.py -s 2 -e 10000 -t 1000 --keyMin $PRODUCER_KEY_MIN --keyMax $PRODUCER_KEY_MAX --wait_until_suspend

@@ -14,7 +14,7 @@ source setup_env.inc
 relay_port=${RELAY_PORT_BASE}
 relay_host=esv4-be38
 client_port=${CLIENT_PORT_BASE}
-db_config_file=config/sources-liar.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json 
 
 if [ $# = 1 ] 
 then
@@ -37,7 +37,7 @@ do
   partitionListHigh=$i
   mkdir -p ./liarclient-checkpoints/${i}
 
-  $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=${client_port} --relay_host=${relay_host} --relay_port=${relay_port} -l config/client-log4j2file.properties.error --timeout=10 --cmdline_props="databus.client.runtime.bootstrap.enabled=false;databus.client.connectionDefaults.pullerRetries.initSleep=${client_pollfreq};databus.client.checkpointPersistence.type=NONE;databus.client.checkpointPersistence.fileSystem.rootDirectory=./liarclient-checkpoints/${i};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus2.client.liar.member.relay.partitionList=[${partitionListLow}-${partitionListHigh}];databus2.client.liar.member.relay.rangeSize=1000" --jvm_args="-Xms100m -Xmx100m -XX:NewSize=50m -XX:MaxNewSize=50m -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution "
+  $SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o start --http_port=${client_port} --relay_host=${relay_host} --relay_port=${relay_port} -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --timeout=10 --cmdline_props="databus.client.runtime.bootstrap.enabled=false;databus.client.connectionDefaults.pullerRetries.initSleep=${client_pollfreq};databus.client.checkpointPersistence.type=NONE;databus.client.checkpointPersistence.fileSystem.rootDirectory=./liarclient-checkpoints/${i};databus.client.checkpointPersistence.clearBeforeUse=true;databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus2.client.liar.member.relay.partitionList=[${partitionListLow}-${partitionListHigh}];databus2.client.liar.member.relay.rangeSize=1000" --jvm_args="-Xms100m -Xmx100m -XX:NewSize=50m -XX:MaxNewSize=50m -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=1 -XX:SurvivorRatio=3 -XX:CMSInitiatingOccupancyFraction=85 -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintTenuringDistribution "
  
   #$SCRIPT_DIR/dbus2_driver.py -c liar_consumer -o wait_event --sleep_before_wait=2 --http_port=${client_port} --relay_host=${relay_host} --relay_port=${relay_port}
 

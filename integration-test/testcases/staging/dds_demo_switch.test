@@ -1,5 +1,5 @@
 source setup_env.inc
-export db_config_file=config/sources-bizfollow.json 
+export db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 export relay_event_dump_file=integration-test/var/work/bizfollow_relay_event_trace
 
 

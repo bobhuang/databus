@@ -18,11 +18,11 @@ while [ 1 ]; do
   do
     #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=perftest9.qa
     #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=perftest9.qa --bootstrap_host=esv4-be43 --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
-    #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=esv4-be40 --bootstrap_host=esv4-be39 --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+    #$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --relay_host=esv4-be40 --bootstrap_host=esv4-be39 --bootstrap_port=6060 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
     logname=log_${loop_cnt}_${num}
     port=$(($start_port + $num))
     log_${loop_cnt}_${num}
-    $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=$port --logfile=$logname --relay_host=esv4-be40 --relay_port=9090 --bootstrap_host=esv4-be39 --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l config/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
+    $SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --http_port=$port --logfile=$logname --relay_host=esv4-be40 --relay_port=9090 --bootstrap_host=esv4-be39 --bootstrap_port=6060 --timeout=30 --checkpoint_dir=integration-test/var/work/ckpt_${num} -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.error --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=10240000;databus.client.connectionDefaults.eventBuffer.scnIndexSize=1024000;databus.client.connectionDefaults.eventBuffer.readBufferSize=1024000"
     let "num+=1"
   done     
   sleep 7200

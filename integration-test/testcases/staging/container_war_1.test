@@ -3,7 +3,7 @@
 # need to clean up dist before the test
 
 source setup_env.inc
-db_config_file=config/sources-bizfollow.json 
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 
 # reset the db and delete the checkpoints
 $SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset

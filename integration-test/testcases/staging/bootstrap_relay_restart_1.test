@@ -43,7 +43,7 @@ $SCRIPT_DIR/dbus2_gen_event.py -e 15000 -s 40 --num_events=100 --from_scn=${MaxW
 
 # start the consumer
 consumer_1_log=${WORK_DIR_FROM_ROOT}/bizfollow_consumer_1.events
-$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_cp_dir}"  -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o start --dump_file=${consumer_1_log} --cmdline_props="databus.client.connectionDefaults.eventBuffer.maxSize=102400;databus.client.connectionDefaults.eventBuffer.allocationPolicy=DIRECT_MEMORY;databus.client.connectionDefaults.eventBuffer.queuePolicy=BLOCK_ON_WRITE;databus.client.connectionDefaults.eventBuffer.readBufferSize=20240;databus.client.connectionDefaults.eventBuffer.scnIndexSize=10240;databus.client.checkpointPersistence.fileSystem.rootDirectory=${consumer_cp_dir}"  -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 MaxWinScn1=`$SCRIPT_DIR/dbus2_driver.py -c bizfollow_consumer -o wait_event --timeout=60 | grep "Wait maxWinScn:" | awk '{print $NF}' FS=:`
 

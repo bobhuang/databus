@@ -1,6 +1,6 @@
 # simple bootstrap test, generate random event, put that in bootstrap
 source setup_env.inc
-#db_config_file=config/sources-bizfollow.json 
+#db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
 relay_event_dump_file_1=integration-test/var/work/bizfollow_relay_event_trace_1
 
 # 10M buffer , event dump file,  300k event, readbuffer size  1M

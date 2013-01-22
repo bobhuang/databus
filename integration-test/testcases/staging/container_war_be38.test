@@ -15,9 +15,9 @@
 #    )
 # )
 source setup_env.inc
-bizfollow_db_config_file=config/sources-bizfollow.json 
-bizfollow_perf_db_config_file=config/sources-bizfollow-perfdb.json 
-liar_db_config_file=config/sources-liar.json 
+bizfollow_db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow.json 
+bizfollow_perf_db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-bizfollow-perfdb.json 
+liar_db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json 
 
 consumer_port=7062
 # do not change this as the producer depends on it

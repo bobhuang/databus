@@ -21,8 +21,8 @@ consumer_1_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.events
 consumer_1_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_1.values
 consumer_2_log=${WORK_DIR_FROM_ROOT}/liar_consumer_2.events
 consumer_2_value_log=${WORK_DIR_FROM_ROOT}/liar_consumer_2.values
-db_config_file=config/sources-liar.json
-db_config_file_2=config/sources-liar-txn-chunk-1.json
+db_config_file=${CONFIG_DIR_FROM_ROOT}/sources-liar.json
+db_config_file_2=${CONFIG_DIR_FROM_ROOT}/sources-liar-txn-chunk-1.json
 relay1_maxscn_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/maxScn1
 relay2_maxscn_dir=${VIEW_ROOT}/${WORK_DIR_FROM_ROOT}/maxScn2
 relay_1_server_log=${VIEW_ROOT}/${LOG_DIR_FROM_ROOT}/liar_relay_${relay_port_1}_`date +%Y_%m_%d_%H_%M_%S`.log
@@ -32,10 +32,10 @@ relay_2_server_log=${VIEW_ROOT}/${LOG_DIR_FROM_ROOT}/liar_relay_${relay_port_2}_
 $SCRIPT_DIR/dbus2_gen_event.py -s liar  --db_config_file=${db_config_file} --db_testdata_truncate --debug
 
 # 10M buffer , event dump file relay 1
-$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --logfile=${relay_1_server_log} --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port_1};databus.relay.container.jmx.jmxServicePort=19998;databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay1_maxscn_dir}" --jvm_direct_memory_size=30M  -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file} --logfile=${relay_1_server_log} --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port_1};databus.relay.container.jmx.jmxServicePort=19998;databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay1_maxscn_dir}" --jvm_direct_memory_size=30M  -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 # 10M buffer , event dump file relay 2
-$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file_2} --logfile=${relay_2_server_log} --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_2};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port_2};databus.relay.container.jmx.jmxServicePort=19999;databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay2_maxscn_dir}" --jvm_direct_memory_size=30M  -l config/client-log4j2file.properties.debug
+$SCRIPT_DIR/dbus2_driver.py -c db_relay -o start --db_config_file=${db_config_file_2} --logfile=${relay_2_server_log} --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=10240;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_2};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port_2};databus.relay.container.jmx.jmxServicePort=19999;databus.relay.dataSources.sequenceNumbersHandler.file.scnDir=${relay2_maxscn_dir}" --jvm_direct_memory_size=30M  -l ${CONFIG_DIR_FROM_ROOT}/client-log4j2file.properties.debug
 
 # Get current Max SCN
 DB_MAXSCN=`echo 'select CURRENT_SCN from v$database;' | sqlplus -S liar/liar@DB  | tail -2 | head -1 | perl -lane '{my $a = $_; $a =~ s/\D*(\d+)\D*/$1/g; print "$a";} '`;
