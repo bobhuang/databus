@@ -12,6 +12,7 @@ com.linkedin.events.bizfollow.bizfollow.BizFollow.1.avsc
 com.linkedin.events.bizfollow.bizfollow.BizFollow.2.avsc
 com.linkedin.events.cappr.ProspectDocuments.1.avsc
 com.linkedin.events.cappr.ProspectHistory.1.avsc
+com.linkedin.events.cappr.ProspectUpdate.1.avsc
 com.linkedin.events.collab.MemberData.1.avsc
 com.linkedin.events.collab.Teams.1.avsc
 com.linkedin.events.collab.TeamRelationships.1.avsc
