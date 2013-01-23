@@ -1,0 +1,20 @@
+{
+  "name" : "ProspectUpdate_V1",
+  "doc" : "Auto-generated Avro schema for sy$prospect_update. Generated at Jan 21, 2013 11:33:03 AM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$prospect_update;pk=prospectId;",
+  "namespace" : "com.linkedin.events.cappr",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "prospectId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=PROSPECT_ID;dbFieldPosition=1;"
+  }, {
+    "name" : "contractId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CONTRACT_ID;dbFieldPosition=2;"
+  } ]
+}
