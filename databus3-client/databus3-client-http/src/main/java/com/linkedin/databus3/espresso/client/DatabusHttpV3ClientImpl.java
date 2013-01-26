@@ -51,7 +51,7 @@ import com.linkedin.databus.client.registration.RegistrationIdGenerator;
 import com.linkedin.databus.client.request.ClientRequestProcessor;
 import com.linkedin.databus.core.Checkpoint;
 import com.linkedin.databus.core.DatabusComponentStatus;
-import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.cmclient.ResourceKey;
 import com.linkedin.databus.core.data_model.DatabusSubscription;
@@ -441,7 +441,7 @@ public class DatabusHttpV3ClientImpl
       DatabusException
   {
     super(config);
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
 
     if ( config.getClusterManager().getEnabled())
     {

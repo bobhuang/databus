@@ -6,7 +6,7 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.frame.FrameDecoder;
 
-import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus2.core.container.request.SimpleDatabusResponse;
 
 public class SendEventsResponse extends SimpleDatabusResponse
@@ -36,7 +36,7 @@ public class SendEventsResponse extends SimpleDatabusResponse
   public ChannelBuffer serializeToBinary()
   {
     int bufferSize = 1 + 4 + 4;
-    ChannelBuffer result = ChannelBuffers.buffer(DbusEvent.byteOrder, bufferSize);
+    ChannelBuffer result = ChannelBuffers.buffer(DbusEventV1.byteOrder, bufferSize);
     result.writeByte(0);
     result.writeInt(bufferSize - 1 - 4);
     result.writeInt(_numReadEvents);

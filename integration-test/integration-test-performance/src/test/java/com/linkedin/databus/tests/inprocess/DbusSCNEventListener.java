@@ -1,12 +1,10 @@
 package com.linkedin.databus.tests.inprocess;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import com.linkedin.databus.core.DataChangeEvent;
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.InternalDatabusEventsListenerAbstract;
 import com.linkedin.databus2.core.filter.DbusFilter;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DbusSCNEventListener extends InternalDatabusEventsListenerAbstract {
 	private long                _maxScnSeen;
@@ -25,7 +23,7 @@ public class DbusSCNEventListener extends InternalDatabusEventsListenerAbstract 
 	}
 
 	@Override
-	public void onEvent(DataChangeEvent event, long offset, int size)
+	public void onEvent(DbusEvent event, long offset, int size)
 	{
         _numEventsSeen++;
         if ( _numEventsSeen <= _skipEvents )

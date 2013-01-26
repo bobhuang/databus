@@ -15,6 +15,7 @@ import com.linkedin.databus.bootstrap.utils.BootstrapDBSeeder;
 import com.linkedin.databus.bootstrap.utils.BootstrapSeederMain;
 import com.linkedin.databus.client.DbusEventAvroDecoder;
 import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.util.RngUtils;
 import com.linkedin.databus2.schemas.VersionedSchema;
 import com.linkedin.databus2.schemas.VersionedSchemaSet;
@@ -104,7 +105,7 @@ public class TestBootstrapSeeder {
 		  while ( (srcRs.next()) && (destRs.next()))
 		  {
 			  buffer.put(destRs.getBytes("val"));
-			  DbusEvent destEvent = new DbusEvent(buffer,0);
+			  DbusEvent destEvent = new DbusEventV1(buffer,0);
 			  tester.compareRecord(srcRs, destEvent);
 			  buffer.clear();
 		  }

@@ -6,7 +6,7 @@ import java.util.Arrays;
 import org.apache.log4j.Logger;
 
 import com.linkedin.databus.container.netty.HttpRelay;
-import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.util.InvalidConfigException;
 import com.linkedin.databus2.core.DatabusException;
 import com.linkedin.databus2.core.container.request.BinaryProtocol;
@@ -31,7 +31,7 @@ public class EspressoRelayFactory extends AbstractRelayFactory implements RelayF
                               SourceIdNameRegistry sourcesIdNameRegistr)
   {
     super(sourcesIdNameRegistr);
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
     _relayConfigBuilder = relayConfigBuilder;
     _startPhysicalSrcConfigs = fallbackPhysicalSrcConfigs;
   }
