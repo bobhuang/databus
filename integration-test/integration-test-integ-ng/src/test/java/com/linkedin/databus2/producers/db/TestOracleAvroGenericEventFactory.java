@@ -9,8 +9,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
-import oracle.jdbc.driver.OracleConnection;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -86,7 +84,8 @@ public class TestOracleAvroGenericEventFactory
     Assert.assertNotNull(eventSchema);
     Assert.assertTrue(eventSchema.length() > 0);
 
-    OracleConnection conn = null;
+    Connection conn = null;
+
     Statement stmt = null;
     PreparedStatement insStmt = null;
     PreparedStatement insSettingsStmt = null;
@@ -94,7 +93,7 @@ public class TestOracleAvroGenericEventFactory
 
     try
     {
-      conn = (OracleConnection) connectToDB("anet", "anet");
+      conn = connectToDB("anet", "anet");
       conn.setAutoCommit(false);
 
       stmt = conn.createStatement();
