@@ -2,11 +2,14 @@ package com.linkedin.databus.relay.member2;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import oracle.jdbc.pool.OracleDataSource;
+import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 
@@ -78,13 +81,33 @@ public class Member2DatabaseRelayServer extends HttpRelay
     LogicalSource lSource = new LogicalSource(staticConfig.getSourceIds().get(0));
     DbusEventBufferAppendable dbusEventBuffer = serverContainer.getEventBuffer().getDbusEventBuffer(lSource);
 
-    OracleDataSource ds = new OracleDataSource();
-    ds.setDriverType("thin");
-    ds.setServerName("devdb");
-    ds.setPortNumber(1521);
-    ds.setDatabaseName("db");
-    ds.setUser("member2");
-    ds.setPassword("member2");
+	  DataSource ds = null;
+	  try
+	  {
+		  URL ojdbcJarFile = new URL("ojdbc6.jar");
+		  URLClassLoader cl = URLClassLoader.newInstance(new URL[]{ojdbcJarFile});
+          Class oracleDataSourceClass = cl.loadClass("oracle.jdbc.pool.OracleDataSource");
+          ds = (DataSource) oracleDataSourceClass.newInstance();
+
+          Method setDriverTypeMethod = oracleDataSourceClass.getMethod("setDriverType", String.class);
+          Method setServerNameMethod = oracleDataSourceClass.getMethod("setServerName", String.class);
+          Method setPortNumberMethod = oracleDataSourceClass.getMethod("setPortNumber", int.class);
+          Method setDatabaseNameMethod = oracleDataSourceClass.getMethod("setDatabaseName", String.class);
+          Method setUserNameMethod = oracleDataSourceClass.getMethod("setUserName", String.class);
+          Method setPasswordNameMethod = oracleDataSourceClass.getMethod("setPasswordName", String.class);
+          
+          setDriverTypeMethod.invoke(ds, "thin");
+          setServerNameMethod.invoke(ds, "devdb");
+          setPortNumberMethod.invoke(ds, 1521);
+          setDatabaseNameMethod.invoke(ds, "db");
+          setUserNameMethod.invoke(ds, "member2");
+          setPasswordNameMethod.invoke(ds, "member2"); 
+          
+	  } catch (Exception e)
+	  {
+		  LOG.error("Error creating DataSource object and initializing it" + e.getMessage());
+		  throw new Exception(e);
+	  }
 
     // Get the schema registry service and read the schema
     SchemaRegistryService schemaRegistryService = serverContainer.getSchemaRegistryService();
