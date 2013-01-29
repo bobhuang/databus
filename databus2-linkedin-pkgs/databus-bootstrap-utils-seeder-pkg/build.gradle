@@ -5,6 +5,8 @@ dependencies {
   compile project(':databus-client:databus2-client-util')
 
   compile externalDependency.avro
+
+  runtime externalDependency.ojdbc6
 }
 
 task myTar(type: Tar) {

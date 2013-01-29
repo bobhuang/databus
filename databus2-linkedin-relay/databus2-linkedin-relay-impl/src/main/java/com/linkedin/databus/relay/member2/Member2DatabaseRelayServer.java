@@ -82,34 +82,34 @@ public class Member2DatabaseRelayServer extends HttpRelay
     LogicalSource lSource = new LogicalSource(staticConfig.getSourceIds().get(0));
     DbusEventBufferAppendable dbusEventBuffer = serverContainer.getEventBuffer().getDbusEventBuffer(lSource);
 
-	  DataSource ds = null;
-	  try
-	  {
-		  File file = new File("ojdbc6-11.2.0.2.0.jar");
-		  URL ojdbcJarFile = file.toURL();
-		  URLClassLoader cl = URLClassLoader.newInstance(new URL[]{ojdbcJarFile});
-          Class oracleDataSourceClass = cl.loadClass("oracle.jdbc.pool.OracleDataSource");
-          ds = (DataSource) oracleDataSourceClass.newInstance();
+    DataSource ds = null;
+    try
+    {
+    	File file = new File("ojdbc6-11.2.0.2.0.jar");
+    	URL ojdbcJarFile = file.toURL();
+    	URLClassLoader cl = URLClassLoader.newInstance(new URL[]{ojdbcJarFile});
+    	Class oracleDataSourceClass = cl.loadClass("oracle.jdbc.pool.OracleDataSource");
+    	ds = (DataSource) oracleDataSourceClass.newInstance();
 
-          Method setDriverTypeMethod = oracleDataSourceClass.getMethod("setDriverType", String.class);
-          Method setServerNameMethod = oracleDataSourceClass.getMethod("setServerName", String.class);
-          Method setPortNumberMethod = oracleDataSourceClass.getMethod("setPortNumber", int.class);
-          Method setDatabaseNameMethod = oracleDataSourceClass.getMethod("setDatabaseName", String.class);
-          Method setUserNameMethod = oracleDataSourceClass.getMethod("setUserName", String.class);
-          Method setPasswordNameMethod = oracleDataSourceClass.getMethod("setPasswordName", String.class);
-          
-          setDriverTypeMethod.invoke(ds, "thin");
-          setServerNameMethod.invoke(ds, "devdb");
-          setPortNumberMethod.invoke(ds, 1521);
-          setDatabaseNameMethod.invoke(ds, "db");
-          setUserNameMethod.invoke(ds, "member2");
-          setPasswordNameMethod.invoke(ds, "member2"); 
-          
-	  } catch (Exception e)
-	  {
-		  LOG.error("Error creating DataSource object and initializing it" + e.getMessage());
-		  throw new Exception(e);
-	  }
+    	Method setDriverTypeMethod = oracleDataSourceClass.getMethod("setDriverType", String.class);
+    	Method setServerNameMethod = oracleDataSourceClass.getMethod("setServerName", String.class);
+    	Method setPortNumberMethod = oracleDataSourceClass.getMethod("setPortNumber", int.class);
+    	Method setDatabaseNameMethod = oracleDataSourceClass.getMethod("setDatabaseName", String.class);
+    	Method setUserMethod = oracleDataSourceClass.getMethod("setUser", String.class);
+    	Method setPasswordMethod = oracleDataSourceClass.getMethod("setPassword", String.class);
+
+    	setDriverTypeMethod.invoke(ds, "thin");
+    	setServerNameMethod.invoke(ds, "devdb");
+    	setPortNumberMethod.invoke(ds, 1521);
+    	setDatabaseNameMethod.invoke(ds, "db");
+    	setUserMethod.invoke(ds, "member2");
+    	setPasswordMethod.invoke(ds, "member2"); 
+
+    } catch (Exception e)
+    {
+    	LOG.error("Error creating DataSource object and initializing it",e);
+    	throw e;
+    }
 
     // Get the schema registry service and read the schema
     SchemaRegistryService schemaRegistryService = serverContainer.getSchemaRegistryService();
