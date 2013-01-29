@@ -33,6 +33,7 @@ import com.linkedin.databus2.producers.db.EventFactory;
 import com.linkedin.databus2.producers.db.MonitoredSourceInfo;
 import com.linkedin.databus2.producers.db.OracleAvroGenericEventFactory;
 import com.linkedin.databus2.producers.db.OracleEventProducer;
+import com.linkedin.databus2.relay.OracleJarUtils;
 import com.linkedin.databus2.relay.config.PhysicalSourceConfig;
 import com.linkedin.databus2.relay.config.PhysicalSourceStaticConfig;
 import com.linkedin.databus2.schemas.SchemaRegistryService;
@@ -85,10 +86,7 @@ public class Member2DatabaseRelayServer extends HttpRelay
     DataSource ds = null;
     try
     {
-    	File file = new File("ojdbc6-11.2.0.2.0.jar");
-    	URL ojdbcJarFile = file.toURL();
-    	URLClassLoader cl = URLClassLoader.newInstance(new URL[]{ojdbcJarFile});
-    	Class oracleDataSourceClass = cl.loadClass("oracle.jdbc.pool.OracleDataSource");
+    	Class oracleDataSourceClass = OracleJarUtils.loadClass("oracle.jdbc.pool.OracleDataSource");
     	ds = (DataSource) oracleDataSourceClass.newInstance();
 
     	Method setDriverTypeMethod = oracleDataSourceClass.getMethod("setDriverType", String.class);
