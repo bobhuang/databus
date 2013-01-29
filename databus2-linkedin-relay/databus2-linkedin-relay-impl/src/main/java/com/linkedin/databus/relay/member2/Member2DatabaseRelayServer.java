@@ -1,5 +1,6 @@
 package com.linkedin.databus.relay.member2;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
@@ -84,7 +85,8 @@ public class Member2DatabaseRelayServer extends HttpRelay
 	  DataSource ds = null;
 	  try
 	  {
-		  URL ojdbcJarFile = new URL("ojdbc6.jar");
+		  File file = new File("ojdbc6-11.2.0.2.0.jar");
+		  URL ojdbcJarFile = file.toURL();
 		  URLClassLoader cl = URLClassLoader.newInstance(new URL[]{ojdbcJarFile});
           Class oracleDataSourceClass = cl.loadClass("oracle.jdbc.pool.OracleDataSource");
           ds = (DataSource) oracleDataSourceClass.newInstance();
