@@ -6,7 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import oracle.jdbc.pool.OracleDataSource;
+import javax.sql.DataSource;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -23,7 +23,7 @@ import com.linkedin.events.bizfollow.bizfollow.BizFollow;
 
 public class TestBootstrapSeeder {
 
-	private final OracleDataSource _dataSource;
+	private final DataSource _dataSource;
 	private final BootstrapDBSeeder _seeder;
 	private final SeedTester        _seedTester;
 	private final boolean                 _txLogExist = false;
