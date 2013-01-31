@@ -8,7 +8,7 @@ function usage() {
 	exit 1
 }
 
-declare -a tracked_files=( 'databus2-bootstrap' 'databus2-relay' 'databus-bootstrap-producer' 'databus-cluster' 'databus-util-cmdline' 'sandbox-repo' 'build.gradle'  'databus2-client' 'databus2-tools' 'databus-bootstrap-server'  'databus-core' 'doc' 'script' 'codecoverage' 'databus2-example' 'databus-bootstrap-client'  'databus-bootstrap-utils' 'databus-group-leader' 'javadoc'  'settings.gradle' 'database' 'databus-bootstrap-common' 'databus-client' 'databus-relay' 'project-spec.json' 'tools' 'defaultEnvironment.gradle' 'README' )
+declare -a tracked_files=( 'databus2-bootstrap' 'databus2-relay' 'databus-bootstrap-producer' 'databus-cluster' 'databus-util-cmdline' 'build.gradle'  'databus2-client' 'databus-bootstrap-server'  'databus-core' 'doc' 'codecoverage' 'databus2-example' 'databus-bootstrap-client'  'databus-bootstrap-utils' 'databus-group-leader' 'javadoc'  'settings.gradle' 'database' 'databus-bootstrap-common' 'databus-client' 'databus-relay' 'project-spec.json' 'defaultEnvironment.gradle' 'README' )
 
 declare -a excludes=( 'databus-relay/databus-relay-run' )
 
