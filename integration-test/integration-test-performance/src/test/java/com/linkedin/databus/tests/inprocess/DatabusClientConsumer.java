@@ -1,5 +1,11 @@
 package com.linkedin.databus.tests.inprocess;
 
+import com.linkedin.databus.core.DbusEventBuffer;
+import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
+import com.linkedin.databus.core.DbusEventInternalWritable;
+import com.linkedin.databus.core.Encoding;
+import com.linkedin.databus.core.util.RateMonitor;
+import com.linkedin.databus.core.util.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
@@ -9,13 +15,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.linkedin.databus.core.DbusEvent;
-import com.linkedin.databus.core.DbusEventBuffer;
-import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
-import com.linkedin.databus.core.Encoding;
-import com.linkedin.databus.core.util.RateMonitor;
-import com.linkedin.databus.core.util.Utils;
 
 public class DatabusClientConsumer implements DbusInprocessConsumer, Runnable
 {
@@ -85,7 +84,7 @@ public class DatabusClientConsumer implements DbusInprocessConsumer, Runnable
       while (!_stopConsumption.get() && itr.hasNext())
       {
         _consumerRate.tick();
-        DbusEvent e = itr.next();
+        DbusEventInternalWritable e = itr.next();
         
         if ( ! e.isValid())
         {

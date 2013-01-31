@@ -19,28 +19,13 @@ package com.linkedin.databus3.espresso.rpldbusproto;
 */
 
 
-import java.nio.ByteBuffer;
-import java.util.List;
-
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
 import com.linkedin.databus.container.netty.HttpRelay;
-import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
 import com.linkedin.databus.core.DbusEventBufferMult;
+import com.linkedin.databus.core.DbusEventInternalWritable;
 import com.linkedin.databus.core.DbusEventKey;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.util.ConfigLoader;
 import com.linkedin.databus2.core.container.DummyPipelineFactory;
 import com.linkedin.databus2.core.container.DummyPipelineFactory.SimpleObjectCaptureHandler;
@@ -60,6 +45,20 @@ import com.linkedin.databus2.test.ConditionCheck;
 import com.linkedin.databus2.test.TestUtil;
 import com.linkedin.databus2.test.container.SimpleTestClientConnection;
 import com.linkedin.databus2.test.container.SimpleTestServerConnection;
+import java.nio.ByteBuffer;
+import java.util.List;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
 {
@@ -86,7 +85,7 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
   @BeforeClass
   public void setUp() throws Exception
   {
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
 
     super.setUp();
   }
@@ -130,12 +129,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(1, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(1, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -247,12 +246,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(2, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(2, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -329,12 +328,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(3, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(3, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -517,12 +516,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(4, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(4, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -640,12 +639,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                                                           sourcesReg,
                                                                           null, null, null, null));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(5, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(5, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -752,12 +751,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                                                           srcRegistry,
                                                                           null, null, null,  null));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(6, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(6, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -769,7 +768,7 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
 
     DbusEventIterator iter = eventBuffer.acquireIterator("test1");
     Assert.assertTrue(iter.hasNext());
-    DbusEvent event1 = iter.next();
+    DbusEventInternalWritable event1 = iter.next();
     ByteBuffer event1Bytes = event1.getRawBytes();
 
     ChannelBuffer event1Buffer = ChannelBuffers.copiedBuffer(event1Bytes);
@@ -838,12 +837,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                                                           sourcesReg,
                                                                           null, null, null, null));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(7, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(7, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -901,12 +900,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(8, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(8, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -966,12 +965,12 @@ public class TestSimpleBinaryDatabusRequestDecoder extends ContainerTestsBase
                                                                           sourcesReg,
                                                                           null, null, null, null));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(9, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(9, 100);
     Assert.assertTrue(clientConnected, "client connected");

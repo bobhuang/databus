@@ -19,33 +19,16 @@ package com.linkedin.databus3.espresso.rpldbusproto;
 */
 
 
-import com.linkedin.databus3.espresso.rpldbusproto.LogMessageAccumulator;
-import java.lang.ref.WeakReference;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.log4j.Logger;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBufferInputStream;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.buffer.SlicedChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelHandler;
 
 import com.linkedin.databus.container.netty.HttpRelay;
 import com.linkedin.databus.container.netty.HttpRelay.StaticConfig;
-import com.linkedin.databus.core.DataChangeEvent;
 import com.linkedin.databus.core.DbusConstants;
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBufferMult;
+import com.linkedin.databus.core.DbusEventInternalWritable;
+import com.linkedin.databus.core.DbusEventUtils;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.InternalDatabusEventsListenerAbstract;
 import com.linkedin.databus.core.InvalidEventException;
 import com.linkedin.databus.core.data_model.LogicalSource;
@@ -69,6 +52,23 @@ import com.linkedin.databus2.relay.config.PhysicalSourceConfig;
 import com.linkedin.databus2.schemas.SchemaId;
 import com.linkedin.databus2.schemas.SchemaRegistryService;
 import com.linkedin.databus2.schemas.SourceIdNameRegistry;
+import java.lang.ref.WeakReference;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.log4j.Logger;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBufferInputStream;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.SlicedChannelBuffer;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelHandler;
 
 /**
  * Representation of the SendEvents request
@@ -87,7 +87,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
     @Override
     public ParseResult parseBinary(ChannelBuffer buf) throws Exception
     {
-      if (buf.readableBytes() < 10 + DbusEvent.LengthOffset  + DbusEvent.LengthLength) return ParseResult.INCOMPLETE_DATA;
+      if (buf.readableBytes() < 10 + DbusEventV1.LengthOffset  + DbusEventV1.LengthLength) return ParseResult.INCOMPLETE_DATA;
 
       //read protocol version
       byte protoVersion = buf.readByte();
@@ -101,9 +101,9 @@ public class SendEventsRequest extends SimpleDatabusRequest
 
       //check event magic byte
       byte magic = buf.getByte(curOfs);
-      if (magic != DbusEvent.CurrentMagicValue) throw new InvalidEventException();
+      if (magic != DbusEventV1.CurrentMagicValue) throw new InvalidEventException();
 
-      int eventSize = buf.getInt(curOfs + DbusEvent.LengthOffset);
+      int eventSize = buf.getInt(curOfs + DbusEventV1.LengthOffset);
       //TODO for now we buffer the whole event, later we may want to stream it
       if (buf.readableBytes() < eventSize)
       {
@@ -351,9 +351,9 @@ public class SendEventsRequest extends SimpleDatabusRequest
 //      sb.append(" srv=");
 //      sb.append(null != _lastStartSendEventsReq ? _lastStartSendEventsReq.getServerId()
 //                                                : Integer.MIN_VALUE);
-      _debugLogMsg.append(",seq=" + channelBuffer.getLong(DbusEvent.SequenceOffset));
-      _debugLogMsg.append(",pp=" + channelBuffer.getShort(DbusEvent.PhysicalPartitionIdOffset));
-      _debugLogMsg.append(",inSrc=" + channelBuffer.getShort(DbusEvent.SrcIdOffset));
+      _debugLogMsg.append(",seq=" + channelBuffer.getLong(DbusEventV1.SequenceOffset));
+      _debugLogMsg.append(",pp=" + channelBuffer.getShort(DbusEventV1.PhysicalPartitionIdOffset));
+      _debugLogMsg.append(",inSrc=" + channelBuffer.getShort(DbusEventV1.SrcIdOffset));
       _debugLogMsg.append(",eventSize=" + channelBuffer.readableBytes());
     }
 
@@ -373,7 +373,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
 //      if (debugEnabled) _log.debug("push: " + req.toJsonString(false));
 
       IDatabusResponse result = null;
-      DbusEvent event = null;
+      DbusEventInternalWritable event = null;
       _debugLogMsg.append("binlogOffset=" + req.getBinlogOffset() + ",protoVersion=" +
                       req.getProtocolVersion());
 
@@ -387,7 +387,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
     	  else if (1 == req.getProtocolVersion() || 3 == req.getProtocolVersion())
     	  {
     		  ChannelBuffer channelBuffer = req.obtainEventBuffer();
-    		  Integer ppartId = (int)channelBuffer.getShort(DbusEvent.PhysicalPartitionIdOffset);
+    		  Integer ppartId = (int)channelBuffer.getShort(DbusEventV1.PhysicalPartitionIdOffset);
     		  appendEventInfo(channelBuffer);
 
     		  // figure out what buffer we should use
@@ -396,8 +396,8 @@ public class SendEventsRequest extends SimpleDatabusRequest
 
 
     		  // get the fake source id
-    		  Integer lSourceId = (int)channelBuffer.getShort(DbusEvent.SrcIdOffset);
-    		  if(!DbusEvent.isControlSrcId(lSourceId.shortValue())) { // normal fake source id (negatives are for control)
+    		  Integer lSourceId = (int)channelBuffer.getShort(DbusEventV1.SrcIdOffset);
+    		  if(!DbusEventUtils.isControlSrcId(lSourceId.shortValue())) { // normal fake source id (negatives are for control)
     			  try {
     				  buf = getCorrespondingBuffer(ppartId, lSourceId);
     			  } catch (SendEventsRequestException sere) {
@@ -416,8 +416,8 @@ public class SendEventsRequest extends SimpleDatabusRequest
     				  if (_perfLog.isDebugEnabled())
     				      _perfLog.debug("channel buffer copy took : " + msecs + "ms");
 
-    				  ByteBuffer eventBuffer = realBuffer.toByteBuffer().order(DbusEvent.byteOrder);
-    				  event = new DbusEvent(eventBuffer, 0);
+    				  ByteBuffer eventBuffer = realBuffer.toByteBuffer().order(DbusEventV1.byteOrder);
+    				  event = new DbusEventV1(eventBuffer, 0);
     				  if (event.sequence() <= 0)
     				  {
     				    String errMsg = "SCN (" + event.sequence()  + ") is less than or equal to zero";
@@ -463,7 +463,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
     				  buf = _mostRecentBuffer.get();
     			  }
     		  }
-    		  boolean isControlEvent = DbusEvent.isControlSrcId(lSourceId.shortValue());
+    		  boolean isControlEvent = DbusEventUtils.isControlSrcId(lSourceId.shortValue());
     		  if(! isControlEvent) {
     		    if(_mostRecentSeenBinlogOffset == -1)
     		      _mostRecentSeenBinlogOffset = req.getBinlogOffset();
@@ -706,7 +706,10 @@ public class SendEventsRequest extends SimpleDatabusRequest
 
   }
 
-
+  /**
+   * A special listener who really wants a writable event in the onEvent call instead of
+   * a readable one that everyone else gets..
+   */
   static class EventRewriter extends InternalDatabusEventsListenerAbstract
   {
     private final SourceIdNameRegistry _inputSrcidMap;
@@ -732,7 +735,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
     }
 
     @Override
-    public void onEvent(DataChangeEvent event, long offset, int size)
+    public void onEvent(DbusEvent event, long offset, int size)
     {
       if (null == _inputSrcidMap || null == _outputSrcidMap) return;
 
@@ -742,7 +745,7 @@ public class SendEventsRequest extends SimpleDatabusRequest
       final String sourceName = _inputSrcidMap.getSourceName(srcid);
       final LogicalSource src = _inputSrcidMap.getSource(srcid);
       //TODO: we need to get rid of the type-casting
-      final DbusEvent e = (DbusEvent)event;
+      final DbusEventInternalWritable e = (DbusEventInternalWritable)event;
       final short schemaVersion = e.schemaVersion();
 
       _debugLogMsg.append(",payloadSize=" + e.payloadLength() + ",schemaVersion=" + e.schemaVersion());

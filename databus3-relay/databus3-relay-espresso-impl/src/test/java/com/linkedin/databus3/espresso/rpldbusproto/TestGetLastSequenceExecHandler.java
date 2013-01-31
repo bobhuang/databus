@@ -28,7 +28,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import com.linkedin.databus.container.netty.HttpRelay;
-import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBufferMult;
 import com.linkedin.databus.core.DbusEventKey;
@@ -55,7 +55,7 @@ public class TestGetLastSequenceExecHandler extends ContainerTestsBase
   public void setUp() throws Exception
   {
     //For Espresso compatibility
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
 
     super.setUp();
   }
@@ -81,12 +81,12 @@ public class TestGetLastSequenceExecHandler extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(11, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(11, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -164,12 +164,12 @@ public class TestGetLastSequenceExecHandler extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(12, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(12, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -269,12 +269,12 @@ public class TestGetLastSequenceExecHandler extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(13, 500);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(13, 500);
     Assert.assertTrue(clientConnected, "client connected");
@@ -367,12 +367,12 @@ public class TestGetLastSequenceExecHandler extends ContainerTestsBase
                                  new GetLastSequenceRequest.ExecHandlerFactory(eventBufMult,
                                                                                multiServerSeqHandler));
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(14, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(14, 100);
     Assert.assertTrue(clientConnected, "client connected");

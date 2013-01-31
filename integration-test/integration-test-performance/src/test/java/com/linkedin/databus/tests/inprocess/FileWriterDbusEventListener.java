@@ -1,17 +1,17 @@
 package com.linkedin.databus.tests.inprocess;
 
+
+import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventInternalReadable;
+import com.linkedin.databus.core.Encoding;
+import com.linkedin.databus.core.InternalDatabusEventsListener;
+import com.linkedin.databus.core.util.Utils;
+import com.linkedin.databus2.core.filter.DbusFilter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.linkedin.databus.core.DataChangeEvent;
-import com.linkedin.databus.core.DbusEvent;
-import com.linkedin.databus.core.Encoding;
-import com.linkedin.databus.core.InternalDatabusEventsListener;
-import com.linkedin.databus.core.util.Utils;
-import com.linkedin.databus2.core.filter.DbusFilter;
 
 public class FileWriterDbusEventListener implements
 		InternalDatabusEventsListener {
@@ -45,15 +45,15 @@ public class FileWriterDbusEventListener implements
 	}
 
 	@Override
-	public void onEvent(DataChangeEvent event, long offset, int size)
+	public void onEvent(DbusEvent event, long offset, int size)
 	{
         _numEventsSeen++;
         if ( _numEventsSeen <= _skipEvents )
            return;
 
-	    if ( event instanceof DbusEvent)
+	    if ( event instanceof DbusEventInternalReadable)
 	    {
-	    	DbusEvent e = (DbusEvent)event;
+	    	DbusEventInternalReadable e = (DbusEventInternalReadable)event;
 	    	if ( (_filter.allow(e)) || e.isEndOfPeriodMarker())
 	    	{
 	           e.writeTo(_writeChannel, _encoding);

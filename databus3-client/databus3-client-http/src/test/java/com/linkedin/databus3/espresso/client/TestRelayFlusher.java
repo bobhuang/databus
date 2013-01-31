@@ -19,6 +19,7 @@ package com.linkedin.databus3.espresso.client;
 */
 
 
+import com.linkedin.databus.core.DbusEventInternalWritable;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +28,7 @@ import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.SingleSourceSCN;
 import com.linkedin.databus.client.pub.SCN;
-import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 
 public class TestRelayFlusher
 {
@@ -54,7 +55,7 @@ public class TestRelayFlusher
       {
         long sequence = _startSCN + i*_diff;
         ByteBuffer bb = ByteBuffer.allocate(1000);
-        DbusEvent e = new DbusEvent(bb,0);
+        DbusEventInternalWritable e = new DbusEventV1(bb,0);
         e.setSequence(sequence);
         _consumer.onDataEvent(e, null);
         SCN endSCN = new SingleSourceSCN(0 , sequence);

@@ -36,6 +36,7 @@ import com.linkedin.databus.client.DbusEventAvroDecoder;
 import com.linkedin.databus.client.SingleSourceSCN;
 import com.linkedin.databus.client.pub.ConsumerCallbackResult;
 import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.DbusEventKey;
 import com.linkedin.databus2.schemas.VersionedSchema;
 import com.linkedin.databus2.schemas.VersionedSchemaSet;
@@ -72,11 +73,11 @@ public class TestBatchingDatabusCombinedConsumer
 
     byte[] bfRecordBytes = bfRecordOut.toByteArray();
 
-    _eventByteBuffer = ByteBuffer.allocate(1000).order(DbusEvent.byteOrder);
-    DbusEvent.serializeEvent(new DbusEventKey(1), (short)0, (short)1, System.nanoTime(), (short)1,
+    _eventByteBuffer = ByteBuffer.allocate(1000).order(DbusEventV1.byteOrder);
+    DbusEventV1.serializeEvent(new DbusEventKey(1), (short)0, (short)1, System.nanoTime(), (short)1,
                              SchemaHelper.getSchemaId(BizFollow.SCHEMA$.toString()),
                              bfRecordBytes, false, _eventByteBuffer);
-    _event = new DbusEvent(_eventByteBuffer, 0);
+    _event = new DbusEventV1(_eventByteBuffer, 0);
 
   }
 

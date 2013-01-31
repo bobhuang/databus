@@ -1,13 +1,12 @@
 package com.linkedin.databus.tests.perf;
 
-import java.util.Set;
-
 import com.linkedin.databus.core.Checkpoint;
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
 import com.linkedin.databus2.core.filter.DbusFilter;
 import com.linkedin.databus2.core.filter.SourceDbusFilter;
+import java.util.Set;
 
 public class DatabusEventDispatcher implements Runnable {
 

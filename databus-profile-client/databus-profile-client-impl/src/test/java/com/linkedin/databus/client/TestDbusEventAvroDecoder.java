@@ -19,25 +19,22 @@ package com.linkedin.databus.client;
 */
 
 
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-
-import org.apache.avro.generic.GenericRecord;
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventKey;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.KeyTypeNotImplementedException;
 import com.linkedin.databus.relay.member2.DatabusEventProfileRandomProducer;
 import com.linkedin.databus2.schemas.VersionedSchema;
 import com.linkedin.databus2.schemas.VersionedSchemaSet;
 import com.linkedin.databus2.schemas.utils.Utils;
 import com.linkedin.events.member2.profile.MemberProfile_V3;
+import java.nio.ByteBuffer;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.testng.annotations.Test;
 
 public class TestDbusEventAvroDecoder
 {
@@ -66,12 +63,12 @@ public class TestDbusEventAvroDecoder
 		int minLength = 100;
 		int maxLength = 200;
 		byte[] schemaId = Utils.md5(MemberProfile_V3.SCHEMA$.toString().getBytes());
-		ByteBuffer serializationBuffer = ByteBuffer.allocate(1000000).order(DbusEvent.byteOrder);
+		ByteBuffer serializationBuffer = ByteBuffer.allocate(1000000).order(DbusEventV1.byteOrder);
 		for (int i = 0; i < 10; ++i)
 		{
 			GenericRecord r = DatabusEventProfileRandomProducer.produceOneProfileEvent(MemberProfile_V3.SCHEMA$, minLength, maxLength);
 			byte[] value = DatabusEventProfileRandomProducer.serializeEvent(MemberProfile_V3.SCHEMA$, r);
-			DbusEvent.serializeEvent(new DbusEventKey(1234), (short)0, (short)30, System.nanoTime(), (short)2, schemaId , value, false, serializationBuffer);
+			DbusEventV1.serializeEvent(new DbusEventKey(1234), (short)0, (short)30, System.nanoTime(), (short)2, schemaId , value, false, serializationBuffer);
 		}
 
 		DbusEventAvroDecoder decoder = new DbusEventAvroDecoder(schemaSet);
@@ -82,7 +79,7 @@ public class TestDbusEventAvroDecoder
 			int position = 0;
 			for (int i = 0; i < 10; ++i)
 			{
-				DbusEvent e = new DbusEvent(serializationBuffer, position);
+				DbusEvent e = new DbusEventV1(serializationBuffer, position);
 				reuse = decoder.getTypedValue(e, reuse, MemberProfile_V3.class);
 				//LOG.info(reuse);
 				position += e.size();
@@ -112,12 +109,12 @@ public class TestDbusEventAvroDecoder
 		int minLength = 100;
 		int maxLength = 200;
 		byte[] schemaId = Utils.md5(MemberProfile_V3.SCHEMA$.toString().getBytes());
-		ByteBuffer serializationBuffer = ByteBuffer.allocate(1000000).order(DbusEvent.byteOrder);
+		ByteBuffer serializationBuffer = ByteBuffer.allocate(1000000).order(DbusEventV1.byteOrder);
 		for (int i = 0; i < 10; ++i)
 		{
 			GenericRecord r = DatabusEventProfileRandomProducer.produceOneProfileEvent(MemberProfile_V3.SCHEMA$, minLength, maxLength);
 			byte[] value = DatabusEventProfileRandomProducer.serializeEvent(MemberProfile_V3.SCHEMA$, r);
-			DbusEvent.serializeEvent(new DbusEventKey(1234), (short)0, (short)30, System.nanoTime(), (short)2, schemaId , value, false, serializationBuffer);
+			DbusEventV1.serializeEvent(new DbusEventKey(1234), (short)0, (short)30, System.nanoTime(), (short)2, schemaId , value, false, serializationBuffer);
 		}
 
 		DbusEventAvroDecoder decoder = new DbusEventAvroDecoder(schemaSet);
@@ -128,7 +125,7 @@ public class TestDbusEventAvroDecoder
 			int position = 0;
 			for (int i = 0; i < 10; ++i)
 			{
-				DbusEvent e = new DbusEvent(serializationBuffer, position);
+				DbusEvent e = new DbusEventV1(serializationBuffer, position);
 				//decoder.dumpEventValueInJSON(e, Channels.newChannel(System.out));
 				position += e.size();
 			}
