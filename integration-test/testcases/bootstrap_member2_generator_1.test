@@ -18,7 +18,7 @@ relay_event_dump_file=${WORK_DIR_FROM_ROOT}/member2_relay_event_trace
 consumer_1_log=${WORK_DIR_FROM_ROOT}/member2_consumer_1.events
 
 # 10M buffer , event dump file 
-$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" --jvm_direct_memory_size=100M
+$SCRIPT_DIR/dbus2_driver.py -c profile_relay -o start --cmdline_props="databus.relay.eventBuffer.maxSize=10240000;databus.relay.eventBuffer.scnIndexSize=1024000;databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}" --jvm_direct_memory_size=100M
 
 # reset the db and delete the checkpoints
 $SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
