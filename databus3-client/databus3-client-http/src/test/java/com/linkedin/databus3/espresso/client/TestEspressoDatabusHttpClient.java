@@ -1,48 +1,23 @@
 package com.linkedin.databus3.espresso.client;
+/*
+ *
+ * Copyright 2013 LinkedIn Corp. All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 
-import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertFalse;
-import static org.testng.AssertJUnit.assertTrue;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import junit.framework.Assert;
-
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.group.DefaultChannelGroup;
-import org.jboss.netty.handler.codec.http.HttpServerCodec;
-import org.jboss.netty.handler.logging.LoggingHandler;
-import org.jboss.netty.logging.InternalLogLevel;
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timer;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import com.linkedin.databus.client.DatabusHttpClientImpl;
 import com.linkedin.databus.client.DatabusHttpClientImpl.RuntimeConfigBuilder;
@@ -72,6 +47,7 @@ import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBuffer.AllocationPolicy;
 import com.linkedin.databus.core.DbusEventInfo;
 import com.linkedin.databus.core.DbusEventKey;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.DbusOpcode;
 import com.linkedin.databus.core.data_model.DatabusSubscription;
 import com.linkedin.databus.core.data_model.LogicalSource;
@@ -89,6 +65,47 @@ import com.linkedin.databus3.espresso.client.cmclient.RelayClusterInfoProvider;
 import com.linkedin.databus3.espresso.client.consumer.PartitionMultiplexingConsumer;
 import com.linkedin.databus3.espresso.client.consumer.PartitionMultiplexingConsumerRegistration;
 import com.linkedin.databus3.espresso.client.data_model.EspressoSubscriptionUriCodec;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import junit.framework.Assert;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.handler.codec.http.HttpServerCodec;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
+import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.Timer;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertTrue;
 
 /** Unit tests for the EspressoDatabusClient */
 public class TestEspressoDatabusHttpClient
@@ -126,7 +143,7 @@ public class TestEspressoDatabusHttpClient
       //initialize relays
       for (int relayN = 0; relayN < RELAY_PORT.length; ++relayN)
       {
-        _dummyServer[relayN] = new SimpleTestServerConnection(DbusEvent.byteOrder,
+        _dummyServer[relayN] = new SimpleTestServerConnection(DbusEventV1.byteOrder,
                                                       SimpleTestServerConnection.ServerType.NIO);
         _dummyServer[relayN].setPipelineFactory(new ChannelPipelineFactory() {
             @Override

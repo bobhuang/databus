@@ -1,5 +1,25 @@
 package com.linkedin.databus3.espresso.schema;
+/*
+ *
+ * Copyright 2013 LinkedIn Corp. All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 
+
+import com.linkedin.databus.core.DbusEventInternalWritable;
 import java.util.HashMap;
 
 import org.apache.log4j.ConsoleAppender;
@@ -18,6 +38,7 @@ import com.linkedin.databus.container.netty.HttpRelay;
 import com.linkedin.databus3.espresso.rpldbusproto.SendEventsRequest;
 import com.linkedin.databus3.espresso.rpldbusproto.StartSendEventsRequest;
 import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
 import com.linkedin.databus.core.DbusEventBufferMult;
@@ -77,7 +98,7 @@ public class TestEspressoSendEventsExecHandler
   @BeforeClass
   public void setUp() throws Exception
   {
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
 
     SCHEMA_ROOTDIR = System.getProperty(SCHEMA_ROOTDIR_PROP_NAME, DEFAULT_ESPRESSO_SCHEMA_ROOTDIR);
     LOG.info("Using espresso schema registry root: " + SCHEMA_ROOTDIR);
@@ -191,12 +212,12 @@ public class TestEspressoSendEventsExecHandler
                                  new SendEventsRequest.BinaryParserFactory(),
                                  sendEventsExecFactory);
 
-    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    SimpleTestServerConnection srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = srvConn.startSynchronously(102, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    SimpleTestClientConnection clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = clientConn.startSynchronously(102, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -278,7 +299,7 @@ public class TestEspressoSendEventsExecHandler
 
     //send first event
     Assert.assertTrue(eventIter.hasNext(), "iterator has event");
-    DbusEvent evt = eventIter.next();
+    DbusEventInternalWritable evt = eventIter.next();
 
     int evtSize = evt.size();
     SendEventsRequest sendEvents1 =

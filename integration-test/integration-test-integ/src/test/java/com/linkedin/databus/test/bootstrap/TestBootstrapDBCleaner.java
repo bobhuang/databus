@@ -1,6 +1,23 @@
 package com.linkedin.databus.test.bootstrap;
 
 
+import com.linkedin.databus.bootstrap.api.BootstrapProducerStatus;
+import com.linkedin.databus.bootstrap.common.BootstrapCleanerConfig;
+import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.BootstrapDBType;
+import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.RetentionType;
+import com.linkedin.databus.bootstrap.common.BootstrapConfig;
+import com.linkedin.databus.bootstrap.common.BootstrapConn;
+import com.linkedin.databus.bootstrap.common.BootstrapDBCleaner;
+import com.linkedin.databus.bootstrap.common.BootstrapDBMetaDataDAO;
+import com.linkedin.databus.bootstrap.common.BootstrapProducerThreadBase;
+import com.linkedin.databus.core.DbusEventInfo;
+import com.linkedin.databus.core.DbusEventKey;
+import com.linkedin.databus.core.DbusEventV1;
+import com.linkedin.databus.core.DbusOpcode;
+import com.linkedin.databus.core.KeyTypeNotImplementedException;
+import com.linkedin.databus.core.UnsupportedKeyException;
+import com.linkedin.databus2.test.TestUtil;
+import com.linkedin.databus2.util.DBHelper;
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -11,7 +28,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.jboss.netty.logging.InternalLoggerFactory;
@@ -19,24 +35,6 @@ import org.jboss.netty.logging.Log4JLoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import com.linkedin.databus.bootstrap.api.BootstrapProducerStatus;
-import com.linkedin.databus.bootstrap.common.BootstrapCleanerConfig;
-import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.BootstrapDBType;
-import com.linkedin.databus.bootstrap.common.BootstrapCleanerStaticConfig.RetentionType;
-import com.linkedin.databus.bootstrap.common.BootstrapConfig;
-import com.linkedin.databus.bootstrap.common.BootstrapConn;
-import com.linkedin.databus.bootstrap.common.BootstrapDBCleaner;
-import com.linkedin.databus.bootstrap.common.BootstrapDBMetaDataDAO;
-import com.linkedin.databus.bootstrap.common.BootstrapProducerThreadBase;
-import com.linkedin.databus.core.DbusEvent;
-import com.linkedin.databus.core.DbusEventInfo;
-import com.linkedin.databus.core.DbusEventKey;
-import com.linkedin.databus.core.DbusOpcode;
-import com.linkedin.databus.core.KeyTypeNotImplementedException;
-import com.linkedin.databus.core.UnsupportedKeyException;
-import com.linkedin.databus2.test.TestUtil;
-import com.linkedin.databus2.util.DBHelper;
 
 @Test(singleThreaded=true)
 public class TestBootstrapDBCleaner {
@@ -1909,7 +1907,7 @@ public class TestBootstrapDBCleaner {
 							: currentTimeMillisstamps.get(i), (short) _srcId,
 					schemaId.getBytes(), value.getBytes(), false, true);
 			_buf.clear();
-			int size = DbusEvent.serializeEvent(key, _buf, eventInfo);
+			int size = DbusEventV1.serializeEvent(key, _buf, eventInfo);
 			LOG.debug("Created DbusEvent of Size :" + size);
 			insertLogEvent(s, key.getLongKey(), logId);
 			updateProducerStateTable(logId, false);

@@ -1,12 +1,35 @@
 package com.linkedin.databus.relay.member2;
+/*
+ *
+ * Copyright 2013 LinkedIn Corp. All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 
+
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import oracle.jdbc.pool.OracleDataSource;
+import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 
@@ -29,6 +52,7 @@ import com.linkedin.databus2.producers.db.EventFactory;
 import com.linkedin.databus2.producers.db.MonitoredSourceInfo;
 import com.linkedin.databus2.producers.db.OracleAvroGenericEventFactory;
 import com.linkedin.databus2.producers.db.OracleEventProducer;
+import com.linkedin.databus2.relay.OracleJarUtils;
 import com.linkedin.databus2.relay.config.PhysicalSourceConfig;
 import com.linkedin.databus2.relay.config.PhysicalSourceStaticConfig;
 import com.linkedin.databus2.schemas.SchemaRegistryService;
@@ -78,13 +102,31 @@ public class Member2DatabaseRelayServer extends HttpRelay
     LogicalSource lSource = new LogicalSource(staticConfig.getSourceIds().get(0));
     DbusEventBufferAppendable dbusEventBuffer = serverContainer.getEventBuffer().getDbusEventBuffer(lSource);
 
-    OracleDataSource ds = new OracleDataSource();
-    ds.setDriverType("thin");
-    ds.setServerName("devdb");
-    ds.setPortNumber(1521);
-    ds.setDatabaseName("db");
-    ds.setUser("member2");
-    ds.setPassword("member2");
+    DataSource ds = null;
+    try
+    {
+    	Class oracleDataSourceClass = OracleJarUtils.loadClass("oracle.jdbc.pool.OracleDataSource");
+    	ds = (DataSource) oracleDataSourceClass.newInstance();
+
+    	Method setDriverTypeMethod = oracleDataSourceClass.getMethod("setDriverType", String.class);
+    	Method setServerNameMethod = oracleDataSourceClass.getMethod("setServerName", String.class);
+    	Method setPortNumberMethod = oracleDataSourceClass.getMethod("setPortNumber", int.class);
+    	Method setDatabaseNameMethod = oracleDataSourceClass.getMethod("setDatabaseName", String.class);
+    	Method setUserMethod = oracleDataSourceClass.getMethod("setUser", String.class);
+    	Method setPasswordMethod = oracleDataSourceClass.getMethod("setPassword", String.class);
+
+    	setDriverTypeMethod.invoke(ds, "thin");
+    	setServerNameMethod.invoke(ds, "devdb");
+    	setPortNumberMethod.invoke(ds, 1521);
+    	setDatabaseNameMethod.invoke(ds, "db");
+    	setUserMethod.invoke(ds, "member2");
+    	setPasswordMethod.invoke(ds, "member2"); 
+
+    } catch (Exception e)
+    {
+    	LOG.error("Error creating DataSource object and initializing it",e);
+    	throw e;
+    }
 
     // Get the schema registry service and read the schema
     SchemaRegistryService schemaRegistryService = serverContainer.getSchemaRegistryService();

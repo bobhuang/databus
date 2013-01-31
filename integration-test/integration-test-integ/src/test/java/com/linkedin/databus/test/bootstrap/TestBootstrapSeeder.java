@@ -6,7 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import oracle.jdbc.pool.OracleDataSource;
+import javax.sql.DataSource;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -15,6 +15,7 @@ import com.linkedin.databus.bootstrap.utils.BootstrapDBSeeder;
 import com.linkedin.databus.bootstrap.utils.BootstrapSeederMain;
 import com.linkedin.databus.client.DbusEventAvroDecoder;
 import com.linkedin.databus.core.DbusEvent;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.util.RngUtils;
 import com.linkedin.databus2.schemas.VersionedSchema;
 import com.linkedin.databus2.schemas.VersionedSchemaSet;
@@ -23,7 +24,7 @@ import com.linkedin.events.bizfollow.bizfollow.BizFollow;
 
 public class TestBootstrapSeeder {
 
-	private final OracleDataSource _dataSource;
+	private final DataSource _dataSource;
 	private final BootstrapDBSeeder _seeder;
 	private final SeedTester        _seedTester;
 	private final boolean                 _txLogExist = false;
@@ -104,7 +105,7 @@ public class TestBootstrapSeeder {
 		  while ( (srcRs.next()) && (destRs.next()))
 		  {
 			  buffer.put(destRs.getBytes("val"));
-			  DbusEvent destEvent = new DbusEvent(buffer,0);
+			  DbusEvent destEvent = new DbusEventV1(buffer,0);
 			  tester.compareRecord(srcRs, destEvent);
 			  buffer.clear();
 		  }

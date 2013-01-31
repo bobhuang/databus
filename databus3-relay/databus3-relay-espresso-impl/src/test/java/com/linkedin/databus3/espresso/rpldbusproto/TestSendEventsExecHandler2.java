@@ -1,28 +1,32 @@
 package com.linkedin.databus3.espresso.rpldbusproto;
+/*
+ *
+ * Copyright 2013 LinkedIn Corp. All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+*/
 
-import java.lang.ref.WeakReference;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.easymock.EasyMock;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import com.linkedin.databus.container.netty.HttpRelay;
 import com.linkedin.databus.core.DbusEvent;
 import com.linkedin.databus.core.DbusEventBuffer;
 import com.linkedin.databus.core.DbusEventBuffer.DbusEventIterator;
 import com.linkedin.databus.core.DbusEventBufferMult;
+import com.linkedin.databus.core.DbusEventInternalWritable;
 import com.linkedin.databus.core.DbusEventKey;
+import com.linkedin.databus.core.DbusEventV1;
 import com.linkedin.databus.core.data_model.LogicalSource;
 import com.linkedin.databus.core.data_model.PhysicalPartition;
 import com.linkedin.databus.core.util.IdNamePair;
@@ -39,6 +43,21 @@ import com.linkedin.databus2.test.ConditionCheck;
 import com.linkedin.databus2.test.TestUtil;
 import com.linkedin.databus2.test.container.SimpleTestClientConnection;
 import com.linkedin.databus2.test.container.SimpleTestServerConnection;
+import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.easymock.EasyMock;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class TestSendEventsExecHandler2 extends ContainerTestsBase {
   SchemaRegistryService _schemaResistry;
@@ -59,7 +78,7 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
   @BeforeMethod
   public void setUp() throws Exception
   {
-    DbusEvent.byteOrder = BinaryProtocol.BYTE_ORDER;
+    DbusEventV1.byteOrder = BinaryProtocol.BYTE_ORDER;
 
     super.setUp();
 
@@ -115,12 +134,12 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
                                  new SendEventsRequest.BinaryParserFactory(),
                                  sendEventsExecFactory);
 
-    _srvConn = new SimpleTestServerConnection(DbusEvent.byteOrder);
+    _srvConn = new SimpleTestServerConnection(DbusEventV1.byteOrder);
     _srvConn.setPipelineFactory(new DummyPipelineFactory.DummyServerPipelineFactory(cmdsRegistry));
     boolean serverStarted = _srvConn.startSynchronously(104, 100);
     Assert.assertTrue(serverStarted, "server started");
 
-    _clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+    _clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
     _clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
     boolean clientConnected = _clientConn.startSynchronously(104, 100);
     Assert.assertTrue(clientConnected, "client connected");
@@ -278,7 +297,7 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
       //compare events
 
       while(eventIter.hasNext()) {
-        DbusEvent evt = eventIter.next();
+        DbusEventInternalWritable evt = eventIter.next();
         SendEventsRequest sendEvents1 =
             SendEventsRequest.createV3(expectedBinlogOfs+1, evt.getRawBytes().order(BinaryProtocol.BYTE_ORDER));
 
@@ -407,10 +426,10 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
     // send events
     boolean expectError = false;
     while(eventIter.hasNext()) {
-      DbusEvent evt = eventIter.next();
+      DbusEventInternalWritable evt = eventIter.next();
       if(evt.isControlMessage()) {
         // create a new connection
-        _clientConn = new SimpleTestClientConnection(DbusEvent.byteOrder);
+        _clientConn = new SimpleTestClientConnection(DbusEventV1.byteOrder);
         _clientConn.setPipelineFactory(new DummyPipelineFactory.DummyClientPipelineFactory());
         boolean clientConnected = _clientConn.startSynchronously(104, 100);
         Assert.assertTrue(clientConnected, "client connected");
@@ -517,7 +536,7 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
     //compare events
 
     if(eventIter.hasNext()) {
-      DbusEvent evt = eventIter.next();
+      DbusEventInternalWritable evt = eventIter.next();
       SendEventsRequest sendEvents1 =
           SendEventsRequest.createV3(expectedBinlogOfs+1, evt.getRawBytes().order(BinaryProtocol.BYTE_ORDER));
 
@@ -650,7 +669,7 @@ public class TestSendEventsExecHandler2 extends ContainerTestsBase {
     //compare events
 
     while(eventIter.hasNext()) {
-      DbusEvent evt = eventIter.next();
+      DbusEventInternalWritable evt = eventIter.next();
       SendEventsRequest sendEvents1 =
           SendEventsRequest.createV3(expectedBinlogOfs+1, evt.getRawBytes().order(BinaryProtocol.BYTE_ORDER));
 
