@@ -1,3 +1,0 @@
-Log file with logid=5 ,srcid=1 is either deleted or not found in bootstrap_loginfo for since scn: 5000,[1-2]
-Got Bootstrap Processing exception. Will disable bypassing snapshot,[1-2]
-StartSCN is less than or equal to sinceSCN. Bypassing snapshot phase,0

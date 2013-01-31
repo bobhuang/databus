@@ -1,5 +1,0 @@
-apply plugin: 'java'
-
-dependencies {
-  compile project(':databus-profile-client:databus-profile-client-impl')
-}

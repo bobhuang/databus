@@ -1,1 +1,0 @@
-{"name":"EspressoDB32","version":1,"numBuckets":32,"partitionType":"HASH","rangeSize":null,"schemaType":"DBSchema","doc":"Espresso Schema for EspressoDB 32 physical partition"}

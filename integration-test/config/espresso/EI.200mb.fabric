@@ -1,9 +1,0 @@
-<application xmlns="urn:com:linkedin:ns:configuration:source:1.0" xmlns:w="urn:com:linkedin:ns:configuration:wildcard:1.0">
-  <configuration-source>
-    <property name="databus.relay.clusterManager.relayClusterName" value="RELAY_DEV_FT_1" />
-    <property name="databus.relay.clusterManager.storageClusterName" value="ESPRESSO_DEV_FT_1" />
-    <property name="databus2.relay.eventBuffer.readBufferSize" value="1024000" />
-    <property name="databus2.relay.eventBuffer.scnIndexSize" value="2024000" />
-    <property name="databus2.relay.eventBuffer.maxSize" value="202400000" />
-  </configuration-source>
-</application>

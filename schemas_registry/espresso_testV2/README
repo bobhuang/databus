@@ -1,7 +1,0 @@
-This directory is created to test dynamic schema changes integration between Espresso and Databus. Do not use this for regular testing.
-
-The Schemas are a replica of the espresso_test schemas with the following exceptions:
-
-1) EspressoDB2 has a new table "TestNewTable"
-2) EspressoDB8 has an updated document schema for IdNamePair table (3.json) which adds a "zip" string field with default of NULL
-
