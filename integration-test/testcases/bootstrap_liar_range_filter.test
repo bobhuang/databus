@@ -22,7 +22,7 @@ consumers_start=0
 range_size=1000
 
 #start the relay
-$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m" --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}"
+$SCRIPT_DIR/dbus2_driver.py -c liar_relay -o start --jvm_args="-Xms24m -Xmx50m" --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false;databus.relay.container.httpPort=${relay_port}"
 
 # reset the db and delete the checkpoints
 $SCRIPT_DIR/dbus2_driver.py -c bootstrap_dbreset
