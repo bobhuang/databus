@@ -46,8 +46,8 @@ LOG_STEP "Start relays"
 # both generators use the same seed so they show generate the same timeline of events
 # the second relay has larger windows to simulate different timeline
  
-$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.randomProducer.minEventsPerWindow=2;databus.relay.randomProducer.maxEventsPerWindow=5" --jvm_direct_memory_size=100M 
-$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_2};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_2};databus.relay.randomProducer.minEventsPerWindow=6;databus.relay.randomProducer.maxEventsPerWindow=20" --jvm_direct_memory_size=100M
+$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.randomProducer.minEventsPerWindow=2;databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.randomProducer.maxEventsPerWindow=5" --jvm_direct_memory_size=100M 
+$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_2};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_2};databus.relay.randomProducer.minEventsPerWindow=6;databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.randomProducer.maxEventsPerWindow=20" --jvm_direct_memory_size=100M
 
 LOG_STEP "start the bootstrap producer"
 $SCRIPT_DIR/dbus2_driver.py -c test_bootstrap_producer -o start -p ${producer_config}
@@ -95,7 +95,7 @@ $SCRIPT_DIR/dbus2_json_compare.py -c -s ${relay_event_dump_file_2}.noseq ${consu
 source report_pass_fail.inc
 
 LOG_STEP "Restart relay :${relay_port_1} and generate more events"
-$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.randomProducer.minEventsPerWindow=2;databus.relay.randomProducer.maxEventsPerWindow=5" --jvm_direct_memory_size=100M
+$SCRIPT_DIR/dbus2_driver.py -c conn_relay -o start -p ${relay_config} --cmdline_props="databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file_1};databus.relay.randomProducer.minEventsPerWindow=2;databus.relay.randomProducer.maxEventsPerWindow=5" --jvm_direct_memory_size=100M
 sleep 5 
 $SCRIPT_DIR/dbus2_gen_event.py -s 40 -e 15000 --from_scn=100 --num_events=240 --keyMin=1000 --keyMax=2000  --wait_until_suspend --server_port=${relay_port_1}
 

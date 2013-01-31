@@ -70,7 +70,7 @@ mysql -ubootstrap -pbootstrap -Dbootstrap < ${DB_FILE}
 source report_pass_fail.inc
 
 # 100K buffer , event dump file 
-$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --jvm_args="-Xms24m -Xmx50m " --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.randomProducer.minEventsPerWindow=1;databus.relay.randomProducer.maxEventsPerWindow=2;databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false"
+$SCRIPT_DIR/dbus2_driver.py -c bizfollow_relay -o start --jvm_args="-Xms24m -Xmx50m " --jvm_gc_log=${relay_gc_file} --cmdline_props="databus.relay.randomProducer.minEventsPerWindow=1;databus.relay.eventBuffer.allocationPolicy=MMAPPED_MEMORY;databus.relay.randomProducer.maxEventsPerWindow=2;databus.relay.container.httpPort=${relay_port_1};databus.relay.eventBuffer.maxSize=1024000;databus.relay.eventBuffer.trace.option=file;databus.relay.eventBuffer.trace.filename=${relay_event_dump_file};databus.relay.eventBuffer.trace.appendOnly=false"
 
 echo "Generating Events !!";
 # generate events
