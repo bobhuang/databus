@@ -1,0 +1,144 @@
+- title: "Time Since Last DB Access @Relay"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: /databus2-relay-${source}\/databus2-relay-${source}\.i001\.com_linkedin_events_${source}_(.+)\.databus2_RelayEventSource01\.TimeSinceLastDBAccess\.rrd/
+    label: "last_db_access_{1}"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "ms"
+
+- title: "Time Since Last DB Update @Relay"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: /databus2-relay-${source}\/databus2-relay-${source}\.i001\.com_linkedin_events_${source}_(.+)\.databus2_RelayEventSource01\.MillisSinceLastCycleWithEvents\.rrd/
+    label: "time_since_update_{1}"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "ms"
+
+- title: "Event Time Lag @ Databus"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.eventsInbound_total.databus2_RelayInboundEventBuffer.TimeSinceLastEvent.rrd
+    label: "time_lag_relay"
+  - service: databus2-bootstrap-producer-${source}
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.TimeSinceLastEvent.rrd
+    label: "time_lag_bst_prod"
+  RPN:
+    - label: rpn_time_lag_relay
+      expression: time_lag_relay,0,30000,LIMIT
+    - label: rpn_time_lag_bst_prod
+      expression: time_lag_bst_prod,0,30000,LIMIT
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "ms"
+    lowerLimit: -10
+
+- title: "Event Rate"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.eventsInbound_total.databus2_RelayInboundEventBuffer.NumDataEvents.rrd
+    label: "events_relay"
+  - service: databus2-bootstrap-producer-${source}
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.NumDataEvents.rrd
+    label: "events_bst_prod"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "events/s"
+    lowerLimit: -5
+
+- title: "Buffer Time Span @ Databus"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.eventsInbound_total.databus2_RelayInboundEventBuffer.TimeSpan.rrd
+    label: "relay_time_span"
+  - service: databus2-bootstrap-producer-${source}
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.TimeSpan.rrd
+    label: "time_span_bsp"
+  RPN:
+  - expression: "relay_time_span,86400000,/,-1,MAX"
+    label: "time_span_in_days_relay"
+  - expression: "time_span_bsp,86400000,/,-1,MAX"
+    label: "time_span_days_bst_prod"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "days"
+    lowerLimit: -1
+
+- title: "Time Since Last Access @ Databus"
+  defs:
+  - service: databus2-bootstrap-producer-${source}
+    label: last_access_bst_prod
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.TimeSinceLastAccess.rrd
+  RPN:
+  - label: rpn_last_access_bst_prod
+    expression: last_access_bst_prod,0,30000,LIMIT
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "ms"
+    lowerLimit: -10
+
+- title: "Errors"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.com_linkedin_events_forum_DiscussionDTO.databus2_RelayEventSource0.NumErrors.rrd
+    label: "relay_errors_db"
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.eventsInbound_total.databus2_RelayInboundEventBuffer.NumInvalidEvents.rrd
+    label: "relay_errors_event"
+  - service: databus2-bootstrap-producer-${source}
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.com_linkedin_events_forum_DiscussionDTO.databus2_BootstrapProducerStatsPerSource.NumErrSqlException.rrd
+    label: "bst_prod_errors_sql"
+  - service: databus2-bootstrap-producer-${source}
+    rrd: databus2-bootstrap-producer-${source}/databus2-bootstrap-producer-${source}.i001.eventsInbound_total.databus2_BootstrapProducerInboundEventBuffer.NumInvalidEvents.rrd
+    label: "bst_prod_errors_event"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "events/s"
+    lowerLimit: -1
+
+- title: "Requests"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.httpOutbound_total.databus2_RelayHttpMetrics.NumStreamCalls.rrd
+    label: "relay_stream_req"
+  - service: databus2-bootstrap-server
+    rrd: databus2-bootstrap-server/databus2-bootstrap-server.i001.total.databus2_BootstrapServertHttpMetrics.NumReqBootstrap.rrd
+    label: "bst_server_req"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "req/s"
+    lowerLimit: -1
+
+- title: "SCN Not Found@Relay"
+  defs:
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.httpOutbound_total.databus2_RelayHttpMetrics.NumScnNotFoundStream.rrd
+    label: "num_scn_not_found"
+  - service: databus2-relay-${source}
+    rrd: databus2-relay-${source}/databus2-relay-${source}.i001.httpOutbound_total.databus2_RelayHttpMetrics.NumStreamCalls.rrd
+    label: "num_stream"
+  RPN:
+  - expression: "num_scn_not_found,num_stream,/"
+    label: "scn_miss_rate"
+  params:
+    consolidate: None
+    overlay: weeks
+    overlayTime: 0
+    vlabel: "error ratio"

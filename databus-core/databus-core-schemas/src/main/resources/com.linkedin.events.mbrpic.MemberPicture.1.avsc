@@ -1,0 +1,64 @@
+{
+  "name" : "MemberPicture_V1",
+  "doc" : "Auto-generated Avro schema for sy$MEMBER_PICTURE. Generated at Oct 15, 2012 03:52:21 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=sy$MEMBER_PICTURE;",
+  "namespace" : "com.linkedin.events.mbrpic",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "memberId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=MEMBER_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "masterPictureId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=MASTER_PICTURE_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "croppedPictureId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=CROPPED_PICTURE_ID;dbFieldPosition=4;"
+  }, {
+    "name" : "changeCnt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CHANGE_CNT;dbFieldPosition=5;"
+  }, {
+    "name" : "abuseCnt",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=ABUSE_CNT;dbFieldPosition=6;"
+  }, {
+    "name" : "pictureState",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=PICTURE_STATE;dbFieldPosition=7;"
+  }, {
+    "name" : "hiddenByUsers",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=HIDDEN_BY_USERS;dbFieldPosition=8;"
+  }, {
+    "name" : "cropPointX",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CROP_POINT_X;dbFieldPosition=9;"
+  }, {
+    "name" : "cropPointY",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CROP_POINT_Y;dbFieldPosition=10;"
+  }, {
+    "name" : "cropXSize",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CROP_X_SIZE;dbFieldPosition=11;"
+  }, {
+    "name" : "cropYSize",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CROP_Y_SIZE;dbFieldPosition=12;"
+  }, {
+    "name" : "createdDate",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=CREATED_DATE;dbFieldPosition=13;"
+  } ]
+}

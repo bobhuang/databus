@@ -1,0 +1,72 @@
+{
+  "name" : "TaggedSlices_V1",
+  "doc" : "Auto-generated Avro schema for news.SY$TAGGED_SLICES. Generated at Apr 10, 2012 11:20:36 AM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=news.SY$TAGGED_SLICES;pk=key;",
+  "namespace" : "com.linkedin.events.news",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "entityId",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ENTITY_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "entityType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ENTITY_TYPE;dbFieldPosition=3;"
+  }, {
+    "name" : "locale",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOCALE;dbFieldPosition=4;"
+  }, {
+    "name" : "titleKey",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TITLE_KEY;dbFieldPosition=5;"
+  }, {
+    "name" : "descriptionKey",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=DESCRIPTION_KEY;dbFieldPosition=6;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=7;"
+  }, {
+    "name" : "title",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=TITLE;dbFieldPosition=8;"
+  }, {
+    "name" : "enableRss",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ENABLE_RSS;dbFieldPosition=9;"
+  }, {
+    "name" : "logo",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=LOGO;dbFieldPosition=10;"
+  }, {
+    "name" : "tags",
+    "type" : {
+      "items" : {
+        "name" : "sliceTag",
+        "type" : "record",
+        "meta" : "dbFieldName=TAGS;dbFieldPosition=11;",
+        "fields" : [ {
+          "name" : "type",
+          "type" : [ "string", "null" ],
+          "meta" : "dbFieldName=TYPE;dbFieldPosition=0;"
+        }, {
+          "name" : "value",
+          "type" : [ "string", "null" ],
+          "meta" : "dbFieldName=VALUE;dbFieldPosition=1;"
+        } ]
+      },
+      "name" : "tagsArray",
+      "type" : "array"
+    }
+  } ]
+}

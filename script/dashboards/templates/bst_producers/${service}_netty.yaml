@@ -1,0 +1,73 @@
+0:
+  title: Netty Errors
+  defs:
+    - service: ${service}
+      label: uncaught
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerContainerStats.ErrorUncaughtCount.rrd
+    - service: ${service}
+      label: reqs
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerContainerStats.ErrorRequestProcessingCount.rrd
+    - service: ${service}
+      label: total
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerContainerStats.ErrorCount.rrd
+  params:
+    vlabel: #
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+1:
+  title: Network Traffic
+  defs:
+    - service: ${service}
+      label: bytes
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerInboundConn.NumBytes.rrd
+  params:
+    vlabel: bytes/sec
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+2:
+  title: Network Connections
+  defs:
+    - service: ${service}
+      label: open
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerInboundConn.OpenConnsRate.rrd
+    - service: ${service}
+      label: closed
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerInboundConn.ClosedConnsRate.rrd
+  params:
+    vlabel: conns
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+3:
+  title: Network Connections Lifespan
+  defs:
+    - service: ${service}
+      label: open
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerInboundConn.LatencyOpenConn.rrd
+    - service: ${service}
+      label: closed
+      rrd: ${service}/${service}.i001.total.databus2_BootstrapProducerInboundConn.LatencyClosedConn.rrd
+  params:
+    vlabel: ms
+    width: 500
+    height: 100
+    consolidate: None
+    stack: false
+    overlay: weeks
+    overlayTime: 0
+    legend: true
+ 

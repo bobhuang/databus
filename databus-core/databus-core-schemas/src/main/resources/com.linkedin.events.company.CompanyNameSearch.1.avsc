@@ -1,0 +1,152 @@
+{
+  "name" : "CompanyNameSearch_V1",
+  "doc" : "Auto-generated Avro schema for SY$COMPANY_NAME_SEARCH. Generated at Jun 21, 2012 11:29:33 PM PDT",
+  "type" : "record",
+  "meta" : "dbFieldName=SY$COMPANY_NAME_SEARCH;",
+  "namespace" : "com.linkedin.events.company",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "key",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=1;"
+  }, {
+    "name" : "companyId",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=2;"
+  }, {
+    "name" : "universalName",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=UNIVERSAL_NAME;dbFieldPosition=3;"
+  }, {
+    "name" : "industry",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=INDUSTRY;dbFieldPosition=4;"
+  }, {
+    "name" : "companyUrl",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_URL;dbFieldPosition=5;"
+  }, {
+    "name" : "companySize",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_SIZE;dbFieldPosition=6;"
+  }, {
+    "name" : "exactSize",
+    "type" : [ "long", "null" ],
+    "meta" : "dbFieldName=EXACT_SIZE;dbFieldPosition=7;"
+  }, {
+    "name" : "companyType",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=COMPANY_TYPE;dbFieldPosition=8;"
+  }, {
+    "name" : "symbol",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=SYMBOL;dbFieldPosition=9;"
+  }, {
+    "name" : "exchangeSymbol",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=EXCHANGE_SYMBOL;dbFieldPosition=10;"
+  }, {
+    "name" : "active",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ACTIVE;dbFieldPosition=11;"
+  }, {
+    "name" : "companyNames",
+    "type" : {
+      "name" : "DATABUS_COMPANY_NAMES_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyNames",
+        "type" : {
+          "items" : {
+            "name" : "databusCompanyNameT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_NAMES;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "companyNameId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_NAME_ID;dbFieldPosition=0;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "name",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=NAME;dbFieldPosition=2;"
+            }, {
+              "name" : "locale",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=LOCALE;dbFieldPosition=3;"
+            }, {
+              "name" : "nameType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=NAME_TYPE;dbFieldPosition=4;"
+            }, {
+              "name" : "active",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ACTIVE;dbFieldPosition=5;"
+            } ]
+          },
+          "name" : "companyNamesArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_NAMES;dbFieldPosition=12;"
+  }, {
+    "name" : "companyRelationships",
+    "type" : {
+      "name" : "DATABUS_COMPANY_RELS_T",
+      "type" : "record",
+      "fields" : [ {
+        "name" : "companyRelationships",
+        "type" : {
+          "items" : {
+            "name" : "databusCompanyRelT",
+            "type" : "record",
+            "meta" : "dbFieldName=COMPANY_RELATIONSHIPS;dbFieldPosition=0;",
+            "fields" : [ {
+              "name" : "relationshipId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=RELATIONSHIP_ID;dbFieldPosition=0;"
+            }, {
+              "name" : "companyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=COMPANY_ID;dbFieldPosition=1;"
+            }, {
+              "name" : "relatedCompanyId",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=RELATED_COMPANY_ID;dbFieldPosition=2;"
+            }, {
+              "name" : "startDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=START_DATE;dbFieldPosition=3;"
+            }, {
+              "name" : "endDate",
+              "type" : [ "long", "null" ],
+              "meta" : "dbFieldName=END_DATE;dbFieldPosition=4;"
+            }, {
+              "name" : "relationshipType",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=RELATIONSHIP_TYPE;dbFieldPosition=5;"
+            }, {
+              "name" : "state",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=STATE;dbFieldPosition=6;"
+            }, {
+              "name" : "active",
+              "type" : [ "string", "null" ],
+              "meta" : "dbFieldName=ACTIVE;dbFieldPosition=7;"
+            } ]
+          },
+          "name" : "companyRelationshipsArray",
+          "type" : "array"
+        }
+      } ]
+    },
+    "meta" : "dbFieldName=COMPANY_RELATIONSHIPS;dbFieldPosition=13;"
+  } ]
+}

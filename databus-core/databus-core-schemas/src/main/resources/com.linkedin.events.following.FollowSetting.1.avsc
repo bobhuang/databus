@@ -1,0 +1,36 @@
+{
+  "name" : "FollowSetting_V1",
+  "doc" : "Auto-generated Avro schema for following.SY$FOLLOW_SETTING. Generated at Nov 21, 2011 07:17:37 PM PST",
+  "type" : "record",
+  "meta" : "dbFieldName=following.SY$FOLLOW_SETTING;",
+  "namespace" : "com.linkedin.events.following",
+  "fields" : [ {
+    "name" : "txn",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=TXN;dbFieldPosition=0;"
+  }, {
+    "name" : "id",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=ID;dbFieldPosition=1;"
+  }, {
+    "name" : "entityType",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ENTITY_TYPE;dbFieldPosition=2;"
+  }, {
+    "name" : "entityId",
+    "type" : [ "int", "null" ],
+    "meta" : "dbFieldName=ENTITY_ID;dbFieldPosition=3;"
+  }, {
+    "name" : "key",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=KEY;dbFieldPosition=4;"
+  }, {
+    "name" : "value",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=VALUE;dbFieldPosition=5;"
+  }, {
+    "name" : "status",
+    "type" : [ "string", "null" ],
+    "meta" : "dbFieldName=STATUS;dbFieldPosition=6;"
+  } ]
+}
